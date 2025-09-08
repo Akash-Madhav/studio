@@ -1,7 +1,7 @@
 
 'use server';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 import { z } from 'zod';
 import { sampleUsers, sampleWorkouts, sampleConversations, sampleInvites } from '@/lib/sample-data';
@@ -221,31 +221,30 @@ export async function respondToInvite(values: z.infer<typeof respondToInviteSche
     const { inviteId, response, playerId, coachId } = validatedData;
 
     try {
-        const batch = writeBatch(db);
         const inviteRef = doc(db, 'invites', inviteId);
-        
         const playerRef = doc(db, 'users', playerId);
+
+        const batch = writeBatch(db);
+        
         batch.update(playerRef, { status: response === 'accepted' ? 'recruited' : 'active' });
+        batch.delete(inviteRef);
+        
+        await batch.commit();
         
         let conversationId: string | null = null;
         if (response === 'accepted') {
-            const newConversationRef = doc(collection(db, 'conversations'));
-            conversationId = newConversationRef.id;
-
-            batch.set(newConversationRef, {
+            const newConversation = await addDoc(collection(db, 'conversations'), {
                 participantIds: [coachId, playerId],
                 messages: [],
                 createdAt: serverTimestamp(),
             });
+            conversationId = newConversation.id;
         }
-        
-        batch.delete(inviteRef);
-        await batch.commit();
         
         return { success: true, message: `Invite ${response}.`, conversationId };
     } catch (error) {
         console.error("Error responding to invite:", error);
-        return { success: false, message: 'An error occurred.', conversationId: null };
+        return { success: false, message: 'An error occurred while responding to the invite.', conversationId: null };
     }
 }
 
@@ -396,3 +395,5 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
         return { success: false, message: "An unexpected error occurred." };
     }
 }
+
+    
