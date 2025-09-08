@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Dumbbell } from 'lucide-react';
@@ -13,6 +13,13 @@ function SettingsContent() {
     const searchParams = useSearchParams();
     const userId = searchParams.get('userId');
     const role = searchParams.get('role');
+    const [backUrl, setBackUrl] = useState(`/dashboard?role=${role}&userId=${userId}`);
+
+    useEffect(() => {
+        // This ensures the timestamp is only generated on the client-side, avoiding hydration errors.
+        setBackUrl(`/dashboard?role=${role}&userId=${userId}&t=${new Date().getTime()}`);
+    }, [role, userId]);
+
 
     if (!userId) {
         return (
@@ -25,7 +32,6 @@ function SettingsContent() {
         );
     }
     
-    const backUrl = `/dashboard?role=${role}&userId=${userId}&t=${new Date().getTime()}`;
 
     return (
         <div className="flex flex-col min-h-screen bg-background">
