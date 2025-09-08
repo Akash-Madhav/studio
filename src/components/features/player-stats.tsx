@@ -133,5 +133,5 @@ export default function PlayerStats({ userId, onViewPlayerDashboard }: PlayerSta
                 )}
             </CardContent>
         </Card>
-    )
+    );
   }
