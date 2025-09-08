@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   RefreshCw,
   User as UserIcon,
+  History,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -41,6 +42,7 @@ import PlayerStats from '@/components/features/player-stats';
 import Messages from '@/components/features/messages';
 import PendingInvites from '@/components/features/pending-invites';
 import ProfileSettings from '@/components/features/profile-settings';
+import WorkoutHistory from '@/components/features/workout-history';
 import { getPlayersForScouting, getPendingInvites } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { sampleUsers } from '@/lib/sample-data';
@@ -128,12 +130,11 @@ function DashboardContent() {
 
   const handleReturnToCoachView = () => {
     setViewingPlayerId(null);
-    setCurrentView('coach');
   };
   
   const userId = viewingPlayerId || initialUserId;
-  const dashboardIsCoachView = isCoach && currentView === 'coach';
-  const dashboardIsPlayerView = !isCoach || (isCoach && currentView === 'player');
+  const dashboardIsCoachView = isCoach && !viewingPlayerId;
+  const dashboardIsPlayerView = !isCoach || viewingPlayerId;
   
   const currentUser = sampleUsers.find(u => u.id === initialUserId);
   const userName = currentUser?.name || '';
@@ -277,6 +278,10 @@ function DashboardContent() {
                   <Search className="mr-2" />
                   Find Sport
                 </TabsTrigger>
+                 <TabsTrigger value="history">
+                    <History className="mr-2" />
+                    History
+                </TabsTrigger>
                 <TabsTrigger value="invites">
                   <Mail className="mr-2" />
                   Invites
@@ -284,10 +289,6 @@ function DashboardContent() {
                  <TabsTrigger value="messages">
                     <MessageSquare className="mr-2" />
                     Messages
-                </TabsTrigger>
-                 <TabsTrigger value="profile">
-                    <UserIcon className="mr-2" />
-                    Profile
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="dashboard" className="mt-4">
@@ -305,14 +306,14 @@ function DashboardContent() {
               <TabsContent value="find-sport" className="mt-4">
                   <SportMatch userId={userId} />
               </TabsContent>
+               <TabsContent value="history" className="mt-4">
+                  <WorkoutHistory userId={userId} />
+              </TabsContent>
               <TabsContent value="invites" className="mt-4">
                   <PlayerInvites userId={userId} />
               </TabsContent>
               <TabsContent value="messages" className="mt-4">
                   <Messages userId={userId} />
-              </TabsContent>
-              <TabsContent value="profile" className="mt-4">
-                  <ProfileSettings userId={userId} />
               </TabsContent>
            </Tabs>
         )}
@@ -328,5 +329,3 @@ export default function Dashboard() {
     </Suspense>
   );
 }
-
-    

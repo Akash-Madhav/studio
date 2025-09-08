@@ -30,7 +30,6 @@ const logWorkoutSchema = z.object({
 export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
   const validatedData = logWorkoutSchema.parse(values);
   
-  // This is a mock implementation. In a real app, you'd write to a database.
   const newWorkout = {
     _id: `w${Date.now()}`,
     userId: validatedData.userId,
@@ -41,7 +40,7 @@ export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
     distance: validatedData.distance,
     createdAt: new Date(),
   };
-  sampleWorkouts.push(newWorkout); // Note: This mutation is for demo purposes and won't persist across server restarts.
+  sampleWorkouts.unshift(newWorkout); 
 
   return { 
     success: true, 
@@ -191,7 +190,7 @@ export async function respondToInvite(values: z.infer<typeof respondToInviteSche
     let conversationId: string | null = null;
     if (response === 'accepted') {
         const newConversation = {
-            _id: `conv_${coachId}_${playerId}`,
+            _id: `conv_${Date.now()}`,
             participantIds: [coachId, playerId],
             messages: [],
             createdAt: new Date(),
@@ -306,4 +305,11 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
     sampleUsers[userIndex] = updatedUser;
 
     return { success: true, message: "Profile updated successfully!" };
+}
+
+export async function getWorkoutHistory(userId: string) {
+    const workouts = sampleWorkouts
+        .filter(w => w.userId === userId)
+        .sort((a,b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return { success: true, workouts };
 }
