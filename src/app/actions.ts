@@ -218,32 +218,34 @@ const respondToInviteSchema = z.object({
 
 export async function respondToInvite(values: z.infer<typeof respondToInviteSchema>) {
     const validatedData = respondToInviteSchema.parse(values);
+    const { inviteId, response, playerId, coachId } = validatedData;
+
     try {
         const batch = writeBatch(db);
-        const inviteRef = doc(db, 'invites', validatedData.inviteId);
+        const inviteRef = doc(db, 'invites', inviteId);
         
-        const playerRef = doc(db, 'users', validatedData.playerId);
-        batch.update(playerRef, { status: validatedData.response === 'accepted' ? 'recruited' : 'active' });
+        const playerRef = doc(db, 'users', playerId);
+        batch.update(playerRef, { status: response === 'accepted' ? 'recruited' : 'active' });
+        
+        let conversationId: string | null = null;
+        if (response === 'accepted') {
+            const newConversationRef = doc(collection(db, 'conversations'));
+            conversationId = newConversationRef.id;
 
-        if (validatedData.response === 'accepted') {
-            const conversationId = `${validatedData.coachId}_${validatedData.playerId}`;
-            const newConversationRef = doc(db, 'conversations', conversationId);
-            
             batch.set(newConversationRef, {
-                participantIds: [validatedData.coachId, validatedData.playerId],
+                participantIds: [coachId, playerId],
                 messages: [],
+                createdAt: serverTimestamp(),
             });
-            batch.delete(inviteRef);
-        } else {
-            batch.delete(inviteRef);
         }
         
+        batch.delete(inviteRef);
         await batch.commit();
         
-        return { success: true, message: `Invite ${validatedData.response}.` };
+        return { success: true, message: `Invite ${response}.`, conversationId };
     } catch (error) {
         console.error("Error responding to invite:", error);
-        return { success: false, message: 'An error occurred.' };
+        return { success: false, message: 'An error occurred.', conversationId: null };
     }
 }
 
@@ -339,14 +341,16 @@ export async function sendMessage(values: z.infer<typeof sendMessageSchema>) {
             _id: `m${Date.now()}`, // Simple ID generation
             senderId: validatedData.senderId,
             text: validatedData.text,
-            createdAt: new Date(),
+            createdAt: serverTimestamp(),
         };
 
-        const updatedMessages = [...(conversation.messages || []), message];
+        await updateDoc(conversationRef, { 
+            messages: [...(conversation.messages || []), message] 
+        });
 
-        await updateDoc(conversationRef, { messages: updatedMessages });
+        const sentMessage = { ...message, createdAt: new Date() };
 
-        return { success: true, message: { ...message, id: message._id } };
+        return { success: true, message: sentMessage };
     } catch (error) {
         console.error("Error sending message:", error);
         return { success: false };
@@ -407,3 +411,5 @@ export async function getUsersForLogin(role: string) {
         return { success: false, users: [] };
     }
 }
+
+    

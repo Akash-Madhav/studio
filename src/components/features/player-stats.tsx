@@ -74,7 +74,7 @@ export default function PlayerStats({ players, isLoading, onViewPlayerDashboard 
                                     </CardContent>
                                     <CardFooter className="flex justify-end gap-2 pt-4">
                                         <DialogTrigger asChild>
-                                            <Button variant="outline" size="sm">
+                                            <Button variant="outline" size="sm" onClick={() => onViewPlayerDashboard(player.id)}>
                                                 <BarChart3 className="mr-2 h-4 w-4" />
                                                 View Dashboard
                                             </Button>
@@ -100,3 +100,5 @@ export default function PlayerStats({ players, isLoading, onViewPlayerDashboard 
         </Card>
     );
   }
+
+    

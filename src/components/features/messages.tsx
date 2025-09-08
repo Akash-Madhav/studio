@@ -15,14 +15,20 @@ import relativeTime from "dayjs/plugin/relativeTime";
 
 dayjs.extend(relativeTime);
 
+interface Message {
+    id: string;
+    senderId: string;
+    text: string;
+    createdAt: Date;
+}
+
 export default function Messages({ userId }: { userId: string }) {
     const searchParams = useSearchParams();
     const [isPending, startTransition] = useTransition();
 
-
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-    const [messages, setMessages] = useState<any[]>([]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
@@ -43,17 +49,15 @@ export default function Messages({ userId }: { userId: string }) {
                 });
                 setConversations(sortedConversations);
                 
-                startTransition(() => {
-                    const preselectedConvoId = searchParams.get('conversationId');
-                    if (preselectedConvoId) {
-                        const convo = sortedConversations.find(c => c.id === preselectedConvoId);
-                        if (convo) {
-                            setSelectedConversation(convo);
-                        }
-                    } else if (sortedConversations.length > 0) {
-                        setSelectedConversation(sortedConversations[0]);
+                const preselectedConvoId = searchParams.get('conversationId');
+                if (preselectedConvoId) {
+                    const convo = sortedConversations.find(c => c.id === preselectedConvoId);
+                    if (convo) {
+                        setSelectedConversation(convo);
                     }
-                });
+                } else if (sortedConversations.length > 0) {
+                    setSelectedConversation(sortedConversations[0]);
+                }
 
             } else {
                 toast({ variant: 'destructive', title: "Error", description: "Failed to fetch conversations." });
@@ -95,7 +99,7 @@ export default function Messages({ userId }: { userId: string }) {
         });
 
         if (result.success && result.message) {
-            setMessages(prev => [...prev, result.message]);
+            setMessages(prev => [...prev, result.message as Message]);
             setNewMessage("");
             
             const updatedConvo = {
@@ -218,3 +222,5 @@ export default function Messages({ userId }: { userId: string }) {
         </div>
     );
 }
+
+    

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getPendingInvitesForPlayer, respondToInvite } from "@/app/actions";
 import {
     Card,
@@ -32,6 +32,7 @@ interface Invite {
 export default function PlayerInvites({ userId }: { userId: string }) {
     const { toast } = useToast();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [invites, setInvites] = useState<Invite[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isResponding, setIsResponding] = useState<string | null>(null);
@@ -69,14 +70,11 @@ export default function PlayerInvites({ userId }: { userId: string }) {
                     description: `You have ${response} the invitation.`,
                 });
                 
-                if (response === 'accepted') {
-                   // Navigate to messages to see the new conversation
-                   const newUrl = new URL(window.location.href);
-                   newUrl.searchParams.set('tab', 'messages');
-                   newUrl.searchParams.set('conversationId', `${coachId}_${userId}`);
-                   router.push(newUrl.toString());
+                if (response === 'accepted' && result.conversationId) {
+                   const role = searchParams.get('role');
+                   const newUrl = `/dashboard?role=${role}&userId=${userId}&tab=messages&conversationId=${result.conversationId}`;
+                   router.push(newUrl);
                 } else {
-                    // Re-fetch invites to update the UI
                    fetchInvites();
                 }
 
@@ -155,3 +153,5 @@ export default function PlayerInvites({ userId }: { userId: string }) {
         </Card>
     );
 }
+
+    

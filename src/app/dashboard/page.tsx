@@ -11,6 +11,7 @@ import {
   LogIn,
   Mail,
   MessageSquare,
+  Search,
   Target,
   Users,
   ArrowLeft,
@@ -43,6 +44,7 @@ import ProfileSettings from '@/components/features/profile-settings';
 import { getPlayersForScouting, getPendingInvites } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { sampleUsers } from '@/lib/sample-data';
+import SportMatch from '@/components/features/sport-match';
 
 interface PlayerData {
   id: string;
@@ -122,7 +124,6 @@ function DashboardContent() {
 
   const handleViewPlayerDashboard = (playerId: string) => {
     setViewingPlayerId(playerId);
-    setCurrentView('player');
   };
 
   const handleReturnToCoachView = () => {
@@ -255,7 +256,7 @@ function DashboardContent() {
 
         {dashboardIsPlayerView && (
            <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
-            <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-4 md:grid-cols-7">
+            <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-4 md:grid-cols-8">
                 <TabsTrigger value="dashboard">
                   <BarChart3 className="mr-2" />
                   Dashboard
@@ -271,6 +272,10 @@ function DashboardContent() {
                 <TabsTrigger value="recommendations">
                   <Target className="mr-2" />
                   Recs
+                </TabsTrigger>
+                <TabsTrigger value="find-sport">
+                  <Search className="mr-2" />
+                  Find Sport
                 </TabsTrigger>
                 <TabsTrigger value="invites">
                   <Mail className="mr-2" />
@@ -297,6 +302,9 @@ function DashboardContent() {
               <TabsContent value="recommendations" className="mt-4">
                   <PersonalizedRecommendations userId={userId} />
               </TabsContent>
+              <TabsContent value="find-sport" className="mt-4">
+                  <SportMatch userId={userId} />
+              </TabsContent>
               <TabsContent value="invites" className="mt-4">
                   <PlayerInvites userId={userId} />
               </TabsContent>
@@ -320,3 +328,5 @@ export default function Dashboard() {
     </Suspense>
   );
 }
+
+    
