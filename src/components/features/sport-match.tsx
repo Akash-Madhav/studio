@@ -33,7 +33,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
-  performanceData: z.string().min(1, "Performance data is required."),
+  performanceData: z.string(), // Kept for internal state, but not shown in UI
   userPreferences: z.string().min(1, "User preferences are required."),
 });
 
@@ -87,7 +87,10 @@ export default function SportMatch({ userId }: { userId: string }) {
     setSuggestions(null);
 
     try {
-      const result = await suggestSports(values);
+      const result = await suggestSports({
+        performanceData: values.performanceData,
+        userPreferences: values.userPreferences,
+      });
       setSuggestions(result);
     } catch (error: any) {
       console.error("Failed to get AI sport suggestions:", error);
@@ -112,29 +115,12 @@ export default function SportMatch({ userId }: { userId: string }) {
           <CardTitle>Find Your Sport</CardTitle>
           <CardDescription>
             Discover sports you might excel at based on your current fitness
-            profile and preferences.
+            profile and preferences. Your workout history is automatically analyzed.
           </CardDescription>
         </CardHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="performanceData"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Your Performance Data</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="e.g., Fast sprinter, high vertical jump, good hand-eye coordination."
-                        className="min-h-[120px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               <FormField
                 control={form.control}
                 name="userPreferences"
@@ -154,7 +140,7 @@ export default function SportMatch({ userId }: { userId: string }) {
               />
             </CardContent>
             <CardFooter>
-              <Button type="submit" disabled={isLoading} className="w-full">
+              <Button type="submit" disabled={isLoading || !form.getValues('performanceData')} className="w-full">
                 {isLoading && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
