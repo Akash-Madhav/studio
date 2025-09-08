@@ -45,11 +45,11 @@ import CommunityHub from '@/components/features/community-hub';
 import PendingInvites from '@/components/features/pending-invites';
 import ProfileSettings from '@/components/features/profile-settings';
 import WorkoutHistory from '@/components/features/workout-history';
-import { getPlayersForScouting, getPendingInvites } from '@/app/actions';
+import { getPlayersForScouting, getPendingInvites, getUser } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
-import { sampleUsers } from '@/lib/sample-data';
 import SportMatch from '@/components/features/sport-match';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useRouter } from 'next/navigation';
 
 interface PlayerData {
   id: string;
@@ -67,7 +67,19 @@ interface Invite {
   sentAt: Date;
 }
 
-function DashboardContent() {
+interface User {
+    id: string;
+    name: string;
+    email: string;
+    role: 'player' | 'coach';
+    dob?: Date;
+    experience?: string;
+    goals?: string;
+    status?: string;
+}
+
+async function DashboardContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const role = searchParams.get('role') || 'player';
@@ -82,6 +94,9 @@ function DashboardContent() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  const userResult = await getUser(initialUserId);
+  const currentUser = userResult.user as User | null;
 
   const fetchCoachData = React.useCallback(async () => {
     if (!isCoach) return;
@@ -124,16 +139,26 @@ function DashboardContent() {
     setActiveTab(tab);
   }, [searchParams, isCoach]);
 
+
+  if (!currentUser) {
+    return (
+        <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+            <p className="text-destructive">User not found or not logged in.</p>
+            <Link href="/" passHref>
+                <Button variant="link">Return to Login</Button>
+            </Link>
+        </div>
+    )
+  }
+
   const userId = initialUserId;
   const dashboardIsCoachView = isCoach;
   const dashboardIsPlayerView = !isCoach;
   
-  const currentUser = sampleUsers.find(u => u.id === initialUserId);
   const userName = currentUser?.name || '';
   const displayName = isCoach ? `Coach ${userName}` : userName;
   
   const recruitedPlayers = players.filter(p => recruitedPlayerIds.includes(p.id));
-
 
   const updateUrl = (tab: string) => {
     const newUrl = new URL(window.location.href);
@@ -327,7 +352,7 @@ function DashboardContent() {
 
 export default function Dashboard() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div className="flex h-screen w-full items-center justify-center">Loading...</div>}>
       <DashboardContent />
     </Suspense>
   );

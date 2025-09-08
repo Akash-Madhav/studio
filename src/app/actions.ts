@@ -17,6 +17,12 @@ const getAge = (dob?: Date) => {
     return age;
 }
 
+export async function getUser(userId: string) {
+    // In a real app, this would fetch from a database.
+    const user = sampleUsers.find(u => u.id === userId);
+    return { success: true, user: user ? { ...user } : null };
+}
+
 const logWorkoutSchema = z.object({
   exercise: z.string().min(2, "Exercise name is required."),
   reps: z.coerce.number().int().min(0).optional(),

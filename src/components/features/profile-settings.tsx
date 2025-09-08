@@ -87,10 +87,9 @@ export default function ProfileSettings({ userId }: { userId: string }) {
           title: "Profile Updated",
           description: result.message,
         });
-        const newUrl = `/dashboard?role=${role}&userId=${userId}&t=${new Date().getTime()}`;
-        router.push(newUrl);
-        router.refresh();
-
+        // We use router.refresh() to tell the server to re-fetch the data for the current route.
+        // It's a soft navigation that won't lose client-side state.
+        router.push(`/dashboard?role=${role}&userId=${userId}&t=${new Date().getTime()}`);
       } else {
         toast({
           variant: "destructive",
