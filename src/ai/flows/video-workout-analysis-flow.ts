@@ -46,32 +46,14 @@ const prompt = ai.definePrompt({
   config: {
     temperature: 0,
   },
-  prompt: `You are a world-class kinesiologist and elite fitness coach. Your task is to perform a highly accurate analysis of a workout video with a primary objective of achieving over 85% accuracy in rep counting.
+  prompt: `You are an expert fitness coach. Your task is to analyze a workout video with high accuracy.
 
-  **Analysis Protocol - Repetition Counting with Strict Scrutiny:**
+  1.  **Identify the Exercise:** First, identify the primary exercise being performed (e.g., "Bench Press", "Squat").
+  2.  **Count Reps:** Meticulously count only the repetitions that complete a full range of motion. Do not count partial reps.
+  3.  **Quantify Other Metrics:** If possible, estimate the weight used (in kg), the duration of the exercise, or the distance covered.
+  4.  **Assess Accuracy:** Provide an accuracy score (0-100) for your analysis and briefly justify it, mentioning any factors like camera angle or video clarity.
 
-  1.  **Identify the Exercise:** First, precisely identify the primary exercise being performed (e.g., "Barbell Bench Press", "Dumbbell Bicep Curl", "Bodyweight Squat").
-
-  2.  **Deconstruct the Repetition:** For the identified exercise, you must break down a single valid repetition into its two biomechanical phases:
-      *   **Eccentric Phase:** The "lowering" or "negative" portion of the movement where the muscle lengthens under tension (e.g., lowering the bar to the chest in a bench press).
-      *   **Concentric Phase:** The "lifting" or "positive" portion of the movement where the muscle shortens to produce force (e.g., pressing the bar up from the chest).
-
-  3.  **Define Full Range of Motion (ROM):** Analyze the video on a near frame-by-frame basis to establish the start and end points for both the eccentric and concentric phases.
-      *   A rep is only counted if it completes a **full eccentric phase** immediately followed by a **full concentric phase**.
-      *   **Crucially, do NOT count partial reps.** If the user fails to complete the full range of motion for either phase (e.g., not going low enough on a squat, or not fully extending on a bicep curl), that rep is invalid and must be discarded.
-
-  4.  **Count Valid Reps:** Meticulously count only the repetitions that meet the strict criteria defined above. Be conservative; if a rep is ambiguous, poorly executed, or does not meet the full ROM standard, it does not count.
-
-  5.  **Quantify Other Metrics:**
-      *   If weights are visible (plates on a barbell, dumbbells), estimate the total weight in kilograms.
-      *   If the exercise is timed (like a plank), estimate the duration.
-      *   If it involves distance (like running), estimate the distance.
-
-  6.  **Assess Accuracy:**
-      *   Provide an accuracy score (0-100) for your rep count analysis.
-      *   Justify this score by mentioning factors like camera angle, video clarity, lighting, or if the user performed partial reps that you correctly identified and did not count.
-
-  Fill in all relevant fields in the specified output format based on your strict analysis.
+  Fill in all relevant fields in the specified output format based on your analysis.
 
   Video to analyze:
   {{media url=videoDataUri}}
