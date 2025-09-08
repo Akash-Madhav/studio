@@ -70,6 +70,7 @@ function DashboardContent() {
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const [players, setPlayers] = useState<PlayerData[]>([]);
+  const [recruitedPlayerIds, setRecruitedPlayerIds] = useState<string[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -79,9 +80,10 @@ function DashboardContent() {
 
     startTransition(async () => {
         setIsLoadingData(true);
-        const playersResult = await getPlayersForScouting();
+        const playersResult = await getPlayersForScouting(initialUserId);
         if (playersResult.success && playersResult.players) {
             setPlayers(playersResult.players.map(p => ({...p, name: p.name || `Player ${p.id.substring(0,4)}`})));
+            setRecruitedPlayerIds(playersResult.recruitedPlayerIds || []);
         } else {
             toast({
                 variant: 'destructive',
@@ -128,6 +130,8 @@ function DashboardContent() {
   const userId = viewingPlayerId || initialUserId;
   const dashboardIsCoachView = isCoach && currentView === 'coach';
   const dashboardIsPlayerView = !isCoach || (isCoach && currentView === 'player');
+  const recruitedPlayers = players.filter(p => recruitedPlayerIds.includes(p.id));
+
 
   const updateUrl = (tab: string) => {
     const newUrl = new URL(window.location.href);
@@ -136,7 +140,7 @@ function DashboardContent() {
     newUrl.searchParams.set('role', role);
     window.history.pushState({ ...window.history.state, as: newUrl.href, url: newUrl.href }, '', newUrl.href);
     setActiveTab(tab);
-};
+  };
 
 
   return (
@@ -220,7 +224,7 @@ function DashboardContent() {
                   </TabsTrigger>
               </TabsList>
               <TabsContent value="player-stats" className="mt-4">
-                  <PlayerStats players={players} isLoading={isPending || isLoadingData} onViewPlayerDashboard={handleViewPlayerDashboard} />
+                  <PlayerStats players={recruitedPlayers} isLoading={isPending || isLoadingData} onViewPlayerDashboard={handleViewPlayerDashboard} />
               </TabsContent>
                <TabsContent value="player-scouting" className="mt-4">
                   <PlayerScouting players={players} isLoading={isPending || isLoadingData} onInviteSent={fetchCoachData} />

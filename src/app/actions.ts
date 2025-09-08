@@ -40,8 +40,14 @@ export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
   };
 }
 
-export async function getPlayersForScouting() {
+export async function getPlayersForScouting(coachId: string) {
   try {
+    const coachConversationPlayerIds = new Set(
+      sampleConversations
+        .filter(c => c.participantIds.includes(coachId))
+        .flatMap(c => c.participantIds.filter(pId => pId !== coachId))
+    );
+
     const players = sampleUsers
       .filter(u => u.role === 'player')
       .map(user => {
@@ -68,10 +74,10 @@ export async function getPlayersForScouting() {
         };
       });
 
-    return { success: true, players };
+    return { success: true, players, recruitedPlayerIds: Array.from(coachConversationPlayerIds) };
   } catch (error) {
     console.error("Error fetching players: ", error);
-    return { success: false, players: [] };
+    return { success: false, players: [], recruitedPlayerIds: [] };
   }
 }
 
@@ -97,7 +103,10 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
     sampleInvites.push(newInvite);
     
     // You might want to update the player's status in your database here
-    player.status = 'pending_invite';
+    const user = sampleUsers.find(u => u.id === playerId);
+    if(user) {
+        user.status = 'pending_invite';
+    }
     
     return { success: true, message: `Recruitment invite sent to ${player.name}!` };
 }

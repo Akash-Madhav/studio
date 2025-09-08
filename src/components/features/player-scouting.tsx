@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition } from "react";
@@ -84,27 +85,17 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     setIsScouting(true);
     setRecommendations(null);
 
-    if (players.length === 0) {
+    const scoutablePlayers = players.filter(p => p.status === 'active');
+    if (scoutablePlayers.length === 0) {
         toast({
-            variant: "destructive",
-            title: "No Players Found",
-            description: "There are no players in the database to scout.",
+            title: "No available players to scout.",
+            description: "New players will appear here once they sign up and log a workout.",
         });
         setIsScouting(false);
         return;
     }
 
     try {
-      const scoutablePlayers = players.filter(p => p.status === 'active');
-      if (scoutablePlayers.length === 0) {
-        toast({
-            title: "All available players have been scouted or have pending invites.",
-            description: "Check the 'Invites' tab to see their status or wait for new players.",
-        });
-        setIsScouting(false);
-        return;
-      }
-
       const result = await getPlayerRecommendations({
         sport: values.sport,
         playersData: scoutablePlayers.map(p => ({
@@ -143,6 +134,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                 description: result.message,
             });
             onInviteSent();
+            // Optimistically remove from recommendations
             setRecommendations(prev => prev ? ({
                 ...prev,
                 recommendations: prev.recommendations.filter(r => r.playerId !== playerId)
@@ -278,8 +270,8 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                 <div className="text-center text-muted-foreground py-12">
                     {isFetchingPlayers
                         ? "Fetching player data..."
-                        : players.length === 0 
-                        ? "No players found to scout. New players will appear here once they log a workout."
+                        : players.filter(p => p.status === 'active').length === 0 
+                        ? "No available players to scout. Players with pending invites are excluded."
                         : "Player recommendations will appear here."}
                 </div>
             )
