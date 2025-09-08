@@ -159,5 +159,3 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
         </>
     );
   }
-
-    

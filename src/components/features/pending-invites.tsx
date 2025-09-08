@@ -79,5 +79,3 @@ export default function PendingInvites({ invites, isLoading }: PendingInvitesPro
         </Card>
     );
   }
-
-    
