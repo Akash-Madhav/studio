@@ -43,7 +43,7 @@ export default function PlayerInvites({ userId }: { userId: string }) {
         setIsLoading(true);
         const result = await getPendingInvitesForPlayer(userId);
         if (result.success) {
-            setInvites(result.invites);
+            setInvites(result.invites as Invite[]);
         } else {
             toast({ variant: 'destructive', title: "Error", description: "Failed to fetch invites." });
         }
@@ -129,19 +129,18 @@ export default function PlayerInvites({ userId }: { userId: string }) {
                                         variant="outline" 
                                         className="w-full" 
                                         onClick={() => handleResponse(invite.inviteId, invite.coachId, 'declined')}
-                                        disabled={isResponding === invite.inviteId}
+                                        disabled={isResponding === invite.inviteId || isPending}
                                     >
-                                        {isResponding === invite.inviteId && <Loader2 className="animate-spin"/>}
+                                        {(isResponding === invite.inviteId && isPending) && <Loader2 className="animate-spin"/>}
                                         <X className="mr-2 h-4 w-4" />
                                         Decline
                                     </Button>
                                     <Button 
                                         className="w-full"
                                         onClick={() => handleResponse(invite.inviteId, invite.coachId, 'accepted')}
-                                        disabled={isResponding === invite.inviteId}
+                                        disabled={isResponding === invite.inviteId || isPending}
                                     >
-                                        {isResponding === invite.inviteId && <Loader2 className="animate-spin"/>}
-                                        <Check className="mr-2 h-4 w-4" />
+                                        {(isResponding === invite.inviteId && isPending) ? <Loader2 className="animate-spin"/> : <Check className="mr-2 h-4 w-4" />}
                                         Accept
                                     </Button>
                                 </CardFooter>

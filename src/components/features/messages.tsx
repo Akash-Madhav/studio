@@ -12,6 +12,7 @@ import { getConversations, getMessages, sendMessage, Conversation } from "@/app/
 import { useToast } from "@/hooks/use-toast";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { ScrollArea } from "../ui/scroll-area";
 
 dayjs.extend(relativeTime);
 
@@ -30,7 +31,8 @@ export default function Messages({ userId }: { userId: string }) {
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+    const [isLoadingMessages, setIsLoadingMessages] = useState(false);
     const [isSending, setIsSending] = useState(false);
 
     const { toast } = useToast();
@@ -39,7 +41,7 @@ export default function Messages({ userId }: { userId: string }) {
     useEffect(() => {
         if (!userId) return;
         async function fetchConversations() {
-            setIsLoading(true);
+            setIsLoadingConversations(true);
             const result = await getConversations(userId);
             if(result.success && result.conversations) {
                 const sortedConversations = result.conversations.sort((a, b) => {
@@ -53,38 +55,40 @@ export default function Messages({ userId }: { userId: string }) {
                 if (preselectedConvoId) {
                     const convo = sortedConversations.find(c => c.id === preselectedConvoId);
                     if (convo) {
-                        setSelectedConversation(convo);
+                        handleSelectConversation(convo);
                     }
                 } else if (sortedConversations.length > 0) {
-                    setSelectedConversation(sortedConversations[0]);
+                    handleSelectConversation(sortedConversations[0]);
                 }
 
             } else {
                 toast({ variant: 'destructive', title: "Error", description: "Failed to fetch conversations." });
             }
-            setIsLoading(false);
+            setIsLoadingConversations(false);
         }
         fetchConversations();
     }, [toast, userId, searchParams]);
 
-    useEffect(() => {
-        if (selectedConversation) {
-            async function fetchMessages() {
-                const result = await getMessages(selectedConversation.id);
-                if (result.success && result.messages) {
-                    setMessages(result.messages as Message[]);
-                } else {
-                    toast({ variant: 'destructive', title: "Error", description: "Failed to fetch messages." });
-                }
+    const handleSelectConversation = async (convo: Conversation) => {
+        setSelectedConversation(convo);
+        setIsLoadingMessages(true);
+        setMessages([]);
+        try {
+            const result = await getMessages(convo.id);
+            if (result.success && result.messages) {
+                setMessages(result.messages as Message[]);
+            } else {
+                toast({ variant: 'destructive', title: "Error", description: "Failed to fetch messages." });
             }
-            fetchMessages();
-        } else {
-            setMessages([]);
+        } finally {
+            setIsLoadingMessages(false);
         }
-    }, [selectedConversation, toast]);
+    }
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (messages.length > 0) {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
       }, [messages]);
 
     const handleSendMessage = async (e: React.FormEvent) => {
@@ -102,21 +106,21 @@ export default function Messages({ userId }: { userId: string }) {
             setMessages(prev => [...prev, result.message as Message]);
             setNewMessage("");
             
-            const updatedConvo = {
-                ...selectedConversation,
-                lastMessage: {
-                    text: result.message.text,
-                    sentAt: result.message.createdAt,
-                }
-            };
-            setSelectedConversation(updatedConvo);
-            setConversations(prev => prev.map(c => c.id === updatedConvo.id ? updatedConvo : c)
-                .sort((a, b) => {
+            // Update conversation in the list
+            startTransition(() => {
+                const updatedConversations = conversations.map(c => {
+                    if (c.id === selectedConversation.id) {
+                        return { ...c, lastMessage: { text: result.message!.text, sentAt: result.message!.createdAt } };
+                    }
+                    return c;
+                }).sort((a, b) => {
                     if (!a.lastMessage) return 1;
                     if (!b.lastMessage) return -1;
                     return new Date(b.lastMessage.sentAt).getTime() - new Date(a.lastMessage.sentAt).getTime();
-                })
-            );
+                });
+                setConversations(updatedConversations);
+            });
+
 
         } else {
             toast({ variant: 'destructive', title: "Error", description: "Failed to send message." });
@@ -139,46 +143,52 @@ export default function Messages({ userId }: { userId: string }) {
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-200px)]">
-            <Card className="col-span-1 flex flex-col">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 h-[calc(100vh-250px)]">
+            <Card className="col-span-1 md:col-span-4 flex flex-col">
                 <CardHeader>
                     <CardTitle>Conversations</CardTitle>
                 </CardHeader>
-                <CardContent className="flex-grow overflow-y-auto">
-                    {isLoading || isPending ? (
-                        <div className="flex justify-center items-center h-full">
-                            <Loader2 className="animate-spin"/>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                           {conversations.map(convo => (
-                                <div 
-                                    key={convo.id}
-                                    onClick={() => setSelectedConversation(convo)}
-                                    className={`p-3 rounded-lg cursor-pointer ${selectedConversation?.id === convo.id ? 'bg-accent' : 'hover:bg-muted'}`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <Avatar>
-                                            <AvatarImage src={`https://picsum.photos/seed/${getOtherParticipant(convo)?.id}/50/50`} data-ai-hint="person face" />
-                                            <AvatarFallback>{getOtherParticipant(convo)?.name.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-semibold">{getOtherParticipant(convo)?.name}</p>
-                                            <p className="text-sm text-muted-foreground truncate">{convo.lastMessage?.text}</p>
+                <ScrollArea className="flex-grow">
+                    <CardContent>
+                        {isLoadingConversations ? (
+                            <div className="flex justify-center items-center h-full pt-12">
+                                <Loader2 className="animate-spin"/>
+                            </div>
+                        ) : conversations.length > 0 ? (
+                            <div className="space-y-2">
+                            {conversations.map(convo => (
+                                    <div 
+                                        key={convo.id}
+                                        onClick={() => handleSelectConversation(convo)}
+                                        className={`p-3 rounded-lg cursor-pointer border border-transparent ${selectedConversation?.id === convo.id ? 'bg-accent' : 'hover:bg-muted'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <Avatar>
+                                                <AvatarImage src={`https://picsum.photos/seed/${getOtherParticipant(convo)?.id}/50/50`} data-ai-hint="person face" />
+                                                <AvatarFallback>{getOtherParticipant(convo)?.name.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold truncate">{getOtherParticipant(convo)?.name}</p>
+                                                <p className="text-sm text-muted-foreground truncate">{convo.lastMessage?.text}</p>
+                                            </div>
+                                            {convo.lastMessage && <p className="text-xs text-muted-foreground self-start shrink-0">{dayjs(convo.lastMessage.sentAt).fromNow(true)}</p>}
                                         </div>
-                                        {convo.lastMessage && <p className="text-xs text-muted-foreground self-start">{dayjs(convo.lastMessage.sentAt).fromNow()}</p>}
                                     </div>
-                                </div>
-                           ))}
-                        </div>
-                    )}
-                </CardContent>
+                            ))}
+                            </div>
+                        ) : (
+                            <div className="text-center text-muted-foreground pt-12">
+                                No conversations yet.
+                            </div>
+                        )}
+                    </CardContent>
+                </ScrollArea>
             </Card>
 
-            <Card className="col-span-1 md:col-span-2 flex flex-col">
+            <Card className="col-span-1 md:col-span-8 flex flex-col">
                 {selectedConversation ? (
                     <>
-                        <CardHeader className="border-b">
+                        <CardHeader className="border-b flex-shrink-0">
                             <CardTitle className="flex items-center gap-3">
                                 <Avatar>
                                     <AvatarImage src={`https://picsum.photos/seed/${getOtherParticipant(selectedConversation)?.id}/50/50`} data-ai-hint="person face" />
@@ -187,25 +197,42 @@ export default function Messages({ userId }: { userId: string }) {
                                 {getOtherParticipant(selectedConversation)?.name}
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="flex-grow overflow-y-auto p-4 space-y-4">
-                            {messages.map(msg => (
-                                <div key={msg._id} className={`flex items-end gap-2 ${msg.senderId === userId ? 'justify-end' : ''}`}>
-                                    {msg.senderId !== userId && <Avatar className="h-8 w-8"><AvatarImage src={`https://picsum.photos/seed/${msg.senderId}/40/40`} data-ai-hint="person face"/></Avatar>}
-                                    <div className={`rounded-lg px-3 py-2 max-w-xs lg:max-w-md ${msg.senderId === userId ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                                        <p className="text-sm">{msg.text}</p>
-                                        <p className="text-xs text-right opacity-70 mt-1">{dayjs(msg.createdAt).fromNow()}</p>
+                        <ScrollArea className="flex-grow bg-muted/20">
+                            <CardContent className="p-4 space-y-4">
+                                {isLoadingMessages ? (
+                                    <div className="flex justify-center items-center h-full pt-12">
+                                        <Loader2 className="animate-spin"/>
                                     </div>
-                                </div>
-                            ))}
-                             <div ref={messagesEndRef} />
-                        </CardContent>
-                        <CardFooter className="border-t pt-4">
+                                ) : messages.length > 0 ? (
+                                    messages.map(msg => (
+                                        <div key={msg._id} className={`flex items-end gap-2 ${msg.senderId === userId ? 'justify-end' : 'justify-start'}`}>
+                                            {msg.senderId !== userId && 
+                                                <Avatar className="h-8 w-8 self-start">
+                                                    <AvatarImage src={`https://picsum.photos/seed/${msg.senderId}/40/40`} data-ai-hint="person face"/>
+                                                    <AvatarFallback>{getOtherParticipant(selectedConversation)?.name.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                            }
+                                            <div className={`rounded-lg px-3 py-2 max-w-xs lg:max-w-md ${msg.senderId === userId ? 'bg-primary text-primary-foreground' : 'bg-card border'}`}>
+                                                <p className="text-sm" style={{whiteSpace: 'pre-wrap'}}>{msg.text}</p>
+                                                <p className="text-xs text-right opacity-70 mt-1">{dayjs(msg.createdAt).fromNow(true)}</p>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-center text-muted-foreground pt-12">
+                                        No messages yet. Say hello!
+                                    </div>
+                                )}
+                                <div ref={messagesEndRef} />
+                            </CardContent>
+                        </ScrollArea>
+                        <CardFooter className="border-t pt-4 flex-shrink-0">
                             <form onSubmit={handleSendMessage} className="w-full flex items-center gap-2">
                                 <Input 
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     placeholder="Type a message..."
-                                    disabled={isSending}
+                                    disabled={isSending || isLoadingMessages}
                                 />
                                 <Button type="submit" size="icon" disabled={isSending || !newMessage.trim()}>
                                     {isSending ? <Loader2 className="animate-spin" /> : <Send />}
@@ -215,7 +242,7 @@ export default function Messages({ userId }: { userId: string }) {
                     </>
                 ) : (
                     <CardContent className="flex justify-center items-center h-full">
-                         {isLoading || isPending ? <Loader2 className="animate-spin"/> : <p className="text-muted-foreground">{conversations.length > 0 ? "Select a conversation to start chatting." : "No conversations yet."}</p>}
+                         {isLoadingConversations ? <Loader2 className="animate-spin"/> : <p className="text-muted-foreground">{conversations.length > 0 ? "Select a conversation to start chatting." : "You have no conversations."}</p>}
                     </CardContent>
                 )}
             </Card>

@@ -238,6 +238,8 @@ export async function getConversations(userId: string): Promise<{success: boolea
 
 
 export async function getMessages(conversationId: string) {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 500));
     const conversation = sampleConversations.find(c => c._id === conversationId);
     if (!conversation) {
         return { success: false, messages: [] };
@@ -258,8 +260,8 @@ const sendMessageSchema = z.object({
 
 export async function sendMessage(values: z.infer<typeof sendMessageSchema>) {
     const validatedData = sendMessageSchema.parse(values);
-    const conversation = sampleConversations.find(c => c._id === validatedData.conversationId);
-    if (!conversation) {
+    const conversationIndex = sampleConversations.findIndex(c => c._id === validatedData.conversationId);
+    if (conversationIndex === -1) {
         return { success: false, message: 'Conversation not found' };
     }
 
@@ -269,7 +271,13 @@ export async function sendMessage(values: z.infer<typeof sendMessageSchema>) {
         text: validatedData.text,
         createdAt: new Date(),
     };
-    conversation.messages.push(message);
+    
+    // Ensure messages array exists
+    if (!sampleConversations[conversationIndex].messages) {
+        sampleConversations[conversationIndex].messages = [];
+    }
+    
+    sampleConversations[conversationIndex].messages.push(message);
 
     return { success: true, message: message };
 }
