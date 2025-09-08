@@ -36,6 +36,9 @@ const prompt = ai.definePrompt({
   name: 'videoWorkoutAnalysisPrompt',
   input: {schema: VideoAnalysisInputSchema},
   output: {schema: VideoAnalysisOutputSchema},
+  config: {
+    temperature: 0,
+  },
   prompt: `You are a world-class fitness coach and kinesiology expert.
   Analyze the provided workout video to identify the exercise being performed and quantify the performance.
 
