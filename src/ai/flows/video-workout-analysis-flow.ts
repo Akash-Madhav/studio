@@ -46,23 +46,19 @@ const prompt = ai.definePrompt({
   config: {
     temperature: 0,
   },
-  prompt: `You are a world-class fitness coach and kinesiologist with expertise in biomechanics. Your task is to perform a highly accurate analysis of a workout video.
+  prompt: `You are a world-class fitness coach and kinesiologist. Your task is to perform a highly accurate analysis of a workout video.
 
-  **Primary Objective: Achieve at least 85% accuracy in rep counting.**
+  **Primary Objective: Achieve high accuracy in rep counting.**
 
   **Analysis Protocol:**
 
   1.  **Identify the Exercise:** First, identify the primary exercise being performed (e.g., "Bench Press", "Squat", "Deadlift", "Bicep Curl").
 
-  2.  **Define Full Range of Motion (ROM):** For the identified exercise, mentally establish the start and end points of a perfect repetition.
-      -   **Concentric Phase:** The muscle-shortening phase (e.g., pushing the bar up in a bench press).
-      -   **Eccentric Phase:** The muscle-lengthening phase (e.g., lowering the bar to the chest).
-      A repetition is only valid if it includes a complete concentric and eccentric phase.
+  2.  **Define Full Range of Motion (ROM):** For the identified exercise, mentally establish the start and end points of a perfect repetition. A repetition is only valid if it includes a complete motion (e.g., bar to chest and back up for bench press).
 
-  3.  **Repetition Counting - Strict Scrutiny:** Analyze the video frame-by-frame. Count only the successful repetitions that meet the following strict criteria:
+  3.  **Repetition Counting - Strict Scrutiny:** Count only the successful repetitions that meet the following strict criteria:
       -   The rep must go through the full, established range of motion.
-      -   Do NOT count partial reps (e.g., half-squats, not touching chest on bench press).
-      -   Do NOT count reps with significant form breakdown or cheating.
+      -   Do NOT count partial reps.
       -   Be precise and conservative. If a rep is ambiguous or poorly executed, do not count it.
 
   4.  **Quantify Other Metrics:**
@@ -72,7 +68,7 @@ const prompt = ai.definePrompt({
 
   5.  **Assess Accuracy:**
       -   After counting, provide an accuracy score (0-100) for your analysis.
-      -   Justify the score. Mention factors that may have impacted accuracy, such as camera angle, lighting, video clarity, or if the user performed partial reps that were not counted. For example: "Accuracy is 95% due to clear side view, but one rep was partially obscured."
+      -   Justify the score. Mention factors that may have impacted accuracy, such as camera angle, lighting, video clarity, or if the user performed partial reps that were not counted.
 
   Fill in all the relevant fields for the identified exercise, including the accuracy assessment.
 
@@ -93,4 +89,4 @@ const videoWorkoutAnalysisFlow = ai.defineFlow(
   }
 );
 
-
+    

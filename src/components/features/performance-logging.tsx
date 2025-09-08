@@ -204,7 +204,8 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
       setIsRecording(true);
       setRecordedChunks([]);
       const stream = videoRef.current.srcObject as MediaStream;
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      const options = { mimeType: 'video/webm; codecs=vp9' };
+      mediaRecorderRef.current = new MediaRecorder(stream, options);
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
           setRecordedChunks((prev) => [...prev, event.data]);
@@ -220,9 +221,9 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
             // A small delay to ensure all data is available
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            const videoBlob = new Blob(recordedChunks, { type: "video/mp4" });
+            const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
             const videoUrl = URL.createObjectURL(videoBlob);
-            const videoFile = new File([videoBlob], 'recorded-workout.mp4', { type: 'video/mp4' });
+            const videoFile = new File([videoBlob], 'recorded-workout.webm', { type: 'video/webm' });
             
             setVideoPreview(videoUrl);
             setVideoFile(videoFile);
@@ -462,3 +463,5 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     </Card>
   );
 }
+
+    
