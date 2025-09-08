@@ -18,6 +18,7 @@ import {
   RefreshCw,
   User as UserIcon,
   History,
+  Rss,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -40,6 +41,7 @@ import PlayerInvites from "@/components/features/player-invites";
 import PlayerScouting from "@/components/features/player-scouting";
 import PlayerStats from '@/components/features/player-stats';
 import Messages from '@/components/features/messages';
+import CommunityHub from '@/components/features/community-hub';
 import PendingInvites from '@/components/features/pending-invites';
 import ProfileSettings from '@/components/features/profile-settings';
 import WorkoutHistory from '@/components/features/workout-history';
@@ -207,7 +209,7 @@ function DashboardContent() {
         
         {dashboardIsCoachView && (
            <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="player-stats">
                     <BrainCircuit className="mr-2" />
                     Player Stats
@@ -224,6 +226,10 @@ function DashboardContent() {
                     <MessageSquare className="mr-2" />
                     Messages
                   </TabsTrigger>
+                  <TabsTrigger value="community">
+                    <Rss className="mr-2" />
+                    Community
+                  </TabsTrigger>
               </TabsList>
               <TabsContent value="player-stats" className="mt-4">
                   <PlayerStats players={recruitedPlayers} isLoading={isPending || isLoadingData} />
@@ -237,12 +243,15 @@ function DashboardContent() {
               <TabsContent value="messages" className="mt-4">
                   <Messages userId={userId} />
               </TabsContent>
+               <TabsContent value="community" className="mt-4">
+                  <CommunityHub userId={userId} role="coach" />
+              </TabsContent>
            </Tabs>
         )}
 
         {dashboardIsPlayerView && (
            <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-8 h-auto">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-9 h-auto">
                 <TabsTrigger value="dashboard">
                   <BarChart3 className="mr-2" />
                   Dashboard
@@ -275,6 +284,10 @@ function DashboardContent() {
                     <MessageSquare className="mr-2" />
                     Messages
                 </TabsTrigger>
+                <TabsTrigger value="community">
+                    <Rss className="mr-2" />
+                    Community
+                  </TabsTrigger>
               </TabsList>
               <TabsContent value="dashboard" className="mt-4">
                 <ProgressVisualization userId={userId} />
@@ -299,6 +312,9 @@ function DashboardContent() {
               </TabsContent>
               <TabsContent value="messages" className="mt-4">
                   <Messages userId={userId} />
+              </TabsContent>
+              <TabsContent value="community" className="mt-4">
+                  <CommunityHub userId={userId} role="player" />
               </TabsContent>
            </Tabs>
         )}

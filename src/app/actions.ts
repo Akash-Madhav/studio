@@ -4,7 +4,7 @@ import { db } from '@/lib/firebase';
 import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 import { z } from 'zod';
-import { sampleUsers, sampleWorkouts, sampleConversations, sampleInvites } from '@/lib/sample-data';
+import { sampleUsers, sampleWorkouts, sampleConversations, sampleInvites, samplePosts, sampleGroupMessages } from '@/lib/sample-data';
 
 const getAge = (dob?: Date) => {
     if (!dob) return null;
@@ -312,4 +312,86 @@ export async function getWorkoutHistory(userId: string) {
         .filter(w => w.userId === userId)
         .sort((a,b) => b.createdAt.getTime() - a.createdAt.getTime());
     return { success: true, workouts };
+}
+
+// COMMUNITY ACTIONS
+
+const createPostSchema = z.object({
+    authorId: z.string(),
+    role: z.enum(['player', 'coach']),
+    content: z.string().min(1, "Post cannot be empty."),
+});
+
+export async function createPost(values: z.infer<typeof createPostSchema>) {
+    const validatedData = createPostSchema.parse(values);
+    const newPost = {
+        _id: `post${Date.now()}`,
+        authorId: validatedData.authorId,
+        role: validatedData.role,
+        content: validatedData.content,
+        createdAt: new Date(),
+    };
+    samplePosts.unshift(newPost);
+    return { success: true, post: newPost };
+}
+
+export async function getPosts(role: 'player' | 'coach') {
+    const posts = samplePosts
+        .filter(p => p.role === role)
+        .map(post => {
+            const author = sampleUsers.find(u => u.id === post.authorId);
+            return {
+                ...post,
+                authorName: author?.name || 'Unknown',
+                authorAvatar: `https://picsum.photos/seed/${post.authorId}/50/50`,
+            }
+        })
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    return { success: true, posts };
+}
+
+
+const sendGroupMessageSchema = z.object({
+    senderId: z.string(),
+    role: z.enum(['player', 'coach']),
+    text: z.string().min(1),
+});
+
+export async function sendGroupMessage(values: z.infer<typeof sendGroupMessageSchema>) {
+    const validatedData = sendGroupMessageSchema.parse(values);
+    const message = {
+        _id: `m${Date.now()}`,
+        senderId: validatedData.senderId,
+        role: validatedData.role,
+        text: validatedData.text,
+        createdAt: new Date(),
+    };
+    sampleGroupMessages.push(message);
+
+    const author = sampleUsers.find(u => u.id === message.senderId);
+    const messageWithAuthor = {
+        ...message,
+        authorName: author?.name || "Unknown",
+        authorAvatar: `https://picsum.photos/seed/${message.senderId}/50/50`,
+    }
+
+    return { success: true, message: messageWithAuthor };
+}
+
+
+export async function getGroupMessages(role: 'player' | 'coach') {
+    const messages = sampleGroupMessages
+        .filter(m => m.role === role)
+        .map(message => {
+            const author = sampleUsers.find(u => u.id === message.senderId);
+            return {
+                ...message,
+                authorName: author?.name || 'Unknown',
+                authorAvatar: `https://picsum.photos/seed/${message.senderId}/50/50`,
+            }
+        })
+        .sort((a,b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    return { success: true, messages };
 }

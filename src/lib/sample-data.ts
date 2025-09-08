@@ -1,5 +1,6 @@
 
-export const sampleUsers = [
+
+export let sampleUsers = [
     // Players
     { id: 'player1', name: 'Alex Johnson', email: 'alex.j@example.com', role: 'player', dob: new Date('1999-08-15'), experience: 'Intermediate', goals: 'Increase bench press by 20kg and improve overall muscle definition.', status: 'active' },
     { id: 'player2', name: 'Maria Garcia', email: 'maria.g@example.com', role: 'player', dob: new Date('1995-05-20'), experience: 'Advanced', goals: 'Complete a full marathon in under 4 hours.', status: 'recruited' }, // Recruited by Coach2
@@ -17,7 +18,7 @@ export const sampleUsers = [
     { id: 'coach3', name: 'Coach Taylor', email: 'taylor.c@example.com', role: 'coach', dob: new Date('1990-12-12') },
 ];
 
-export const sampleWorkouts: { _id: string; userId: string; exercise: string; reps?: number; weight?: number; distance?: number; time?: string; createdAt: Date; }[] = [
+export let sampleWorkouts: { _id: string; userId: string; exercise: string; reps?: number; weight?: number; distance?: number; time?: string; createdAt: Date; }[] = [
     // Player 1: Alex Johnson (Strength Training) - More history
     { _id: 'w1', userId: 'player1', exercise: 'Bench Press', reps: 5, weight: 95, createdAt: new Date('2024-04-15T10:00:00Z') },
     { _id: 'w2', userId: 'player1', exercise: 'Squat', reps: 8, weight: 115, createdAt: new Date('2024-04-20T10:00:00Z') },
@@ -115,4 +116,39 @@ export let sampleInvites: { _id: string; coachId: string; playerId: string; stat
     { _id: 'inv1', coachId: 'coach1', playerId: 'player5', status: 'pending', createdAt: new Date('2024-07-28T10:00:00Z') },
     { _id: 'inv2', coachId: 'coach2', playerId: 'player8', status: 'pending', createdAt: new Date('2024-07-27T16:00:00Z') },
     { _id: 'inv3', coachId: 'coach3', playerId: 'player1', status: 'pending', createdAt: new Date('2024-07-29T11:00:00Z') },
+];
+
+export let samplePosts: {
+    _id: string;
+    authorId: string;
+    role: 'player' | 'coach';
+    content: string;
+    createdAt: Date;
+}[] = [
+    // Player Posts
+    { _id: 'post1', authorId: 'player1', role: 'player', content: 'Just hit a new PR on my bench press! Feeling strong. 💪', createdAt: new Date('2024-07-28T11:00:00Z') },
+    { _id: 'post2', authorId: 'player2', role: 'player', content: 'Long run today. The weather was perfect. #running', createdAt: new Date('2024-07-28T09:00:00Z') },
+    { _id: 'post3', authorId: 'player3', role: 'player', content: 'First week of consistent workouts done. It was tough but worth it!', createdAt: new Date('2024-07-27T18:00:00Z') },
+
+    // Coach Posts
+    { _id: 'post4', authorId: 'coach1', role: 'coach', content: 'Remember to focus on form over weight. Quality reps build real strength.', createdAt: new Date('2024-07-28T14:00:00Z') },
+    { _id: 'post5', authorId: 'coach2', role: 'coach', content: 'Hydration is key, especially in this heat. Make sure you\'re drinking enough water.', createdAt: new Date('2024-07-27T10:00:00Z') },
+];
+
+
+export let sampleGroupMessages: {
+    _id: string;
+    senderId: string;
+    role: 'player' | 'coach';
+    text: string;
+    createdAt: Date;
+}[] = [
+    // Player Group Chat
+    { _id: 'gc1', senderId: 'player1', role: 'player', text: 'Hey everyone, how\'s training going?', createdAt: new Date('2024-07-29T10:00:00Z') },
+    { _id: 'gc2', senderId: 'player7', role: 'player', text: 'Good! Just finished a 5k.', createdAt: new Date('2024-07-29T10:01:00Z') },
+    { _id: 'gc3', senderId: 'player3', role: 'player', text: 'Feeling sore but motivated!', createdAt: new Date('2024-07-29T10:02:00Z') },
+
+    // Coach Group Chat
+    { _id: 'gc4', senderId: 'coach1', role: 'coach', text: 'Any new scouting techniques you guys are trying?', createdAt: new Date('2024-07-29T11:00:00Z') },
+    { _id: 'gc5', senderId: 'coach2', role: 'coach', text: 'I\'m focusing a lot on video analysis this season. The AI tools are surprisingly helpful.', createdAt: new Date('2for await (const chunk of stream) { } // CORRECT 1.x syntax-07-29T11:05:00Z') },
 ];
