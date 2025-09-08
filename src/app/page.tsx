@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export default function LoginPage() {
   return (
@@ -22,7 +23,7 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-2xl">Login</CardTitle>
             <CardDescription>
-              Enter your email below to login to your account.
+              Enter your credentials to access your dashboard.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
@@ -33,6 +34,29 @@ export default function LoginPage() {
             <div className="grid gap-2">
               <Label htmlFor="password">Password</Label>
               <Input id="password" type="password" required />
+            </div>
+            <div className="grid gap-2">
+              <Label>Are you a...</Label>
+              <RadioGroup defaultValue="player" className="grid grid-cols-2 gap-4">
+                <div>
+                  <RadioGroupItem value="player" id="player" className="peer sr-only" />
+                  <Label
+                    htmlFor="player"
+                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                  >
+                    Player
+                  </Label>
+                </div>
+                <div>
+                  <RadioGroupItem value="coach" id="coach" className="peer sr-only" />
+                  <Label
+                    htmlFor="coach"
+                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                  >
+                    Coach
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
