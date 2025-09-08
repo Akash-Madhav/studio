@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -11,7 +11,7 @@ import {
   getPlayerRecommendations,
   PlayerScoutingOutput,
 } from "@/ai/flows/player-scouting-flow";
-import { getPlayersForScouting, sendRecruitInvite } from "@/app/actions";
+import { sendRecruitInvite } from "@/app/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -53,36 +53,22 @@ interface PlayerData {
   status: string;
 }
 
-export default function PlayerScouting() {
+interface PlayerScoutingProps {
+    players: PlayerData[];
+    isLoading: boolean;
+    onInviteSent: () => void;
+}
+
+export default function PlayerScouting({ players, isLoading: isFetchingPlayers, onInviteSent }: PlayerScoutingProps) {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const coachId = searchParams.get('userId') || 'coach1';
 
   const [recommendations, setRecommendations] =
     useState<PlayerScoutingOutput | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isScouting, setIsScouting] = useState(false);
   const [isSendingInvite, setIsSendingInvite] = useState<string | null>(null);
-  const [players, setPlayers] = useState<PlayerData[]>([]);
-  const [isFetchingPlayers, setIsFetchingPlayers] = useState(true);
   const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    async function fetchPlayers() {
-      setIsFetchingPlayers(true);
-      const result = await getPlayersForScouting();
-      if (result.success && result.players) {
-        setPlayers(result.players.map(p => ({...p, name: p.name || `Player ${p.id.substring(0,4)}`})));
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to fetch player data.",
-        });
-      }
-      setIsFetchingPlayers(false);
-    }
-    fetchPlayers();
-  }, [toast]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -92,7 +78,7 @@ export default function PlayerScouting() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true);
+    setIsScouting(true);
     setRecommendations(null);
 
     if (players.length === 0) {
@@ -101,7 +87,7 @@ export default function PlayerScouting() {
             title: "No Players Found",
             description: "There are no players in the database to scout.",
         });
-        setIsLoading(false);
+        setIsScouting(false);
         return;
     }
 
@@ -112,7 +98,7 @@ export default function PlayerScouting() {
             title: "All available players have been scouted or have pending invites.",
             description: "Check the 'Invites' tab to see their status or wait for new players.",
         });
-        setIsLoading(false);
+        setIsScouting(false);
         return;
       }
 
@@ -139,7 +125,7 @@ export default function PlayerScouting() {
         description: errorDescription,
       });
     } finally {
-      setIsLoading(false);
+      setIsScouting(false);
     }
   }
 
@@ -152,8 +138,7 @@ export default function PlayerScouting() {
                 title: "Invite Sent!",
                 description: result.message,
             });
-            // Update player status locally to provide instant feedback
-            setPlayers(prev => prev.map(p => p.id === playerId ? {...p, status: 'pending_invite' } : p));
+            onInviteSent();
             setRecommendations(prev => prev ? ({
                 ...prev,
                 recommendations: prev.recommendations.filter(r => r.playerId !== playerId)
@@ -172,6 +157,8 @@ export default function PlayerScouting() {
   const getPlayerStatus = (playerId: string) => {
     return players.find(p => p.id === playerId)?.status;
   }
+
+  const isLoading = isFetchingPlayers || isScouting;
 
   return (
     <div className="grid md:grid-cols-2 gap-8 items-start">
@@ -200,8 +187,8 @@ export default function PlayerScouting() {
               />
             </CardContent>
             <CardFooter>
-              <Button type="submit" disabled={isLoading || isFetchingPlayers} className="w-full">
-                {isLoading || isFetchingPlayers ? (
+              <Button type="submit" disabled={isLoading} className="w-full">
+                {isLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Search className="mr-2" />
@@ -274,7 +261,7 @@ export default function PlayerScouting() {
               ))}
             </Accordion>
           ) : (
-            !isLoading && (
+            !isScouting && (
                 <div className="text-center text-muted-foreground py-12">
                     {isFetchingPlayers
                         ? "Fetching player data..."
@@ -289,3 +276,5 @@ export default function PlayerScouting() {
     </div>
   );
 }
+
+    

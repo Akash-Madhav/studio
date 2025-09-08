@@ -1,8 +1,6 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from 'next/link';
 import {
     Card,
     CardContent,
@@ -12,9 +10,7 @@ import {
     CardFooter,
   } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
-import { Loader2, MessageSquare, User } from "lucide-react";
-import { getPlayersForScouting } from "@/app/actions";
-import { useToast } from "@/hooks/use-toast";
+import { Loader2, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ProgressVisualization from "./progress-visualization";
@@ -24,40 +20,16 @@ interface Player {
   name: string;
   userProfile: string;
   performanceData: string;
+  status: string;
 }
 
 interface PlayerStatsProps {
-    userId: string;
+    players: Player[];
+    isLoading: boolean;
     onViewPlayerDashboard: (playerId: string) => void;
 }
 
-export default function PlayerStats({ userId, onViewPlayerDashboard }: PlayerStatsProps) {
-    const [players, setPlayers] = useState<Player[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const { toast } = useToast();
-
-    useEffect(() => {
-      async function fetchPlayers() {
-        setIsLoading(true);
-        const result = await getPlayersForScouting();
-        if (result.success && result.players) {
-            setPlayers(result.players);
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'Failed to fetch players.'
-            })
-        }
-        setIsLoading(false);
-      }
-      fetchPlayers();
-    }, [toast]);
-    
-    const getConversationId = (coachId: string, playerId: string) => {
-        return [coachId, playerId].sort().join('_');
-    };
-
+export default function PlayerStats({ players, isLoading, onViewPlayerDashboard }: PlayerStatsProps) {
     return (
         <Card className="border-0 shadow-none">
             <CardHeader className="px-0">
@@ -75,7 +47,7 @@ export default function PlayerStats({ userId, onViewPlayerDashboard }: PlayerSta
                     <div className="text-center text-muted-foreground py-12 border rounded-lg">
                         <User className="mx-auto h-12 w-12" />
                         <h3 className="mt-4 text-lg font-semibold">No Players Found</h3>
-                        <p>New players will appear here once they log a workout.</p>
+                        <p>Invited or new players will appear here once they log a workout.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -126,3 +98,5 @@ export default function PlayerStats({ userId, onViewPlayerDashboard }: PlayerSta
         </Card>
     );
   }
+
+    

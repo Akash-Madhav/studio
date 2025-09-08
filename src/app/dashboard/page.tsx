@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect, useTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   BarChart3,
@@ -14,6 +14,7 @@ import {
   Users,
   ArrowLeft,
   Mail,
+  RefreshCw,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -37,9 +38,28 @@ import PlayerScouting from "@/components/features/player-scouting";
 import PlayerStats from '@/components/features/player-stats';
 import Messages from '@/components/features/messages';
 import PendingInvites from '@/components/features/pending-invites';
+import { getPlayersForScouting, getPendingInvites } from '@/app/actions';
+import { useToast } from '@/hooks/use-toast';
+
+interface PlayerData {
+  id: string;
+  name: string;
+  performanceData: string;
+  userProfile: string;
+  status: string;
+}
+
+interface Invite {
+  inviteId: string;
+  playerId: string;
+  playerName: string;
+  playerAvatar: string;
+  sentAt: Date;
+}
 
 function DashboardContent() {
   const searchParams = useSearchParams();
+  const { toast } = useToast();
   const role = searchParams.get('role') || 'player';
   const initialUserId = searchParams.get('userId') || (role === 'coach' ? 'coach1' : 'player1');
   const isCoach = role === 'coach';
@@ -48,6 +68,46 @@ function DashboardContent() {
   const [currentView, setCurrentView] = useState<'coach' | 'player'>(isCoach ? 'coach' : 'player');
   const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  const [players, setPlayers] = useState<PlayerData[]>([]);
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const fetchCoachData = async () => {
+    if (!isCoach) return;
+
+    startTransition(async () => {
+        setIsLoadingData(true);
+        const playersResult = await getPlayersForScouting();
+        if (playersResult.success && playersResult.players) {
+            setPlayers(playersResult.players.map(p => ({...p, name: p.name || `Player ${p.id.substring(0,4)}`})));
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Error fetching players',
+                description: 'Could not load player data. Please try refreshing.',
+            });
+        }
+    
+        const invitesResult = await getPendingInvites(initialUserId);
+        if (invitesResult.success && invitesResult.invites) {
+            setInvites(invitesResult.invites);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Error fetching invites',
+                description: 'Could not load invites. Please try refreshing.',
+            });
+        }
+        setIsLoadingData(false);
+    });
+  };
+
+  useEffect(() => {
+    fetchCoachData();
+  }, [isCoach, initialUserId]);
+
 
   useEffect(() => {
     const tab = searchParams.get('tab') || (isCoach ? 'player-stats' : 'dashboard');
@@ -72,6 +132,8 @@ function DashboardContent() {
   const updateUrl = (tab: string) => {
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.set('tab', tab);
+    newUrl.searchParams.set('userId', initialUserId);
+    newUrl.searchParams.set('role', role);
     window.history.pushState({ ...window.history.state, as: newUrl.href, url: newUrl.href }, '', newUrl.href);
     setActiveTab(tab);
 };
@@ -89,6 +151,12 @@ function DashboardContent() {
             <Button variant="outline" size="sm" onClick={handleReturnToCoachView}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Coach View
+            </Button>
+          )}
+          {isCoach && (
+            <Button variant="ghost" size="sm" onClick={fetchCoachData} disabled={isPending}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+                Refresh Data
             </Button>
           )}
           <div className="ml-auto flex-1 sm:flex-initial"></div>
@@ -152,13 +220,13 @@ function DashboardContent() {
                   </TabsTrigger>
               </TabsList>
               <TabsContent value="player-stats" className="mt-4">
-                  <PlayerStats userId={userId} onViewPlayerDashboard={handleViewPlayerDashboard} />
+                  <PlayerStats players={players} isLoading={isPending || isLoadingData} onViewPlayerDashboard={handleViewPlayerDashboard} />
               </TabsContent>
                <TabsContent value="player-scouting" className="mt-4">
-                  <PlayerScouting />
+                  <PlayerScouting players={players} isLoading={isPending || isLoadingData} onInviteSent={fetchCoachData} />
               </TabsContent>
               <TabsContent value="pending-invites" className="mt-4">
-                  <PendingInvites userId={userId} />
+                  <PendingInvites invites={invites} isLoading={isPending || isLoadingData}/>
               </TabsContent>
               <TabsContent value="messages" className="mt-4">
                   <Messages userId={userId} />
@@ -167,7 +235,7 @@ function DashboardContent() {
         )}
 
         {dashboardIsPlayerView && (
-           <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
+           <Tabs value={activeTab} onValuecha/ge={updateUrl} className="w-full">
             <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
                 <TabsTrigger value="dashboard">
                   <BarChart3 className="mr-2" />
@@ -226,3 +294,5 @@ export default function Dashboard() {
     </Suspense>
   );
 }
+
+    

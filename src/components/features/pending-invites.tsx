@@ -1,7 +1,6 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
 import {
     Card,
     CardContent,
@@ -11,8 +10,6 @@ import {
   } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { Loader2, Mail, UserX } from "lucide-react";
-import { getPendingInvites } from "@/app/actions";
-import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -28,33 +25,11 @@ interface Invite {
 }
 
 interface PendingInvitesProps {
-    userId: string;
+    invites: Invite[];
+    isLoading: boolean;
 }
 
-export default function PendingInvites({ userId }: PendingInvitesProps) {
-    const [invites, setInvites] = useState<Invite[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const { toast } = useToast();
-
-    useEffect(() => {
-      async function fetchInvites() {
-        if (!userId) return;
-        setIsLoading(true);
-        const result = await getPendingInvites(userId);
-        if (result.success && result.invites) {
-            setInvites(result.invites);
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'Failed to fetch pending invites.'
-            })
-        }
-        setIsLoading(false);
-      }
-      fetchInvites();
-    }, [toast, userId]);
-    
+export default function PendingInvites({ invites, isLoading }: PendingInvitesProps) {
     return (
         <Card className="border-0 shadow-none">
             <CardHeader className="px-0">
@@ -104,3 +79,5 @@ export default function PendingInvites({ userId }: PendingInvitesProps) {
         </Card>
     );
   }
+
+    
