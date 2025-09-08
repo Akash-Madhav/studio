@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,6 +38,16 @@ const formSchema = z.object({
   time: z.string().optional(),
   distance: z.coerce.number().min(0).optional(),
 });
+
+// Helper to convert blob to a base64 data URI
+function blobToDataUri(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
 export default function PerformanceLogging({ userId }: { userId?: string }) {
   const { toast } = useToast();
@@ -215,18 +226,18 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     }
   };
 
-  const handleStopRecording = async () => {
+  const handleStopRecording = () => {
     if (mediaRecorderRef.current) {
         mediaRecorderRef.current.onstop = async () => {
-            // A small delay to ensure all data is available
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
             const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
-            const videoUrl = URL.createObjectURL(videoBlob);
-            const videoFile = new File([videoBlob], 'recorded-workout.webm', { type: 'video/webm' });
+            const dataUri = await blobToDataUri(videoBlob);
             
-            setVideoPreview(videoUrl);
+            setVideoPreview(dataUri);
+
+            const videoFile = new File([videoBlob], 'recorded-workout.webm', { type: 'video/webm' });
             setVideoFile(videoFile);
+            
+            setRecordedChunks([]);
             setIsRecording(false);
             cleanupCamera();
             setVideoMode('upload');
@@ -463,5 +474,3 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     </Card>
   );
 }
-
-    
