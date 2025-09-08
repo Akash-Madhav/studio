@@ -16,7 +16,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
 
 interface Message {
-    id: string;
+    _id: string;
     senderId: string;
     text: string;
     createdAt: Date;
@@ -72,7 +72,7 @@ export default function Messages({ userId }: { userId: string }) {
             async function fetchMessages() {
                 const result = await getMessages(selectedConversation.id);
                 if (result.success && result.messages) {
-                    setMessages(result.messages);
+                    setMessages(result.messages as Message[]);
                 } else {
                     toast({ variant: 'destructive', title: "Error", description: "Failed to fetch messages." });
                 }
@@ -189,7 +189,7 @@ export default function Messages({ userId }: { userId: string }) {
                         </CardHeader>
                         <CardContent className="flex-grow overflow-y-auto p-4 space-y-4">
                             {messages.map(msg => (
-                                <div key={msg.id} className={`flex items-end gap-2 ${msg.senderId === userId ? 'justify-end' : ''}`}>
+                                <div key={msg._id} className={`flex items-end gap-2 ${msg.senderId === userId ? 'justify-end' : ''}`}>
                                     {msg.senderId !== userId && <Avatar className="h-8 w-8"><AvatarImage src={`https://picsum.photos/seed/${msg.senderId}/40/40`} data-ai-hint="person face"/></Avatar>}
                                     <div className={`rounded-lg px-3 py-2 max-w-xs lg:max-w-md ${msg.senderId === userId ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                                         <p className="text-sm">{msg.text}</p>
@@ -222,5 +222,3 @@ export default function Messages({ userId }: { userId: string }) {
         </div>
     );
 }
-
-    
