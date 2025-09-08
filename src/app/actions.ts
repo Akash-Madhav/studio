@@ -3,7 +3,6 @@
 
 import { z } from 'zod';
 import { sampleUsers, sampleWorkouts, sampleConversations } from '@/lib/sample-data';
-import { Timestamp } from 'firebase/firestore';
 
 
 const logWorkoutSchema = z.object({
@@ -21,6 +20,18 @@ export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
   
   // This is a mock function, in a real app you'd save to a database.
   console.log("Logged workout:", validatedData);
+
+  const newWorkout = {
+    _id: `w${Date.now()}`,
+    userId: validatedData.userId,
+    exercise: validatedData.exercise,
+    reps: validatedData.reps,
+    weight: validatedData.weight,
+    time: validatedData.time,
+    distance: validatedData.distance,
+    createdAt: new Date(),
+  };
+  sampleWorkouts.push(newWorkout);
   
   return { 
     success: true, 
@@ -110,7 +121,7 @@ export async function getMessages(conversationId: string) {
             id: msg._id,
             senderId: msg.senderId,
             text: msg.text,
-            createdAt: Timestamp.fromDate(msg.createdAt)
+            createdAt: msg.createdAt,
         }));
 
         return { success: true, messages };
@@ -129,20 +140,21 @@ const sendMessageSchema = z.object({
 export async function sendMessage(values: z.infer<typeof sendMessageSchema>) {
     const validatedData = sendMessageSchema.parse(values);
     try {
-       // This is a mock function. In a real app, you would save this to your database.
-       console.log("Sending message:", validatedData);
+       const conversation = sampleConversations.find(c => c._id === validatedData.conversationId);
+       if (!conversation) {
+           return { success: false, message: 'Conversation not found' };
+       }
 
        const message = {
-            id: `m${Date.now()}`,
             _id: `m${Date.now()}`,
             senderId: validatedData.senderId,
             text: validatedData.text,
-            createdAt: Timestamp.now(),
+            createdAt: new Date(),
         };
 
-        // In a real app, you would push this to the conversation in the database.
-        // For this mock, it won't be persisted.
-        return { success: true, message: {...message, id: message.id} };
+        conversation.messages.push(message);
+
+        return { success: true, message: { ...message, id: message._id } };
     } catch (error) {
         console.error("Error sending message:", error);
         return { success: false };

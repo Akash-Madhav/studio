@@ -17,7 +17,6 @@ dayjs.extend(relativeTime);
 
 export default function Messages({ userId }: { userId: string }) {
     const searchParams = useSearchParams();
-    const preselectedUserId = searchParams.get('userId');
 
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -71,8 +70,6 @@ export default function Messages({ userId }: { userId: string }) {
                 }
             }
             fetchMessages();
-
-            // Setup real-time listener if you have one
         }
     }, [selectedConversation, toast]);
 
@@ -95,12 +92,11 @@ export default function Messages({ userId }: { userId: string }) {
             setMessages(prev => [...prev, result.message]);
             setNewMessage("");
             
-            // Update conversation in the list
             const updatedConvo = {
                 ...selectedConversation,
                 lastMessage: {
                     text: result.message.text,
-                    sentAt: result.message.createdAt.toDate(),
+                    sentAt: result.message.createdAt,
                 }
             };
             setSelectedConversation(updatedConvo);
@@ -187,7 +183,7 @@ export default function Messages({ userId }: { userId: string }) {
                                     {msg.senderId !== userId && <Avatar className="h-8 w-8"><AvatarImage src={`https://picsum.photos/seed/${msg.senderId}/40/40`} data-ai-hint="person face"/></Avatar>}
                                     <div className={`rounded-lg px-3 py-2 max-w-xs lg:max-w-md ${msg.senderId === userId ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                                         <p className="text-sm">{msg.text}</p>
-                                        <p className="text-xs text-right opacity-70 mt-1">{dayjs(msg.createdAt.toDate()).fromNow()}</p>
+                                        <p className="text-xs text-right opacity-70 mt-1">{dayjs(msg.createdAt).fromNow()}</p>
                                     </div>
                                 </div>
                             ))}
