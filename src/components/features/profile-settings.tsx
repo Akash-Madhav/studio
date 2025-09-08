@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { useState, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
@@ -44,7 +43,6 @@ const formSchema = z.object({
 
 export default function ProfileSettings({ userId }: { userId: string }) {
   const { toast } = useToast();
-  const router = useRouter();
   const [isSubmitting, startTransition] = useTransition();
   const [isFetchingUser, setIsFetchingUser] = useState(true);
 
@@ -93,6 +91,8 @@ export default function ProfileSettings({ userId }: { userId: string }) {
           title: "Profile Updated",
           description: result.message,
         });
+        // Re-sync the form with the successfully submitted values
+        form.reset(values);
       } else {
         toast({
           variant: "destructive",
