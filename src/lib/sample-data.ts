@@ -45,14 +45,22 @@ export const sampleWorkouts = [
     { _id: 'w24', userId: 'player5', exercise: 'Kettlebell Swings', reps: 25, weight: 24, createdAt: new Date('2024-07-23T09:00:00Z') },
 ];
 
-export const sampleConversations = [
+export const sampleConversations: {
+    _id: string;
+    participantIds: string[];
+    messages: {
+        _id: string;
+        senderId: string;
+        text: string;
+        createdAt: Date;
+    }[];
+}[] = [
     {
-        _id: 'coach1_player1',
-        participantIds: ['coach1', 'player1'],
+        _id: 'coach1_player4',
+        participantIds: ['coach1', 'player4'],
         messages: [
-            { _id: 'm1', senderId: 'coach1', text: 'Your bench press is up by 10kg! Fantastic progress, Alex. How are you feeling?', createdAt: new Date('2024-07-25T11:00:00Z') },
-            { _id: 'm2', senderId: 'player1', text: 'Thanks, Coach! Feeling strong. I want to hit 120kg by next month. Think that\'s realistic?', createdAt: new Date('2024-07-25T11:05:00Z') },
-            { _id: 'm3', senderId: 'coach1', text: 'Ambitious, I like it. Let\'s adjust your programming to focus a bit more on chest and triceps. I\'ll send over some ideas.', createdAt: new Date('2024-07-25T11:10:00Z') },
+            { _id: 'm1', senderId: 'coach1', text: 'Welcome to the team, Emily! Great to have you. Let me know what your goals are.', createdAt: new Date('2024-07-25T11:00:00Z') },
+            { _id: 'm2', senderId: 'player4', text: 'Thanks, Coach! Ready to get started.', createdAt: new Date('2024-07-25T11:05:00Z') },
         ]
     },
     {

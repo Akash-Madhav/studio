@@ -9,12 +9,11 @@ import {
   BrainCircuit,
   Dumbbell,
   LogIn,
-  Medal,
+  Mail,
   MessageSquare,
   Target,
   Users,
   ArrowLeft,
-  Mail,
   RefreshCw,
 } from "lucide-react";
 import Image from "next/image";
@@ -34,7 +33,7 @@ import AiInsights from "@/components/features/ai-insights";
 import PerformanceLogging from "@/components/features/performance-logging";
 import PersonalizedRecommendations from "@/components/features/personalized-recommendations";
 import ProgressVisualization from "@/components/features/progress-visualization";
-import SportMatch from "@/components/features/sport-match";
+import PlayerInvites from "@/components/features/player-invites";
 import PlayerScouting from "@/components/features/player-scouting";
 import PlayerStats from '@/components/features/player-stats';
 import Messages from '@/components/features/messages';
@@ -260,9 +259,9 @@ function DashboardContent() {
                   <Target className="mr-2" />
                   Recs
                 </TabsTrigger>
-                <TabsTrigger value="sport-match">
-                  <Medal className="mr-2" />
-                  Match
+                <TabsTrigger value="invites">
+                  <Mail className="mr-2" />
+                  Invites
                 </TabsTrigger>
                  <TabsTrigger value="messages">
                     <MessageSquare className="mr-2" />
@@ -281,8 +280,8 @@ function DashboardContent() {
               <TabsContent value="recommendations" className="mt-4">
                   <PersonalizedRecommendations userId={userId} />
               </TabsContent>
-              <TabsContent value="sport-match" className="mt-4">
-                  <SportMatch userId={userId} />
+              <TabsContent value="invites" className="mt-4">
+                  <PlayerInvites userId={userId} />
               </TabsContent>
               <TabsContent value="messages" className="mt-4">
                   <Messages userId={userId} />

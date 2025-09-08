@@ -146,6 +146,76 @@ export async function getPendingInvites(coachId: string) {
   }
 }
 
+
+export async function getPendingInvitesForPlayer(playerId: string) {
+    try {
+      const pending = sampleInvites
+        .filter(inv => inv.playerId === playerId && inv.status === 'pending')
+        .map(invite => {
+          const coach = sampleUsers.find(u => u.id === invite.coachId);
+          return {
+            inviteId: invite._id,
+            coachId: invite.coachId,
+            coachName: coach?.name || 'Unknown Coach',
+            coachAvatar: `https://picsum.photos/seed/${invite.coachId}/100/100`,
+            sentAt: invite.createdAt,
+          };
+        })
+        .sort((a,b) => b.sentAt.getTime() - a.sentAt.getTime());
+  
+      return { success: true, invites: pending };
+    } catch (error) {
+      console.error("Error fetching player invites:", error);
+      return { success: false, invites: [] };
+    }
+}
+  
+const respondToInviteSchema = z.object({
+    inviteId: z.string(),
+    response: z.enum(['accepted', 'declined']),
+    playerId: z.string(),
+    coachId: z.string(),
+});
+
+export async function respondToInvite(values: z.infer<typeof respondToInviteSchema>) {
+    const validatedData = respondToInviteSchema.parse(values);
+    try {
+        const invite = sampleInvites.find(inv => inv._id === validatedData.inviteId);
+        if (!invite) {
+            return { success: false, message: 'Invite not found.' };
+        }
+        
+        invite.status = validatedData.response;
+
+        const player = sampleUsers.find(u => u.id === validatedData.playerId);
+        if (player) {
+            player.status = validatedData.response === 'accepted' ? 'recruited' : 'active';
+        }
+
+        if (validatedData.response === 'accepted') {
+            const newConversation = {
+                _id: `${validatedData.coachId}_${validatedData.playerId}`,
+                participantIds: [validatedData.coachId, validatedData.playerId],
+                messages: [
+                    { 
+                        _id: `m${Date.now()}`, 
+                        senderId: validatedData.playerId, 
+                        text: 'I\'ve accepted your invitation! Looking forward to working with you.', 
+                        createdAt: new Date() 
+                    },
+                ]
+            };
+            sampleConversations.push(newConversation);
+        }
+
+        return { success: true, message: `Invite ${validatedData.response}.` };
+    } catch (error) {
+        console.error("Error responding to invite:", error);
+        return { success: false, message: 'An error occurred.' };
+    }
+}
+
+
 // CHAT ACTIONS
 
 export interface Conversation {
