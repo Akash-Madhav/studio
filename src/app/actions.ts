@@ -396,20 +396,3 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
         return { success: false, message: "An unexpected error occurred." };
     }
 }
-
-export async function getUsersForLogin(role: string) {
-    try {
-        const q = query(collection(db, "users"), where("role", "==", role));
-        const querySnapshot = await getDocs(q);
-        const users = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-        return { success: true, users };
-    } catch (error) {
-        console.error("Error fetching users for login: ", error);
-        return { success: false, users: [] };
-    }
-}
-
-    
