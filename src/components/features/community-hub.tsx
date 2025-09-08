@@ -5,12 +5,13 @@ import React, { useState, useEffect, useRef, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Send, Rss } from "lucide-react";
+import { Loader2, Send, Rss, MessageCircle, Newspaper } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getPosts, createPost, getGroupMessages, sendGroupMessage } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import dayjs from "dayjs";
@@ -128,93 +129,106 @@ export default function CommunityHub({ userId, role }: CommunityHubProps) {
     }
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            <div className="lg:col-span-2 space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Create a Post</CardTitle>
-                    </CardHeader>
-                    <form onSubmit={postForm.handleSubmit(handleCreatePost)}>
-                        <CardContent>
-                            <Textarea
-                                {...postForm.register("content")}
-                                placeholder={`Share what's on your mind...`}
-                                className="min-h-[100px]"
-                                disabled={isPosting}
-                            />
-                            {postForm.formState.errors.content && (
-                                <p className="text-sm text-destructive mt-2">{postForm.formState.errors.content.message}</p>
-                            )}
-                        </CardContent>
-                        <CardFooter className="flex justify-end">
-                            <Button type="submit" disabled={isPosting}>
-                                {isPosting && <Loader2 className="animate-spin mr-2" />}
-                                Post
-                            </Button>
-                        </CardFooter>
-                    </form>
-                </Card>
-
-                <div className="space-y-4">
-                    <h2 className="text-2xl font-bold flex items-center gap-2"><Rss /> {role === 'player' ? "Player" : "Coach"} Feed</h2>
-                    {posts.map(post => (
-                        <Card key={post._id}>
-                            <CardHeader className="flex flex-row items-center gap-4">
-                                <Avatar>
-                                    <AvatarImage src={post.authorAvatar} data-ai-hint="person face" />
-                                    <AvatarFallback>{post.authorName.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <p className="font-semibold">{post.authorName}</p>
-                                    <p className="text-sm text-muted-foreground">{dayjs(post.createdAt).fromNow()}</p>
-                                </div>
-                            </CardHeader>
+        <Tabs defaultValue="feed" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+                <TabsTrigger value="feed">
+                    <Newspaper className="mr-2"/>
+                    Feed
+                </TabsTrigger>
+                <TabsTrigger value="chat">
+                    <MessageCircle className="mr-2"/>
+                    Group Chat
+                </TabsTrigger>
+            </TabsList>
+            <TabsContent value="feed" className="mt-6">
+                <div className="max-w-2xl mx-auto space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Create a Post</CardTitle>
+                        </CardHeader>
+                        <form onSubmit={postForm.handleSubmit(handleCreatePost)}>
                             <CardContent>
-                                <p className="whitespace-pre-wrap">{post.content}</p>
+                                <Textarea
+                                    {...postForm.register("content")}
+                                    placeholder={`Share what's on your mind...`}
+                                    className="min-h-[100px]"
+                                    disabled={isPosting}
+                                />
+                                {postForm.formState.errors.content && (
+                                    <p className="text-sm text-destructive mt-2">{postForm.formState.errors.content.message}</p>
+                                )}
                             </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            </div>
-
-            <div className="lg:col-span-1">
-                <Card className="flex flex-col h-[calc(100vh-250px)]">
-                    <CardHeader>
-                        <CardTitle>{role === 'player' ? "Player" : "Coach"} Group Chat</CardTitle>
-                        <CardDescription>Chat with your peers.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-grow overflow-y-auto space-y-4 pr-4">
-                        {messages.map(msg => (
-                            <div key={msg._id} className={`flex items-start gap-3 ${msg.senderId === userId ? 'justify-end' : ''}`}>
-                                {msg.senderId !== userId && 
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={msg.authorAvatar} data-ai-hint="person face"/>
-                                        <AvatarFallback>{msg.authorName.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                }
-                                <div className={`rounded-lg px-3 py-2 max-w-xs ${msg.senderId === userId ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                                    {msg.senderId !== userId && <p className="text-xs font-bold mb-1">{msg.authorName}</p>}
-                                    <p className="text-sm">{msg.text}</p>
-                                </div>
-                            </div>
-                        ))}
-                        <div ref={messagesEndRef} />
-                    </CardContent>
-                    <CardFooter className="pt-4 border-t">
-                        <form onSubmit={handleSendMessage} className="w-full flex items-center gap-2">
-                            <Input
-                                value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                                placeholder="Type a message..."
-                                disabled={isSending}
-                            />
-                            <Button type="submit" size="icon" disabled={isSending || !newMessage.trim()}>
-                                {isSending ? <Loader2 className="animate-spin" /> : <Send />}
-                            </Button>
+                            <CardFooter className="flex justify-end">
+                                <Button type="submit" disabled={isPosting}>
+                                    {isPosting && <Loader2 className="animate-spin mr-2" />}
+                                    Post
+                                </Button>
+                            </CardFooter>
                         </form>
-                    </CardFooter>
-                </Card>
-            </div>
-        </div>
+                    </Card>
+
+                    <div className="space-y-4">
+                         <h2 className="text-2xl font-bold flex items-center gap-2"><Rss /> {role === 'player' ? "Player" : "Coach"} Feed</h2>
+                        {posts.map(post => (
+                            <Card key={post._id}>
+                                <CardHeader className="flex flex-row items-center gap-4">
+                                    <Avatar>
+                                        <AvatarImage src={post.authorAvatar} data-ai-hint="person face" />
+                                        <AvatarFallback>{post.authorName.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="font-semibold">{post.authorName}</p>
+                                        <p className="text-sm text-muted-foreground">{dayjs(post.createdAt).fromNow()}</p>
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="whitespace-pre-wrap">{post.content}</p>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+            </TabsContent>
+            <TabsContent value="chat" className="mt-6">
+                 <div className="max-w-2xl mx-auto">
+                    <Card className="flex flex-col h-[calc(100vh-300px)]">
+                        <CardHeader>
+                            <CardTitle>{role === 'player' ? "Player" : "Coach"} Group Chat</CardTitle>
+                            <CardDescription>Chat with your peers in real-time.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-grow overflow-y-auto space-y-4 pr-4">
+                            {messages.map(msg => (
+                                <div key={msg._id} className={`flex items-start gap-3 ${msg.senderId === userId ? 'justify-end' : ''}`}>
+                                    {msg.senderId !== userId && 
+                                        <Avatar className="h-8 w-8">
+                                            <AvatarImage src={msg.authorAvatar} data-ai-hint="person face"/>
+                                            <AvatarFallback>{msg.authorName.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                    }
+                                    <div className={`rounded-lg px-3 py-2 max-w-xs ${msg.senderId === userId ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                                        {msg.senderId !== userId && <p className="text-xs font-bold mb-1">{msg.authorName}</p>}
+                                        <p className="text-sm">{msg.text}</p>
+                                    </div>
+                                </div>
+                            ))}
+                            <div ref={messagesEndRef} />
+                        </CardContent>
+                        <CardFooter className="pt-4 border-t">
+                            <form onSubmit={handleSendMessage} className="w-full flex items-center gap-2">
+                                <Input
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    placeholder="Type a message..."
+                                    disabled={isSending}
+                                />
+                                <Button type="submit" size="icon" disabled={isSending || !newMessage.trim()}>
+                                    {isSending ? <Loader2 className="animate-spin" /> : <Send />}
+                                </Button>
+                            </form>
+                        </CardFooter>
+                    </Card>
+                </div>
+            </TabsContent>
+        </Tabs>
     );
 }
