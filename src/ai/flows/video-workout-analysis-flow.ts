@@ -46,31 +46,32 @@ const prompt = ai.definePrompt({
   config: {
     temperature: 0,
   },
-  prompt: `You are a world-class fitness coach and kinesiologist. Your task is to perform a highly accurate analysis of a workout video.
+  prompt: `You are a world-class kinesiologist and elite fitness coach. Your task is to perform a highly accurate analysis of a workout video with a primary objective of achieving over 85% accuracy in rep counting.
 
-  **Primary Objective: Achieve high accuracy in rep counting.**
+  **Analysis Protocol - Repetition Counting with Strict Scrutiny:**
 
-  **Analysis Protocol:**
+  1.  **Identify the Exercise:** First, precisely identify the primary exercise being performed (e.g., "Barbell Bench Press", "Dumbbell Bicep Curl", "Bodyweight Squat").
 
-  1.  **Identify the Exercise:** First, identify the primary exercise being performed (e.g., "Bench Press", "Squat", "Deadlift", "Bicep Curl").
+  2.  **Deconstruct the Repetition:** For the identified exercise, you must break down a single valid repetition into its two biomechanical phases:
+      *   **Eccentric Phase:** The "lowering" or "negative" portion of the movement where the muscle lengthens under tension (e.g., lowering the bar to the chest in a bench press).
+      *   **Concentric Phase:** The "lifting" or "positive" portion of the movement where the muscle shortens to produce force (e.g., pressing the bar up from the chest).
 
-  2.  **Define Full Range of Motion (ROM):** For the identified exercise, mentally establish the start and end points of a perfect repetition. A repetition is only valid if it includes a complete motion (e.g., bar to chest and back up for bench press).
+  3.  **Define Full Range of Motion (ROM):** Analyze the video on a near frame-by-frame basis to establish the start and end points for both the eccentric and concentric phases.
+      *   A rep is only counted if it completes a **full eccentric phase** immediately followed by a **full concentric phase**.
+      *   **Crucially, do NOT count partial reps.** If the user fails to complete the full range of motion for either phase (e.g., not going low enough on a squat, or not fully extending on a bicep curl), that rep is invalid and must be discarded.
 
-  3.  **Repetition Counting - Strict Scrutiny:** Count only the successful repetitions that meet the following strict criteria:
-      -   The rep must go through the full, established range of motion.
-      -   Do NOT count partial reps.
-      -   Be precise and conservative. If a rep is ambiguous or poorly executed, do not count it.
+  4.  **Count Valid Reps:** Meticulously count only the repetitions that meet the strict criteria defined above. Be conservative; if a rep is ambiguous, poorly executed, or does not meet the full ROM standard, it does not count.
 
-  4.  **Quantify Other Metrics:**
-      -   If weights are visible (plates on a barbell, dumbbells), estimate the total weight in kilograms.
-      -   If the exercise is timed (like a plank or run), estimate the duration.
-      -   If the exercise involves distance (like running), estimate the distance in kilometers.
+  5.  **Quantify Other Metrics:**
+      *   If weights are visible (plates on a barbell, dumbbells), estimate the total weight in kilograms.
+      *   If the exercise is timed (like a plank), estimate the duration.
+      *   If it involves distance (like running), estimate the distance.
 
-  5.  **Assess Accuracy:**
-      -   After counting, provide an accuracy score (0-100) for your analysis.
-      -   Justify the score. Mention factors that may have impacted accuracy, such as camera angle, lighting, video clarity, or if the user performed partial reps that were not counted.
+  6.  **Assess Accuracy:**
+      *   Provide an accuracy score (0-100) for your rep count analysis.
+      *   Justify this score by mentioning factors like camera angle, video clarity, lighting, or if the user performed partial reps that you correctly identified and did not count.
 
-  Fill in all the relevant fields for the identified exercise, including the accuracy assessment.
+  Fill in all relevant fields in the specified output format based on your strict analysis.
 
   Video to analyze:
   {{media url=videoDataUri}}
@@ -88,5 +89,3 @@ const videoWorkoutAnalysisFlow = ai.defineFlow(
     return output!;
   }
 );
-
-    
