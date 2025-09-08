@@ -72,9 +72,7 @@ function DashboardContent() {
   const initialUserId = searchParams.get('userId') || (role === 'coach' ? 'coach1' : 'player1');
   const isCoach = role === 'coach';
   const initialTab = searchParams.get('tab') || (isCoach ? 'player-stats' : 'dashboard');
-
-  const [currentView, setCurrentView] = useState<'coach' | 'player'>(isCoach ? 'coach' : 'player');
-  const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
+  
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const [players, setPlayers] = useState<PlayerData[]>([]);
@@ -124,18 +122,9 @@ function DashboardContent() {
     setActiveTab(tab);
   }, [searchParams, isCoach]);
 
-
-  const handleViewPlayerDashboard = (playerId: string) => {
-    setViewingPlayerId(playerId);
-  };
-
-  const handleReturnToCoachView = () => {
-    setViewingPlayerId(null);
-  };
-  
-  const userId = viewingPlayerId || initialUserId;
-  const dashboardIsCoachView = isCoach && !viewingPlayerId;
-  const dashboardIsPlayerView = !isCoach || viewingPlayerId;
+  const userId = initialUserId;
+  const dashboardIsCoachView = isCoach;
+  const dashboardIsPlayerView = !isCoach;
   
   const currentUser = sampleUsers.find(u => u.id === initialUserId);
   const userName = currentUser?.name || '';
@@ -162,12 +151,6 @@ function DashboardContent() {
           <span className="font-bold">OptiFit AI</span>
         </div>
         <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-           {isCoach && viewingPlayerId && (
-            <Button variant="outline" size="sm" onClick={handleReturnToCoachView}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Coach View
-            </Button>
-          )}
           {isCoach && (
             <Button variant="ghost" size="sm" onClick={fetchCoachData} disabled={isPending}>
                 <RefreshCw className={`mr-2 h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
@@ -243,7 +226,7 @@ function DashboardContent() {
                   </TabsTrigger>
               </TabsList>
               <TabsContent value="player-stats" className="mt-4">
-                  <PlayerStats players={recruitedPlayers} isLoading={isPending || isLoadingData} onViewPlayerDashboard={handleViewPlayerDashboard} />
+                  <PlayerStats players={recruitedPlayers} isLoading={isPending || isLoadingData} />
               </TabsContent>
                <TabsContent value="player-scouting" className="mt-4">
                   <PlayerScouting players={players} isLoading={isPending || isLoadingData} onInviteSent={fetchCoachData} />

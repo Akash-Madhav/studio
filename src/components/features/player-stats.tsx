@@ -37,10 +37,9 @@ interface Player {
 interface PlayerStatsProps {
     players: Player[];
     isLoading: boolean;
-    onViewPlayerDashboard: (playerId: string) => void;
 }
 
-export default function PlayerStats({ players, isLoading, onViewPlayerDashboard }: PlayerStatsProps) {
+export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
     const [isAnalyzing, setIsAnalyzing] = React.useState<string | null>(null);
     const [analysisResult, setAnalysisResult] = React.useState<PlayerAnalysisOutput | null>(null);
     const [selectedPlayer, setSelectedPlayer] = React.useState<Player | null>(null);
@@ -82,7 +81,7 @@ export default function PlayerStats({ players, isLoading, onViewPlayerDashboard 
                         <UserCheck /> Your Recruited Players
                     </CardTitle>
                     <CardDescription>
-                        An overview of your team's player performance. Get an AI analysis or view their full dashboard.
+                        An overview of your team's player performance. Get an AI analysis.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="px-0">
@@ -121,10 +120,6 @@ export default function PlayerStats({ players, isLoading, onViewPlayerDashboard 
                                             {isAnalyzing === player.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                             AI Analysis
                                         </Button>
-                                        <Button variant="outline" size="sm" onClick={() => onViewPlayerDashboard(player.id)}>
-                                            <Eye className="mr-2 h-4 w-4" />
-                                            Dashboard
-                                        </Button>
                                     </CardFooter>
                                 </Card>
                             ))}
@@ -159,14 +154,6 @@ export default function PlayerStats({ players, isLoading, onViewPlayerDashboard 
                     )}
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={closeDialog}>Close</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => {
-                            if (selectedPlayer) {
-                                onViewPlayerDashboard(selectedPlayer.id);
-                            }
-                            closeDialog();
-                        }}>
-                           View Full Dashboard
-                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
