@@ -87,8 +87,8 @@ export default function ProfileSettings({ userId }: { userId: string }) {
           title: "Profile Updated",
           description: result.message,
         });
-        router.push(`/dashboard?role=${role}&userId=${userId}&tab=profile`);
-        router.refresh();
+        // Redirect to the dashboard to force a data re-fetch for the entire page
+        router.push(`/dashboard?role=${role}&userId=${userId}`);
       } else {
         toast({
           variant: "destructive",
