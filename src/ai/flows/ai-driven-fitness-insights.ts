@@ -37,8 +37,8 @@ const fitnessInsightsPrompt = ai.definePrompt({
 
   Analyze the following performance data for the exercise type: {{{exerciseType}}}.
   Metrics:
-  {{#each (keys metrics)}}
-    - {{this}}: {{lookup ../metrics this}}
+  {{#each metrics}}
+    - {{@key}}: {{this}}
   {{/each}}
 
   {{#if userProfile}}
