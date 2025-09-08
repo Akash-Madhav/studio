@@ -1,12 +1,12 @@
 
 export const sampleUsers = [
-    { id: 'player1', name: 'Alex Johnson', email: 'alex.j@example.com', role: 'player', age: 24, experience: 'Intermediate', goals: 'Increase bench press by 20kg and improve overall muscle definition.', status: 'active' },
-    { id: 'player2', name: 'Maria Garcia', email: 'maria.g@example.com', role: 'player', age: 28, experience: 'Advanced', goals: 'Complete a full marathon in under 4 hours.', status: 'active' },
-    { id: 'player3', name: 'Sam Chen', email: 'sam.c@example.com', role: 'player', age: 22, experience: 'Beginner', goals: 'Build a consistent workout routine, focusing on bodyweight exercises and light cardio.', status: 'active' },
-    { id: 'player4', name: 'Emily Rodriguez', email: 'emily.r@example.com', role: 'player', age: 31, experience: 'Intermediate', goals: 'Improve cardiovascular health and tone up for summer.', status: 'active' },
-    { id: 'player5', name: 'David Lee', email: 'david.l@example.com', role: 'player', age: 26, experience: 'Advanced', goals: 'Compete in a local CrossFit competition.', status: 'active' },
-    { id: 'coach1', name: 'Coach Davis', email: 'davis.c@example.com', role: 'coach' },
-    { id: 'coach2', name: 'Coach Miller', email: 'miller.c@example.com', role: 'coach' },
+    { id: 'player1', name: 'Alex Johnson', email: 'alex.j@example.com', role: 'player', dob: new Date('1999-08-15'), experience: 'Intermediate', goals: 'Increase bench press by 20kg and improve overall muscle definition.', status: 'active' },
+    { id: 'player2', name: 'Maria Garcia', email: 'maria.g@example.com', role: 'player', dob: new Date('1995-05-20'), experience: 'Advanced', goals: 'Complete a full marathon in under 4 hours.', status: 'active' },
+    { id: 'player3', name: 'Sam Chen', email: 'sam.c@example.com', role: 'player', dob: new Date('2001-11-10'), experience: 'Beginner', goals: 'Build a consistent workout routine, focusing on bodyweight exercises and light cardio.', status: 'active' },
+    { id: 'player4', name: 'Emily Rodriguez', email: 'emily.r@example.com', role: 'player', dob: new Date('1992-03-25'), experience: 'Intermediate', goals: 'Improve cardiovascular health and tone up for summer.', status: 'recruited' },
+    { id: 'player5', name: 'David Lee', email: 'david.l@example.com', role: 'player', dob: new Date('1997-07-30'), experience: 'Advanced', goals: 'Compete in a local CrossFit competition.', status: 'pending_invite' },
+    { id: 'coach1', name: 'Coach Davis', email: 'davis.c@example.com', role: 'coach', dob: new Date('1985-02-20') },
+    { id: 'coach2', name: 'Coach Miller', email: 'miller.c@example.com', role: 'coach', dob: new Date('1988-09-05') },
 ];
 
 export const sampleWorkouts = [
@@ -83,4 +83,5 @@ export const sampleConversations: {
 ];
 
 export const sampleInvites: { _id: string; coachId: string; playerId: string; status: 'pending' | 'accepted' | 'declined'; createdAt: Date; }[] = [
+    { _id: 'inv1', coachId: 'coach1', playerId: 'player5', status: 'pending', createdAt: new Date('2024-07-28T10:00:00Z') },
 ];

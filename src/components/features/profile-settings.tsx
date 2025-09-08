@@ -4,9 +4,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2 } from "lucide-react";
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,14 +28,19 @@ import {
   CardTitle,
   CardFooter,
 } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { updateUserProfile } from "@/app/actions";
 import { sampleUsers } from "@/lib/sample-data";
+import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required."),
   email: z.string().email("Invalid email address."),
-  age: z.coerce.number().int().min(16, "Must be at least 16.").optional(),
+  dob: z.date({
+    required_error: "A date of birth is required.",
+  }).optional(),
   experience: z.string().optional(),
   goals: z.string().optional(),
 });
@@ -51,7 +57,7 @@ export default function ProfileSettings({ userId }: { userId: string }) {
     defaultValues: {
       name: "",
       email: "",
-      age: undefined,
+      dob: undefined,
       experience: "",
       goals: "",
     },
@@ -62,7 +68,7 @@ export default function ProfileSettings({ userId }: { userId: string }) {
       form.reset({
         name: user.name || "",
         email: user.email || "",
-        age: user.age,
+        dob: user.dob,
         experience: user.experience || "",
         goals: user.goals || "",
       });
@@ -141,18 +147,46 @@ export default function ProfileSettings({ userId }: { userId: string }) {
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
-                    control={form.control}
-                    name="age"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Age</FormLabel>
-                        <FormControl>
-                            <Input type="number" placeholder="Your age" {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
+                  control={form.control}
+                  name="dob"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Date of birth</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date > new Date() || date < new Date("1900-01-01")
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                     control={form.control}
                     name="experience"
@@ -160,7 +194,7 @@ export default function ProfileSettings({ userId }: { userId: string }) {
                         <FormItem>
                         <FormLabel>Experience Level</FormLabel>
                         <FormControl>
-                            <Input placeholder="e.g., Beginner, Intermediate" {...field} />
+                            <Input placeholder="e.g., Beginner, Intermediate" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -179,6 +213,7 @@ export default function ProfileSettings({ userId }: { userId: string }) {
                       placeholder="Describe your fitness goals..."
                       className="min-h-[100px]"
                       {...field}
+                      value={field.value ?? ''}
                     />
                   </FormControl>
                   <FormMessage />

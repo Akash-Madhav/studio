@@ -4,6 +4,16 @@
 import { z } from 'zod';
 import { sampleUsers, sampleWorkouts, sampleConversations, sampleInvites } from '@/lib/sample-data';
 
+const getAge = (dob?: Date) => {
+    if (!dob) return null;
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+        age--;
+    }
+    return age;
+}
 
 const logWorkoutSchema = z.object({
   exercise: z.string().min(2, "Exercise name is required."),
@@ -65,11 +75,13 @@ export async function getPlayersForScouting(coachId: string) {
           return record;
         }).join(', ');
 
+        const age = getAge(user.dob);
+
         return {
           id: user.id,
           name: user.name || `Player ${user.id.substring(0, 4)}`,
           performanceData: performanceData || "No workouts logged yet.",
-          userProfile: `Age: ${user.age || 'N/A'}, Experience: ${user.experience || 'N/A'}, Goals: ${user.goals || 'N/A'}`,
+          userProfile: `Age: ${age || 'N/A'}, Experience: ${user.experience || 'N/A'}, Goals: ${user.goals || 'N/A'}`,
           status: user.status
         };
       });
@@ -180,11 +192,12 @@ const respondToInviteSchema = z.object({
 export async function respondToInvite(values: z.infer<typeof respondToInviteSchema>) {
     const validatedData = respondToInviteSchema.parse(values);
     try {
-        const invite = sampleInvites.find(inv => inv._id === validatedData.inviteId);
-        if (!invite) {
+        const inviteIndex = sampleInvites.findIndex(inv => inv._id === validatedData.inviteId);
+        if (inviteIndex === -1) {
             return { success: false, message: 'Invite not found.' };
         }
         
+        const invite = sampleInvites[inviteIndex];
         invite.status = validatedData.response;
 
         const player = sampleUsers.find(u => u.id === validatedData.playerId);
@@ -206,6 +219,11 @@ export async function respondToInvite(values: z.infer<typeof respondToInviteSche
                 ]
             };
             sampleConversations.push(newConversation);
+            // remove invite from list
+            sampleInvites.splice(inviteIndex, 1);
+        } else {
+             // remove invite from list
+            sampleInvites.splice(inviteIndex, 1);
         }
 
         return { success: true, message: `Invite ${validatedData.response}.` };
@@ -241,6 +259,10 @@ export async function getConversations(userId: string): Promise<{success: boolea
                     sentAt: lastMessage.createdAt
                 } : null
             }
+        }).sort((a, b) => {
+            if (!a.lastMessage) return 1;
+            if (!b.lastMessage) return -1;
+            return b.lastMessage.sentAt.getTime() - a.lastMessage.sentAt.getTime();
         });
 
         return { success: true, conversations };
@@ -308,7 +330,7 @@ const updateUserProfileSchema = z.object({
     userId: z.string(),
     name: z.string().min(2, "Name is required."),
     email: z.string().email("Invalid email address."),
-    age: z.coerce.number().int().min(16, "Must be at least 16.").optional(),
+    dob: z.date().optional(),
     experience: z.string().optional(),
     goals: z.string().optional(),
 });
@@ -326,7 +348,7 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
             ...sampleUsers[userIndex],
             name: validatedData.name,
             email: validatedData.email,
-            age: validatedData.age,
+            dob: validatedData.dob,
             experience: validatedData.experience,
             goals: validatedData.goals,
         };
