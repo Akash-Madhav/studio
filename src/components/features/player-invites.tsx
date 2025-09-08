@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { getPendingInvitesForPlayer, respondToInvite } from "@/app/actions";
 import {
     Card,
@@ -12,7 +13,7 @@ import {
     CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mail, UserX, Check, X } from "lucide-react";
+import { Loader2, UserX, Check, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import dayjs from 'dayjs';
@@ -30,12 +31,14 @@ interface Invite {
 
 export default function PlayerInvites({ userId }: { userId: string }) {
     const { toast } = useToast();
+    const router = useRouter();
     const [invites, setInvites] = useState<Invite[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isResponding, setIsResponding] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
 
-    const fetchInvites = async () => {
+    const fetchInvites = React.useCallback(async () => {
+        if (!userId) return;
         setIsLoading(true);
         const result = await getPendingInvitesForPlayer(userId);
         if (result.success) {
@@ -44,13 +47,11 @@ export default function PlayerInvites({ userId }: { userId: string }) {
             toast({ variant: 'destructive', title: "Error", description: "Failed to fetch invites." });
         }
         setIsLoading(false);
-    };
+    }, [userId, toast]);
 
     useEffect(() => {
-        if (userId) {
-            fetchInvites();
-        }
-    }, [userId]);
+        fetchInvites();
+    }, [fetchInvites]);
 
     const handleResponse = (inviteId: string, coachId: string, response: 'accepted' | 'declined') => {
         startTransition(async () => {
@@ -67,7 +68,18 @@ export default function PlayerInvites({ userId }: { userId: string }) {
                     title: `Invite ${response}`,
                     description: `You have ${response} the invitation.`,
                 });
-                setInvites(prev => prev.filter(inv => inv.inviteId !== inviteId));
+                
+                if (response === 'accepted') {
+                   // Navigate to messages to see the new conversation
+                   const newUrl = new URL(window.location.href);
+                   newUrl.searchParams.set('tab', 'messages');
+                   newUrl.searchParams.set('conversationId', `${coachId}_${userId}`);
+                   router.push(newUrl.toString());
+                } else {
+                    // Re-fetch invites to update the UI
+                   fetchInvites();
+                }
+
             } else {
                 toast({
                     variant: 'destructive',
@@ -121,7 +133,8 @@ export default function PlayerInvites({ userId }: { userId: string }) {
                                         onClick={() => handleResponse(invite.inviteId, invite.coachId, 'declined')}
                                         disabled={isResponding === invite.inviteId}
                                     >
-                                        {isResponding === invite.inviteId ? <Loader2 className="animate-spin"/> : <X />}
+                                        {isResponding === invite.inviteId && <Loader2 className="animate-spin"/>}
+                                        <X className="mr-2 h-4 w-4" />
                                         Decline
                                     </Button>
                                     <Button 
@@ -129,7 +142,8 @@ export default function PlayerInvites({ userId }: { userId: string }) {
                                         onClick={() => handleResponse(invite.inviteId, invite.coachId, 'accepted')}
                                         disabled={isResponding === invite.inviteId}
                                     >
-                                        {isResponding === invite.inviteId ? <Loader2 className="animate-spin"/> : <Check />}
+                                        {isResponding === invite.inviteId && <Loader2 className="animate-spin"/>}
+                                        <Check className="mr-2 h-4 w-4" />
                                         Accept
                                     </Button>
                                 </CardFooter>

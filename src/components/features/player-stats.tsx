@@ -10,7 +10,7 @@ import {
     CardFooter,
   } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
-import { Loader2, User } from "lucide-react";
+import { Loader2, User, BarChart3, UserCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ProgressVisualization from "./progress-visualization";
@@ -33,9 +33,11 @@ export default function PlayerStats({ players, isLoading, onViewPlayerDashboard 
     return (
         <Card className="border-0 shadow-none">
             <CardHeader className="px-0">
-                <CardTitle>Player Statistics</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                    <UserCheck /> Your Recruited Players
+                </CardTitle>
                 <CardDescription>
-                    An overview of your team's player performance. Click a player's dashboard to see their progress.
+                    An overview of your team's player performance. Click a player to see their progress dashboard.
                 </CardDescription>
             </CardHeader>
             <CardContent className="px-0">
@@ -46,8 +48,8 @@ export default function PlayerStats({ players, isLoading, onViewPlayerDashboard 
                 ) : players.length === 0 ? (
                     <div className="text-center text-muted-foreground py-12 border rounded-lg">
                         <User className="mx-auto h-12 w-12" />
-                        <h3 className="mt-4 text-lg font-semibold">No Players Found</h3>
-                        <p>Invited or new players will appear here once they log a workout.</p>
+                        <h3 className="mt-4 text-lg font-semibold">No Players on Roster</h3>
+                        <p>Use the "Scouting" tab to find and recruit new players to your team.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -62,7 +64,7 @@ export default function PlayerStats({ players, isLoading, onViewPlayerDashboard 
                                             </Avatar>
                                             <div>
                                                 <CardTitle className="text-lg">{player.name}</CardTitle>
-                                                <CardDescription>{player.userProfile}</CardDescription>
+                                                <CardDescription>{player.userProfile.split(',').slice(0,2).join(', ')}</CardDescription>
                                             </div>
                                         </div>
                                     </CardHeader>
@@ -73,8 +75,8 @@ export default function PlayerStats({ players, isLoading, onViewPlayerDashboard 
                                     <CardFooter className="flex justify-end gap-2 pt-4">
                                         <DialogTrigger asChild>
                                             <Button variant="outline" size="sm">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-4 w-4"><path d="M3 3v18h18"/></svg>
-                                                Dashboard
+                                                <BarChart3 className="mr-2 h-4 w-4" />
+                                                View Dashboard
                                             </Button>
                                         </DialogTrigger>
                                     </CardFooter>
@@ -98,5 +100,3 @@ export default function PlayerStats({ players, isLoading, onViewPlayerDashboard 
         </Card>
     );
   }
-
-    
