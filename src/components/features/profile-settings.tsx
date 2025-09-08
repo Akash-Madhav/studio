@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils";
 const formSchema = z.object({
   name: z.string().min(2, "Name is required."),
   email: z.string().email("Invalid email address."),
-  dob: z.date().optional(),
+  dob: z.date().optional().nullable(),
   experience: z.string().optional(),
   goals: z.string().optional(),
 });
@@ -88,7 +88,9 @@ export default function ProfileSettings({ userId }: { userId: string }) {
           description: result.message,
         });
         // Redirect to the dashboard to force a data re-fetch for the entire page
-        router.push(`/dashboard?role=${role}&userId=${userId}`);
+        router.push(`/dashboard?role=${role}&userId=${userId}&tab=profile`);
+        router.refresh();
+
       } else {
         toast({
           variant: "destructive",
@@ -178,7 +180,7 @@ export default function ProfileSettings({ userId }: { userId: string }) {
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
                             mode="single"
-                            selected={field.value}
+                            selected={field.value ?? undefined}
                             onSelect={field.onChange}
                             disabled={(date) =>
                               date > new Date() || date < new Date("1900-01-01")

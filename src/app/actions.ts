@@ -358,7 +358,7 @@ const updateUserProfileSchema = z.object({
     userId: z.string(),
     name: z.string().min(2, "Name is required."),
     email: z.string().email("Invalid email address."),
-    dob: z.string().optional(),
+    dob: z.string().optional().nullable(),
     experience: z.string().optional(),
     goals: z.string().optional(),
 });
@@ -378,7 +378,10 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
 
         if (validatedData.dob) {
             updateData.dob = new Date(validatedData.dob);
+        } else if (validatedData.dob === null) {
+            updateData.dob = null;
         }
+
 
         await updateDoc(userRef, updateData);
 
@@ -404,5 +407,3 @@ export async function getUsersForLogin(role: string) {
         return { success: false, users: [] };
     }
 }
-
-    
