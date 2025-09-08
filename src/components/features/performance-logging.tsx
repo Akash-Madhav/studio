@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -215,9 +214,13 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     }
   };
 
-  const handleStopRecording = () => {
+  const handleStopRecording = async () => {
     if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.onstop = () => {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.onstop = async () => {
+            // A small delay to ensure all data is available
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             const videoBlob = new Blob(recordedChunks, { type: "video/webm" });
             const videoUrl = URL.createObjectURL(videoBlob);
             const videoFile = new File([videoBlob], 'recorded-workout.webm', { type: 'video/webm' });
@@ -229,7 +232,6 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
             setVideoMode('upload');
             setHasCameraPermission(null);
         };
-        mediaRecorderRef.current.stop();
     }
   };
 
@@ -460,5 +462,3 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     </Card>
   );
 }
-
-    
