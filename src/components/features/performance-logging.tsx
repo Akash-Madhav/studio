@@ -4,10 +4,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Loader2, Video, UploadCloud, Rocket } from "lucide-react";
+import { Loader2, Video, UploadCloud, Rocket, Lightbulb } from "lucide-react";
 import { useState, useRef } from "react";
 import { logWorkout } from "@/app/actions";
-import { analyzeWorkoutVideo } from "@/ai/flows/video-workout-analysis-flow";
+import { analyzeWorkoutVideo, VideoAnalysisOutput } from "@/ai/flows/video-workout-analysis-flow";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -46,6 +46,8 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [analysisResult, setAnalysisResult] = useState<VideoAnalysisOutput | null>(null);
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -68,6 +70,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
       };
       reader.readAsDataURL(file);
       form.reset();
+      setAnalysisResult(null);
     }
   };
 
@@ -81,6 +84,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
         return;
     }
     setIsAnalyzing(true);
+    setAnalysisResult(null);
     try {
         const videoDataUri = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
@@ -90,6 +94,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
         });
 
         const result = await analyzeWorkoutVideo({ videoDataUri });
+        setAnalysisResult(result);
         
         form.setValue('exercise', result.exercise || '');
         form.setValue('reps', result.reps);
@@ -135,6 +140,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
       form.reset();
       setVideoPreview(null);
       setVideoFile(null);
+      setAnalysisResult(null);
       if(fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -212,6 +218,16 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
                   </div>
                 </div>
             </div>
+
+            {analysisResult && (
+                <Alert>
+                    <Lightbulb className="h-4 w-4" />
+                    <AlertTitle>AI Analysis Accuracy: {analysisResult.accuracy.score}%</AlertTitle>
+                    <AlertDescription>
+                        {analysisResult.accuracy.justification}
+                    </AlertDescription>
+                </Alert>
+            )}
           
             <FormField
               control={form.control}

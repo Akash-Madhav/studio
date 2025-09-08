@@ -26,6 +26,10 @@ const VideoAnalysisOutputSchema = z.object({
     weight: z.number().optional().describe("The weight used for the exercise, in kilograms."),
     time: z.string().optional().describe("The duration of the exercise, if relevant (e.g., for a plank)."),
     distance: z.number().optional().describe("The distance covered, if relevant (e.g., for running)."),
+    accuracy: z.object({
+        score: z.number().int().min(0).max(100).describe("An accuracy score from 0-100 for the rep count analysis."),
+        justification: z.string().describe("A brief justification for the accuracy score, noting any challenges like camera angle, lighting, or partial reps."),
+    }).describe("An assessment of the analysis accuracy.")
 });
 export type VideoAnalysisOutput = z.infer<typeof VideoAnalysisOutputSchema>;
 
@@ -64,7 +68,11 @@ const prompt = ai.definePrompt({
       -   If the exercise is timed (like a plank or run), estimate the duration.
       -   If the exercise involves distance (like running), estimate the distance in kilometers.
 
-  Fill in only the relevant fields for the identified exercise.
+  5.  **Assess Accuracy:**
+      -   After counting, provide an accuracy score (0-100) for your analysis.
+      -   Justify the score. Mention factors that may have impacted accuracy, such as camera angle, lighting, video clarity, or if the user performed partial reps that were not counted. For example: "Accuracy is 95% due to clear side view, but one rep was partially obscured."
+
+  Fill in all the relevant fields for the identified exercise, including the accuracy assessment.
 
   Video to analyze:
   {{media url=videoDataUri}}
