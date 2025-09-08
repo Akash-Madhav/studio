@@ -38,11 +38,10 @@ const formSchema = z.object({
   distance: z.coerce.number().min(0).optional(),
 });
 
-export default function PerformanceLogging() {
+export default function PerformanceLogging({ userId }: { userId?: string }) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [userId, setUserId] = useState<string | undefined>(undefined);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -76,6 +75,14 @@ export default function PerformanceLogging() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!userId) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to log a workout.",
+      });
+      return;
+    }
     setIsLoading(true);
     const result = await logWorkout({...values, userId});
     setIsLoading(false);
@@ -85,9 +92,6 @@ export default function PerformanceLogging() {
         title: "Workout Logged!",
         description: result.message,
       });
-      if(result.userId) {
-        setUserId(result.userId);
-      }
       form.reset();
     } else {
       toast({

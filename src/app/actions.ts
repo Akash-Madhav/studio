@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, where, limit, updateDoc, doc, getDoc, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, limit, updateDoc, doc, getDoc, Timestamp, orderBy, setDoc } from 'firebase/firestore';
 import { faker } from '@faker-js/faker';
 
 
@@ -13,29 +13,26 @@ const logWorkoutSchema = z.object({
   weight: z.coerce.number().min(0).optional(),
   time: z.string().optional(),
   distance: z.coerce.number().min(0).optional(),
-  userId: z.string().optional(), 
+  userId: z.string(), 
 });
 
-async function getOrCreateUser(userId?: string) {
-  const usersCollection = collection(db, 'users');
+async function ensureUserExists(userId: string) {
+  const userDocRef = doc(db, 'users', userId);
+  const userDoc = await getDoc(userDocRef);
   
-  if (userId) {
-    const userDocRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userDocRef);
-    if (userDoc.exists()) {
-      return userDoc.id;
-    }
+  if (!userDoc.exists()) {
+    // This part is for users created on the fly, outside of the seed script.
+    const newUser = {
+        name: faker.person.fullName(),
+        age: Math.floor(Math.random() * (40 - 18 + 1)) + 18,
+        experience: 'Intermediate',
+        goals: 'Improve overall fitness',
+        createdAt: new Date(),
+    };
+    await setDoc(userDocRef, newUser);
+    console.log(`Created new user with ID: ${userId}`);
   }
-
-  const newUser = {
-    name: faker.person.fullName(),
-    age: Math.floor(Math.random() * (40 - 18 + 1)) + 18,
-    experience: 'Intermediate',
-    goals: 'Improve overall fitness',
-    createdAt: new Date(),
-  };
-  const userDocRef = await addDoc(usersCollection, newUser);
-  return userDocRef.id;
+  return userId;
 }
 
 
@@ -43,7 +40,7 @@ export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
   const validatedData = logWorkoutSchema.parse(values);
   
   try {
-    const userId = await getOrCreateUser(validatedData.userId);
+    const userId = await ensureUserExists(validatedData.userId);
 
     const workoutData = {
       ...validatedData,
@@ -73,7 +70,10 @@ export async function getPlayersForScouting() {
       const user = userDoc.data();
       const userId = userDoc.id;
 
-      const workoutsQuery = query(collection(db, "workouts"), where("userId", "==", userId));
+      // Simple way to check if it's a player, could be a role field in a real app
+      if (user.email && user.email.includes('coach')) continue;
+
+      const workoutsQuery = query(collection(db, "workouts"), where("userId", "==", userId), orderBy('createdAt', 'desc'), limit(5));
       const workoutsSnapshot = await getDocs(workoutsQuery);
       
       const performanceData = workoutsSnapshot.docs.map(doc => {
@@ -120,14 +120,14 @@ export async function getConversations(userId: string) {
             const participantIds = convoData.participantIds.filter((id: string) => id !== userId);
             
             const participantsInfo: { id: string; name: string }[] = [];
+            // Get the other participant's info
             for(const pId of participantIds) {
-                // In a real app, this might be a single query for all participants
                 const userDoc = await getDoc(doc(db, 'users', pId));
                 if(userDoc.exists()){
                     participantsInfo.push({ id: pId, name: userDoc.data().name || 'Unknown User' });
                 }
             }
-             // Add current user as well to have full context
+            // Get current user's info
             const currentUserDoc = await getDoc(doc(db, 'users', userId));
             if(currentUserDoc.exists()){
                 participantsInfo.push({ id: userId, name: currentUserDoc.data().name || 'Me' });
@@ -172,9 +172,20 @@ const sendMessageSchema = z.object({
     text: z.string().min(1),
 });
 
+async function ensureConversationExists(conversationId: string, senderId: string) {
+    const convoRef = doc(db, 'conversations', conversationId);
+    const convoDoc = await getDoc(convoRef);
+    if (!convoDoc.exists()) {
+        const participantIds = conversationId.split('_');
+        await setDoc(convoRef, { participantIds });
+    }
+}
+
 export async function sendMessage(values: z.infer<typeof sendMessageSchema>) {
     const validatedData = sendMessageSchema.parse(values);
     try {
+        await ensureConversationExists(validatedData.conversationId, validatedData.senderId);
+
         const message = {
             senderId: validatedData.senderId,
             text: validatedData.text,
@@ -196,4 +207,3 @@ export async function sendMessage(values: z.infer<typeof sendMessageSchema>) {
         return { success: false };
     }
 }
-

@@ -9,9 +9,13 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { sampleUsers } from "@/lib/sample-data";
 
 export default function LoginPage() {
   const [userRole, setUserRole] = useState("player");
+  const [selectedUser, setSelectedUser] = useState("");
+  const usersForRole = sampleUsers.filter(u => u.role === userRole);
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -27,24 +31,19 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-2xl">Login</CardTitle>
             <CardDescription>
-              Enter your credentials to access your dashboard.
+              Select a role and user to access your dashboard.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="m@example.com" required />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" required />
-            </div>
-            <div className="grid gap-2">
-              <Label>Are you a...</Label>
+              <Label>I am a...</Label>
               <RadioGroup 
                 defaultValue="player" 
                 className="grid grid-cols-2 gap-4"
-                onValueChange={(value) => setUserRole(value)}
+                onValueChange={(value) => {
+                  setUserRole(value);
+                  setSelectedUser("");
+                }}
               >
                 <div>
                   <RadioGroupItem value="player" id="player" className="peer sr-only" />
@@ -66,17 +65,24 @@ export default function LoginPage() {
                 </div>
               </RadioGroup>
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="user-select">User</Label>
+               <Select onValueChange={setSelectedUser} value={selectedUser}>
+                <SelectTrigger id="user-select">
+                  <SelectValue placeholder="Select a user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {usersForRole.map(user => (
+                    <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Link href={`/dashboard?role=${userRole}`} passHref className="w-full">
-              <Button className="w-full">Sign in</Button>
+            <Link href={`/dashboard?role=${userRole}&userId=${selectedUser}`} passHref className="w-full">
+              <Button className="w-full" disabled={!selectedUser}>Sign in</Button>
             </Link>
-            <div className="text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <Link href="#" className="underline">
-                Sign up
-              </Link>
-            </div>
           </CardFooter>
         </Card>
       </main>

@@ -38,6 +38,7 @@ import Messages from '@/components/features/messages';
 function DashboardContent() {
   const searchParams = useSearchParams();
   const role = searchParams.get('role') || 'player';
+  const userId = searchParams.get('userId') || (role === 'coach' ? 'coach1' : 'player1');
   const isCoach = role === 'coach';
 
   return (
@@ -54,13 +55,13 @@ function DashboardContent() {
               <Button variant="secondary" size="icon" className="rounded-full">
                 <Avatar>
                   <AvatarImage
-                    src="https://picsum.photos/50/50"
+                    src={`https://picsum.photos/seed/${userId}/50/50`}
                     alt="@user"
                     width={50}
                     height={50}
                     data-ai-hint="person face"
                   />
-                  <AvatarFallback>U</AvatarFallback>
+                  <AvatarFallback>{userId.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <span className="sr-only">Toggle user menu</span>
               </Button>
@@ -136,7 +137,7 @@ function DashboardContent() {
           </TabsContent>
           {isCoach ? (
             <TabsContent value="player-stats" className="mt-4">
-              <PlayerStats />
+              <PlayerStats userId={userId}/>
             </TabsContent>
           ) : (
             <TabsContent value="ai-insights" className="mt-4">
@@ -146,7 +147,7 @@ function DashboardContent() {
           {!isCoach && (
             <>
               <TabsContent value="log-performance" className="mt-4">
-                <PerformanceLogging />
+                <PerformanceLogging userId={userId}/>
               </TabsContent>
               <TabsContent value="recommendations" className="mt-4">
                 <PersonalizedRecommendations />
@@ -162,7 +163,7 @@ function DashboardContent() {
               </TabsContent>
           )}
            <TabsContent value="messages" className="mt-4">
-              <Messages />
+              <Messages userId={userId} />
             </TabsContent>
         </Tabs>
       </main>

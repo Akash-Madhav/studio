@@ -1,6 +1,8 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
+import Link from 'next/link';
 import {
     Table,
     TableBody,
@@ -18,67 +20,44 @@ import {
   } from "@/components/ui/card"
   import { Badge } from "@/components/ui/badge";
   import { Button } from "@/components/ui/button";
-import { MessageSquare } from "lucide-react";
+import { Loader2, MessageSquare } from "lucide-react";
+import { getPlayersForScouting } from "@/app/actions";
+import { useToast } from "@/hooks/use-toast";
   
-  const players = [
-    {
-      id: "player-1",
-      name: "Alex Johnson",
-      team: "Warriors",
-      stats: {
-        points: "25.3",
-        rebounds: "10.1",
-        assists: "4.5",
-        status: "Active",
-      },
-    },
-    {
-      id: "player-2",
-      name: "Maria Garcia",
-      team: "Titans",
-      stats: {
-        points: "18.7",
-        rebounds: "5.2",
-        assists: "7.8",
-        status: "Active",
-      },
-    },
-    {
-      id: "player-3",
-      name: "Sam Chen",
-      team: "Warriors",
-      stats: {
-        points: "22.1",
-        rebounds: "8.9",
-        assists: "3.2",
-        status: "Injured",
-      },
-    },
-    {
-      id: "player-4",
-      name: "Emily Rodriguez",
-      team: "Titans",
-      stats: {
-        points: "15.5",
-        rebounds: "3.1",
-        assists: "9.1",
-        status: "Active",
-      },
-    },
-    {
-      id: "player-5",
-      name: "Ben Carter",
-      team: "Warriors",
-      stats: {
-        points: "12.0",
-        rebounds: "12.5",
-        assists: "2.1",
-        status: "Active",
-      },
-    },
-  ]
-  
-  export default function PlayerStats() {
+interface Player {
+  id: string;
+  name: string;
+  userProfile: string;
+  performanceData: string;
+}
+
+export default function PlayerStats({ userId }: { userId: string }) {
+    const [players, setPlayers] = useState<Player[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { toast } = useToast();
+
+    useEffect(() => {
+      async function fetchPlayers() {
+        setIsLoading(true);
+        const result = await getPlayersForScouting();
+        if (result.success && result.players) {
+            setPlayers(result.players);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to fetch players.'
+            })
+        }
+        setIsLoading(false);
+      }
+      fetchPlayers();
+    }, [toast]);
+    
+    const getConversationId = (coachId: string, playerId: string) => {
+        return [coachId, playerId].sort().join('_');
+    }
+
     return (
       <Card>
         <CardHeader>
@@ -88,43 +67,46 @@ import { MessageSquare } from "lucide-react";
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Player</TableHead>
-                <TableHead>Team</TableHead>
-                <TableHead className="text-right">Points</TableHead>
-                <TableHead className="text-right">Rebounds</TableHead>
-                <TableHead className="text-right">Assists</TableHead>
-                <TableHead className="text-center">Status</TableHead>
-                <TableHead className="text-center">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {players.map((player) => (
-                <TableRow key={player.id}>
-                  <TableCell className="font-medium">{player.name}</TableCell>
-                  <TableCell>{player.team}</TableCell>
-                  <TableCell className="text-right">{player.stats.points}</TableCell>
-                  <TableCell className="text-right">{player.stats.rebounds}</TableCell>
-                  <TableCell className="text-right">{player.stats.assists}</TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={player.stats.status === 'Active' ? 'default' : 'destructive'}>
-                        {player.stats.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                      <Button variant="outline" size="sm">
-                          <MessageSquare className="mr-2 h-4 w-4" />
-                          Contact
-                      </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+            {isLoading ? (
+                <div className="flex justify-center items-center py-8">
+                    <Loader2 className="animate-spin" />
+                </div>
+            ) : (
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Player</TableHead>
+                        <TableHead>Profile</TableHead>
+                        <TableHead>Latest Performance</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                        <TableHead className="text-center">Actions</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {players.map((player) => (
+                        <TableRow key={player.id}>
+                        <TableCell className="font-medium">{player.name}</TableCell>
+                        <TableCell>{player.userProfile}</TableCell>
+                        <TableCell className="max-w-xs truncate">{player.performanceData || 'N/A'}</TableCell>
+                        <TableCell className="text-center">
+                            <Badge variant={'default'}>
+                                Active
+                            </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Link href={`/dashboard?role=coach&userId=${userId}&tab=messages&conversationId=${getConversationId(userId, player.id)}`}>
+                                <Button variant="outline" size="sm">
+                                    <MessageSquare className="mr-2 h-4 w-4" />
+                                    Contact
+                                </Button>
+                            </Link>
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+            )}
         </CardContent>
       </Card>
     )
   }
-  
