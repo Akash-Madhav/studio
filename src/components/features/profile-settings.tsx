@@ -38,9 +38,7 @@ import { cn } from "@/lib/utils";
 const formSchema = z.object({
   name: z.string().min(2, "Name is required."),
   email: z.string().email("Invalid email address."),
-  dob: z.date({
-    required_error: "A date of birth is required.",
-  }).optional(),
+  dob: z.date().optional(),
   experience: z.string().optional(),
   goals: z.string().optional(),
 });
