@@ -1,4 +1,7 @@
 
+'use client';
+
+import { useSearchParams } from 'next/navigation';
 import {
   BarChart3,
   BrainCircuit,
@@ -29,7 +32,11 @@ import SportMatch from "@/components/features/sport-match";
 import PlayerScouting from "@/components/features/player-scouting";
 import { Card } from "@/components/ui/card";
 
-export default function Dashboard() {
+function DashboardContent() {
+  const searchParams = useSearchParams();
+  const role = searchParams.get('role') || 'player';
+  const isCoach = role === 'coach';
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 z-50">
@@ -69,60 +76,93 @@ export default function Dashboard() {
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <div className="grid gap-2">
           <h1 className="text-3xl font-bold tracking-tight text-primary">
-            Fitness Dashboard
+            {isCoach ? 'Coach' : 'Fitness'} Dashboard
           </h1>
           <p className="text-muted-foreground">
-            Your central hub for tracking, analyzing, and optimizing your
-            fitness journey.
+            {isCoach
+              ? 'Your central hub for scouting and analyzing player performance.'
+              : 'Your central hub for tracking, analyzing, and optimizing your fitness journey.'}
           </p>
         </div>
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
+          <TabsList className={`grid w-full h-auto grid-cols-2 ${isCoach ? 'sm:grid-cols-3' : 'sm:grid-cols-3 md:grid-cols-6'}`}>
             <TabsTrigger value="dashboard">
               <BarChart3 className="mr-2" />
               Dashboard
             </TabsTrigger>
-            <TabsTrigger value="log-performance">
-              <LogIn className="mr-2" />
-              Log
-            </TabsTrigger>
+            {!isCoach && (
+              <>
+                <TabsTrigger value="log-performance">
+                  <LogIn className="mr-2" />
+                  Log
+                </TabsTrigger>
+              </>
+            )}
             <TabsTrigger value="ai-insights">
               <BrainCircuit className="mr-2" />
               Insights
             </TabsTrigger>
-            <TabsTrigger value="recommendations">
-              <Target className="mr-2" />
-              Recs
-            </TabsTrigger>
-            <TabsTrigger value="sport-match">
-              <Medal className="mr-2" />
-              Match
-            </TabsTrigger>
-            <TabsTrigger value="player-scouting">
-              <Users className="mr-2" />
-              Scouting
-            </TabsTrigger>
+            {!isCoach && (
+              <>
+                <TabsTrigger value="recommendations">
+                  <Target className="mr-2" />
+                  Recs
+                </TabsTrigger>
+                <TabsTrigger value="sport-match">
+                  <Medal className="mr-2" />
+                  Match
+                </TabsTrigger>
+              </>
+            )}
+            {isCoach && (
+              <TabsTrigger value="player-scouting">
+                <Users className="mr-2" />
+                Scouting
+              </TabsTrigger>
+            )}
           </TabsList>
           <TabsContent value="dashboard" className="mt-4">
             <ProgressVisualization />
           </TabsContent>
-          <TabsContent value="log-performance" className="mt-4">
-            <PerformanceLogging />
-          </TabsContent>
-          <TabsContent value="ai-insights" className="mt-4">
-            <AiInsights />
-          </TabsContent>
-          <TabsContent value="recommendations" className="mt-4">
-            <PersonalizedRecommendations />
-          </TabsContent>
-          <TabsContent value="sport-match" className="mt-4">
-            <SportMatch />
-          </TabsContent>
-          <TabsContent value="player-scouting" className="mt-4">
-            <PlayerScouting />
-          </TabsContent>
+          {!isCoach && (
+            <>
+              <TabsContent value="log-performance" className="mt-4">
+                <PerformanceLogging />
+              </TabsContent>
+              <TabsContent value="ai-insights" className="mt-4">
+                <AiInsights />
+              </TabsContent>
+              <TabsContent value="recommendations" className="mt-4">
+                <PersonalizedRecommendations />
+              </TabsContent>
+              <TabsContent value="sport-match" className="mt-4">
+                <SportMatch />
+              </TabsContent>
+            </>
+          )}
+          {isCoach && (
+             <>
+              <TabsContent value="ai-insights" className="mt-4">
+                <AiInsights />
+              </TabsContent>
+              <TabsContent value="player-scouting" className="mt-4">
+                <PlayerScouting />
+              </TabsContent>
+            </>
+          )}
         </Tabs>
       </main>
     </div>
   );
 }
+
+export default function Dashboard() {
+  return (
+    <React.Suspense fallback={<div>Loading...</div>}>
+      <DashboardContent />
+    </React.Suspense>
+  );
+}
+
+// React is not defined, so I will define it.
+import * as React from 'react';

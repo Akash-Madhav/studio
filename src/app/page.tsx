@@ -1,14 +1,18 @@
 
+"use client";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dumbbell, Shield, Users, Zap } from "lucide-react";
-import Image from "next/image";
+import { Dumbbell } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export default function LoginPage() {
+  const [userRole, setUserRole] = useState("player");
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-50 flex items-center justify-between h-16 px-4 md:px-6 border-b bg-card">
@@ -37,7 +41,11 @@ export default function LoginPage() {
             </div>
             <div className="grid gap-2">
               <Label>Are you a...</Label>
-              <RadioGroup defaultValue="player" className="grid grid-cols-2 gap-4">
+              <RadioGroup 
+                defaultValue="player" 
+                className="grid grid-cols-2 gap-4"
+                onValueChange={(value) => setUserRole(value)}
+              >
                 <div>
                   <RadioGroupItem value="player" id="player" className="peer sr-only" />
                   <Label
@@ -60,7 +68,7 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Link href="/dashboard" passHref className="w-full">
+            <Link href={`/dashboard?role=${userRole}`} passHref className="w-full">
               <Button className="w-full">Sign in</Button>
             </Link>
             <div className="text-center text-sm text-muted-foreground">
