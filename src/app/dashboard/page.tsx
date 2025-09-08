@@ -1,6 +1,7 @@
 
 'use client';
 
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   BarChart3,
@@ -30,7 +31,6 @@ import PersonalizedRecommendations from "@/components/features/personalized-reco
 import ProgressVisualization from "@/components/features/progress-visualization";
 import SportMatch from "@/components/features/sport-match";
 import PlayerScouting from "@/components/features/player-scouting";
-import { Card } from "@/components/ui/card";
 
 function DashboardContent() {
   const searchParams = useSearchParams();
@@ -85,7 +85,7 @@ function DashboardContent() {
           </p>
         </div>
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className={`grid w-full h-auto grid-cols-2 ${isCoach ? 'sm:grid-cols-3' : 'sm:grid-cols-3 md:grid-cols-6'}`}>
+        <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5'}`}>
             <TabsTrigger value="dashboard">
               <BarChart3 className="mr-2" />
               Dashboard
@@ -124,13 +124,13 @@ function DashboardContent() {
           <TabsContent value="dashboard" className="mt-4">
             <ProgressVisualization />
           </TabsContent>
+          <TabsContent value="ai-insights" className="mt-4">
+            <AiInsights />
+          </TabsContent>
           {!isCoach && (
             <>
               <TabsContent value="log-performance" className="mt-4">
                 <PerformanceLogging />
-              </TabsContent>
-              <TabsContent value="ai-insights" className="mt-4">
-                <AiInsights />
               </TabsContent>
               <TabsContent value="recommendations" className="mt-4">
                 <PersonalizedRecommendations />
@@ -141,14 +141,9 @@ function DashboardContent() {
             </>
           )}
           {isCoach && (
-             <>
-              <TabsContent value="ai-insights" className="mt-4">
-                <AiInsights />
-              </TabsContent>
               <TabsContent value="player-scouting" className="mt-4">
                 <PlayerScouting />
               </TabsContent>
-            </>
           )}
         </Tabs>
       </main>
@@ -158,11 +153,8 @@ function DashboardContent() {
 
 export default function Dashboard() {
   return (
-    <React.Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div>Loading...</div>}>
       <DashboardContent />
-    </React.Suspense>
+    </Suspense>
   );
 }
-
-// React is not defined, so I will define it.
-import * as React from 'react';
