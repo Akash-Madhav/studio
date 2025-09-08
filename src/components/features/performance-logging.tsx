@@ -4,8 +4,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Loader2, Video, UploadCloud, Rocket, Lightbulb } from "lucide-react";
-import { useState, useRef } from "react";
+import { Loader2, Video, UploadCloud, Rocket, Lightbulb, Camera, Circle, StopCircle } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { logWorkout } from "@/app/actions";
 import { analyzeWorkoutVideo, VideoAnalysisOutput } from "@/ai/flows/video-workout-analysis-flow";
 
@@ -43,11 +43,19 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
   const { toast } = useToast();
   const [isLogging, setIsLogging] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
+  const [videoMode, setVideoMode] = useState<'upload' | 'camera'>('upload');
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [analysisResult, setAnalysisResult] = useState<VideoAnalysisOutput | null>(null);
 
+  // Camera state
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -59,6 +67,45 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
       distance: undefined,
     },
   });
+
+  const cleanupCamera = () => {
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+  };
+  
+  useEffect(() => {
+    return () => {
+      cleanupCamera();
+    }
+  }, []);
+
+  const getCameraPermission = async () => {
+      if (!('mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices)) {
+        toast({ variant: 'destructive', title: 'Camera Not Supported', description: 'Your browser does not support camera access.'});
+        setHasCameraPermission(false);
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({video: true});
+        setHasCameraPermission(true);
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings to use this feature.',
+        });
+      }
+    };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -79,7 +126,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
         toast({
             variant: 'destructive',
             title: 'No Video Selected',
-            description: 'Please upload a video to analyze.'
+            description: 'Please upload or record a video to analyze.'
         });
         return;
     }
@@ -153,14 +200,62 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     }
   }
 
+  const handleStartRecording = () => {
+    if (videoRef.current?.srcObject) {
+      setIsRecording(true);
+      setRecordedChunks([]);
+      const stream = videoRef.current.srcObject as MediaStream;
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          setRecordedChunks((prev) => [...prev, event.data]);
+        }
+      };
+      mediaRecorderRef.current.start();
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.onstop = () => {
+            const videoBlob = new Blob(recordedChunks, { type: "video/webm" });
+            const videoUrl = URL.createObjectURL(videoBlob);
+            const videoFile = new File([videoBlob], 'recorded-workout.webm', { type: 'video/webm' });
+            
+            setVideoPreview(videoUrl);
+            setVideoFile(videoFile);
+            setIsRecording(false);
+            cleanupCamera();
+            setVideoMode('upload');
+            setHasCameraPermission(null);
+        };
+        mediaRecorderRef.current.stop();
+    }
+  };
+
   const isFormPopulated = form.watch('exercise') !== '';
+
+  const resetAll = () => {
+    form.reset();
+    setVideoPreview(null);
+    setVideoFile(null);
+    setAnalysisResult(null);
+    setRecordedChunks([]);
+    setIsRecording(false);
+    cleanupCamera();
+    setVideoMode('upload');
+    setHasCameraPermission(null);
+     if(fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+  };
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle>Log New Workout with AI</CardTitle>
         <CardDescription>
-          Upload a video of your workout, and let our AI analyze it for you.
+          Upload a video or use your webcam to let our AI analyze your workout.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -170,14 +265,22 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
                 <FormLabel>Workout Video</FormLabel>
                 <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 space-y-4">
                   <div className="bg-muted rounded-md aspect-video flex items-center justify-center relative">
-                    {videoPreview ? (
-                        <video src={videoPreview} className="w-full aspect-video rounded-md" controls />
-                    ) : (
-                        <div className="text-center text-muted-foreground">
-                            <UploadCloud className="mx-auto h-12 w-12" />
-                            <p>Upload a video to get started</p>
-                        </div>
+                    {videoMode === 'upload' && (
+                        <>
+                            {videoPreview ? (
+                                <video src={videoPreview} className="w-full aspect-video rounded-md" controls />
+                            ) : (
+                                <div className="text-center text-muted-foreground">
+                                    <UploadCloud className="mx-auto h-12 w-12" />
+                                    <p>Upload or record a video to get started</p>
+                                </div>
+                            )}
+                        </>
                     )}
+                    {videoMode === 'camera' && (
+                        <video ref={videoRef} className="w-full aspect-video rounded-md" autoPlay muted playsInline />
+                    )}
+
                      {isAnalyzing && (
                       <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center rounded-md">
                         <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
@@ -185,24 +288,71 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
                         <p className="text-sm text-muted-foreground">This may take a moment.</p>
                       </div>
                     )}
+
+                    {videoMode === 'camera' && hasCameraPermission === false && (
+                       <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center rounded-md p-4">
+                         <Alert variant="destructive">
+                            <AlertTitle>Camera Access Required</AlertTitle>
+                            <AlertDescription>
+                                Please allow camera access in your browser to use this feature. You may need to refresh the page.
+                            </AlertDescription>
+                        </Alert>
+                       </div>
+                    )}
                   </div>
                 
                   <div className="flex gap-2 flex-wrap">
-                      <Button asChild variant="outline">
-                        <label htmlFor="video-upload">
-                          <Video className="mr-2" />
-                          {videoFile ? 'Change Video' : 'Select Video'}
-                          <input 
-                            ref={fileInputRef}
-                            id="video-upload" 
-                            type="file" 
-                            accept="video/*" 
-                            className="sr-only" 
-                            onChange={handleFileChange}
-                            disabled={isAnalyzing}
-                          />
-                        </label>
-                      </Button>
+                      {videoMode === 'upload' && (
+                          <>
+                            <Button asChild variant="outline">
+                                <label htmlFor="video-upload">
+                                <UploadCloud className="mr-2" />
+                                {videoFile ? 'Change Video' : 'Upload Video'}
+                                <input 
+                                    ref={fileInputRef}
+                                    id="video-upload" 
+                                    type="file" 
+                                    accept="video/*" 
+                                    className="sr-only" 
+                                    onChange={handleFileChange}
+                                    disabled={isAnalyzing}
+                                />
+                                </label>
+                            </Button>
+                             <Button type="button" variant="outline" onClick={() => {
+                                 resetAll();
+                                 setVideoMode('camera');
+                                 getCameraPermission();
+                             }}>
+                                 <Camera className="mr-2"/>
+                                 Use Webcam
+                             </Button>
+                          </>
+                      )}
+
+                      {videoMode === 'camera' && hasCameraPermission && (
+                          <>
+                           {!isRecording ? (
+                               <Button type="button" onClick={handleStartRecording}>
+                                   <Circle className="mr-2 text-red-500 fill-current" />
+                                   Start Recording
+                               </Button>
+                           ) : (
+                               <Button type="button" onClick={handleStopRecording} variant="destructive">
+                                   <StopCircle className="mr-2" />
+                                   Stop Recording
+                               </Button>
+                           )}
+                           <Button type="button" variant="ghost" onClick={() => {
+                               cleanupCamera();
+                               setVideoMode('upload');
+                               setHasCameraPermission(null);
+                           }}>
+                               Cancel
+                           </Button>
+                          </>
+                      )}
+                      
                       <Button 
                         type="button" 
                         onClick={handleAnalyzeVideo}
@@ -294,7 +444,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
                       <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} disabled={!isFormPopulated}/>
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
+                  </Item>
                 )}
               />
             </div>
