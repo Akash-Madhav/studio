@@ -38,6 +38,22 @@ export default function Messages({ userId }: { userId: string }) {
     const { toast } = useToast();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     
+    const handleSelectConversation = React.useCallback(async (convo: Conversation) => {
+        setSelectedConversation(convo);
+        setIsLoadingMessages(true);
+        setMessages([]);
+        try {
+            const result = await getMessages(convo.id);
+            if (result.success && result.messages) {
+                setMessages(result.messages as Message[]);
+            } else {
+                toast({ variant: 'destructive', title: "Error", description: "Failed to fetch messages." });
+            }
+        } finally {
+            setIsLoadingMessages(false);
+        }
+    }, [toast]);
+
     useEffect(() => {
         if (!userId) return;
         async function fetchConversations() {
@@ -67,23 +83,7 @@ export default function Messages({ userId }: { userId: string }) {
             setIsLoadingConversations(false);
         }
         fetchConversations();
-    }, [toast, userId, searchParams]);
-
-    const handleSelectConversation = async (convo: Conversation) => {
-        setSelectedConversation(convo);
-        setIsLoadingMessages(true);
-        setMessages([]);
-        try {
-            const result = await getMessages(convo.id);
-            if (result.success && result.messages) {
-                setMessages(result.messages as Message[]);
-            } else {
-                toast({ variant: 'destructive', title: "Error", description: "Failed to fetch messages." });
-            }
-        } finally {
-            setIsLoadingMessages(false);
-        }
-    }
+    }, [toast, userId, searchParams, handleSelectConversation]);
 
     useEffect(() => {
         if (messages.length > 0) {
@@ -249,3 +249,5 @@ export default function Messages({ userId }: { userId: string }) {
         </div>
     );
 }
+
+    

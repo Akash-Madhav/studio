@@ -19,6 +19,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { Info } from "lucide-react";
 
 const weightChartConfig = {
   weight: {
@@ -82,9 +83,13 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
     
     if (userWorkouts.length === 0) {
         return (
-            <Card>
-                <CardContent className="flex items-center justify-center h-96">
-                    <p className="text-muted-foreground">Log a workout to see your progress here.</p>
+            <Card className="md:col-span-2 lg:col-span-3">
+                <CardContent className="flex flex-col items-center justify-center h-96">
+                    <div className="text-center text-muted-foreground py-12 border rounded-lg w-full max-w-sm">
+                        <Info className="mx-auto h-12 w-12" />
+                        <h3 className="mt-4 text-lg font-semibold">No Progress to Show Yet</h3>
+                        <p>Use the "Log" tab to record a workout.</p>
+                    </div>
                 </CardContent>
             </Card>
         )
@@ -189,3 +194,5 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
     </div>
   );
 }
+
+    

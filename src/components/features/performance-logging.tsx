@@ -152,7 +152,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     }
   }
 
-  const isFormPopulated = form.watch('exercise') !== '';
+  const isFormPopulated = !!analysisResult;
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -311,3 +311,5 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     </Card>
   );
 }
+
+    

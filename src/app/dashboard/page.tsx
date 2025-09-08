@@ -83,11 +83,11 @@ function DashboardContent() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const fetchCoachData = async () => {
+  const fetchCoachData = React.useCallback(async () => {
     if (!isCoach) return;
 
+    setIsLoadingData(true);
     startTransition(async () => {
-        setIsLoadingData(true);
         const playersResult = await getPlayersForScouting(initialUserId);
         if (playersResult.success && playersResult.players) {
             setPlayers(playersResult.players.map(p => ({...p, name: p.name || `Player ${p.id.substring(0,4)}`})));
@@ -112,11 +112,11 @@ function DashboardContent() {
         }
         setIsLoadingData(false);
     });
-  };
+  }, [isCoach, initialUserId, toast]);
 
   useEffect(() => {
     fetchCoachData();
-  }, [isCoach, initialUserId]);
+  }, [fetchCoachData]);
 
 
   useEffect(() => {
@@ -154,8 +154,8 @@ function DashboardContent() {
         </div>
         <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
           {isCoach && (
-            <Button variant="ghost" size="sm" onClick={fetchCoachData} disabled={isPending}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+            <Button variant="ghost" size="sm" onClick={fetchCoachData} disabled={isPending || isLoadingData}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isPending || isLoadingData ? 'animate-spin' : ''}`} />
                 Refresh Data
             </Button>
           )}
@@ -182,9 +182,9 @@ function DashboardContent() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <Link href={`/dashboard/settings?role=${role}&userId=${initialUserId}`}>
-                    <DropdownMenuItem>Settings</DropdownMenuItem>
-                </Link>
+                 <DropdownMenuItem onSelect={() => updateUrl('settings')}>
+                    Settings
+                </DropdownMenuItem>
                 <DropdownMenuItem>Support</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <Link href="/">
@@ -251,7 +251,7 @@ function DashboardContent() {
 
         {dashboardIsPlayerView && (
            <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-9 h-auto">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-10 h-auto">
                 <TabsTrigger value="dashboard">
                   <BarChart3 className="mr-2" />
                   Dashboard
@@ -288,6 +288,10 @@ function DashboardContent() {
                     <Rss className="mr-2" />
                     Community
                   </TabsTrigger>
+                <TabsTrigger value="settings">
+                    <UserIcon className="mr-2" />
+                    Settings
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="dashboard" className="mt-4">
                 <ProgressVisualization userId={userId} />
@@ -316,6 +320,9 @@ function DashboardContent() {
               <TabsContent value="community" className="mt-4">
                   <CommunityHub userId={userId} role="player" />
               </TabsContent>
+              <TabsContent value="settings" className="mt-4">
+                  <ProfileSettings userId={userId} />
+              </TabsContent>
            </Tabs>
         )}
       </main>
@@ -330,3 +337,5 @@ export default function Dashboard() {
     </Suspense>
   );
 }
+
+    

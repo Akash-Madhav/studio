@@ -87,8 +87,9 @@ export default function ProfileSettings({ userId }: { userId: string }) {
           title: "Profile Updated",
           description: result.message,
         });
-        // Redirect to the dashboard to force a data re-fetch for the entire page
-        router.push(`/dashboard?role=${role}&userId=${userId}&tab=profile`);
+        const currentTab = searchParams.get('tab');
+        const newUrl = `/dashboard?role=${role}&userId=${userId}&tab=${currentTab}&t=${new Date().getTime()}`;
+        router.push(newUrl);
         router.refresh();
 
       } else {
@@ -238,3 +239,5 @@ export default function ProfileSettings({ userId }: { userId: string }) {
     </Card>
   );
 }
+
+    

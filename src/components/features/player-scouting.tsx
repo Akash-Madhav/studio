@@ -132,7 +132,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                 description: result.message,
             });
             onInviteSent();
-            // Optimistically remove from recommendations
+            // Optimistically update UI
             setRecommendations(prev => prev ? ({
                 ...prev,
                 recommendations: prev.recommendations.filter(r => r.playerId !== playerId)
@@ -249,14 +249,14 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                         size="sm" 
                         className="w-full"
                         onClick={() => handleSendInvite(rec.playerId)}
-                        disabled={isPending && isSendingInvite === rec.playerId}
+                        disabled={(isPending && isSendingInvite === rec.playerId) || getPlayerStatus(rec.playerId) === 'pending_invite'}
                       >
-                         {isPending && isSendingInvite === rec.playerId ? (
+                         {(isPending && isSendingInvite === rec.playerId) ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                          ) : (
                             <Send className="mr-2 h-4 w-4" />
                          )}
-                        Send Recruit Invite
+                        {getPlayerStatus(rec.playerId) === 'pending_invite' ? 'Invite Already Sent' : 'Send Recruit Invite'}
                       </Button>
                     </div>
                   </AccordionContent>
@@ -279,3 +279,5 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     </div>
   );
 }
+
+    

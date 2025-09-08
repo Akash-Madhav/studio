@@ -15,7 +15,6 @@ import { Loader2, User, UserCheck, Eye, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
     AlertDialog,
-    AlertDialogAction,
     AlertDialogCancel,
     AlertDialogContent,
     AlertDialogDescription,
@@ -128,7 +127,7 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
                 </CardContent>
             </Card>
 
-            <AlertDialog open={!!analysisResult && !!selectedPlayer} onOpenChange={closeDialog}>
+            <AlertDialog open={!!analysisResult && !!selectedPlayer} onOpenChange={(open) => !open && closeDialog()}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>AI Analysis: {selectedPlayer?.name}</AlertDialogTitle>
@@ -160,3 +159,5 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
         </>
     );
   }
+
+    
