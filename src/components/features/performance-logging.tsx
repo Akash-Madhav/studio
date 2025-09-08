@@ -4,8 +4,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { Camera, Loader2, Video } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { logWorkout } from "@/app/actions";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const formSchema = z.object({
   exercise: z.string().min(2, "Exercise name is required."),
@@ -40,6 +41,28 @@ const formSchema = z.object({
 export default function PerformanceLogging() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setHasCameraPermission(true);
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+      }
+    };
+
+    getCameraPermission();
+  }, []);
+
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -151,6 +174,37 @@ export default function PerformanceLogging() {
                 )}
               />
             </div>
+            
+            <div className="space-y-2">
+                <FormLabel>Visual Proof</FormLabel>
+                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 space-y-4">
+                  <div className="bg-muted rounded-md aspect-video flex items-center justify-center">
+                    <video ref={videoRef} className="w-full aspect-video rounded-md" autoPlay muted />
+                  </div>
+                  {hasCameraPermission === false && (
+                    <Alert variant="destructive">
+                      <AlertTitle>Camera Access Required</AlertTitle>
+                      <AlertDescription>
+                        Please allow camera access in your browser settings to provide live proof. You can also upload a video instead.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  <div className="flex gap-2 flex-wrap">
+                      <Button type="button" variant="outline" disabled={!hasCameraPermission}>
+                          <Camera className="mr-2"/>
+                          Capture Proof
+                      </Button>
+                      <Button asChild variant="outline">
+                        <label htmlFor="video-upload">
+                          <Video className="mr-2" />
+                          Upload Video
+                          <input id="video-upload" type="file" accept="video/*" className="sr-only" />
+                        </label>
+                      </Button>
+                  </div>
+                </div>
+            </div>
+
           </CardContent>
           <CardFooter>
             <Button type="submit" className="w-full" variant="default" disabled={isLoading}>
