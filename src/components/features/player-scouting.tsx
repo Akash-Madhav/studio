@@ -109,8 +109,8 @@ export default function PlayerScouting() {
       const scoutablePlayers = players.filter(p => p.status === 'active');
       if (scoutablePlayers.length === 0) {
         toast({
-            title: "All players have pending invites!",
-            description: "Check the 'Invites' tab to see their status.",
+            title: "All available players have been scouted or have pending invites.",
+            description: "Check the 'Invites' tab to see their status or wait for new players.",
         });
         setIsLoading(false);
         return;
@@ -143,7 +143,7 @@ export default function PlayerScouting() {
     }
   }
 
-  const handleSendInvite = (playerId: string, playerName: string) => {
+  const handleSendInvite = (playerId: string) => {
     startTransition(async () => {
         setIsSendingInvite(playerId);
         const result = await sendRecruitInvite(playerId, coachId);
@@ -152,7 +152,7 @@ export default function PlayerScouting() {
                 title: "Invite Sent!",
                 description: result.message,
             });
-            // Update player status locally
+            // Update player status locally to provide instant feedback
             setPlayers(prev => prev.map(p => p.id === playerId ? {...p, status: 'pending_invite' } : p));
             setRecommendations(prev => prev ? ({
                 ...prev,
@@ -258,7 +258,7 @@ export default function PlayerScouting() {
                       <Button 
                         size="sm" 
                         className="w-full"
-                        onClick={() => handleSendInvite(rec.playerId, rec.playerName)}
+                        onClick={() => handleSendInvite(rec.playerId)}
                         disabled={isPending && isSendingInvite === rec.playerId}
                       >
                          {isPending && isSendingInvite === rec.playerId ? (
