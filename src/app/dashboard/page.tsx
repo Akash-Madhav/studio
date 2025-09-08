@@ -48,25 +48,10 @@ function DashboardContent() {
   const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
-    const handlePopState = () => {
-        const params = new URLSearchParams(window.location.search);
-        const tab = params.get('tab') || (isCoach ? 'player-stats' : 'dashboard');
-        setActiveTab(tab);
-    };
+    const tab = searchParams.get('tab') || (isCoach ? 'player-stats' : 'dashboard');
+    setActiveTab(tab);
+  }, [searchParams, isCoach]);
 
-    window.addEventListener('popstate', handlePopState);
-    
-    // Set initial tab from URL on component mount
-    const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl) {
-      setActiveTab(tabFromUrl);
-    }
-
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isCoach, searchParams]);
 
   const handleViewPlayerDashboard = (playerId: string) => {
     setViewingPlayerId(playerId);
@@ -81,6 +66,14 @@ function DashboardContent() {
   const userId = viewingPlayerId || initialUserId;
   const dashboardIsCoachView = isCoach && currentView === 'coach';
   const dashboardIsPlayerView = !isCoach || (isCoach && currentView === 'player');
+
+  const updateUrl = (tab: string) => {
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.set('tab', tab);
+    window.history.pushState({ ...window.history.state, as: newUrl.href, url: newUrl.href }, '', newUrl.href);
+    setActiveTab(tab);
+};
+
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
@@ -137,7 +130,7 @@ function DashboardContent() {
         </div>
         
         {dashboardIsCoachView && (
-           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+           <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="player-stats">
                     <BrainCircuit className="mr-2" />
@@ -165,7 +158,7 @@ function DashboardContent() {
         )}
 
         {dashboardIsPlayerView && (
-           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+           <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
             <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
                 <TabsTrigger value="dashboard">
                   <BarChart3 className="mr-2" />
