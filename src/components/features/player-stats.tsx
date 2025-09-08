@@ -20,7 +20,7 @@ import {
   } from "@/components/ui/card"
   import { Badge } from "@/components/ui/badge";
   import { Button } from "@/components/ui/button";
-import { Loader2, MessageSquare } from "lucide-react";
+import { Loader2, MessageSquare, BarChart3 } from "lucide-react";
 import { getPlayersForScouting } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
   
@@ -31,7 +31,12 @@ interface Player {
   performanceData: string;
 }
 
-export default function PlayerStats({ userId }: { userId: string }) {
+interface PlayerStatsProps {
+    userId: string;
+    onViewPlayerDashboard: (playerId: string) => void;
+}
+
+export default function PlayerStats({ userId, onViewPlayerDashboard }: PlayerStatsProps) {
     const [players, setPlayers] = useState<Player[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
@@ -72,39 +77,45 @@ export default function PlayerStats({ userId }: { userId: string }) {
                     <Loader2 className="animate-spin" />
                 </div>
             ) : (
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        <TableHead>Player</TableHead>
-                        <TableHead>Profile</TableHead>
-                        <TableHead>Latest Performance</TableHead>
-                        <TableHead className="text-center">Status</TableHead>
-                        <TableHead className="text-center">Actions</TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {players.map((player) => (
-                        <TableRow key={player.id}>
-                        <TableCell className="font-medium">{player.name}</TableCell>
-                        <TableCell>{player.userProfile}</TableCell>
-                        <TableCell className="max-w-xs truncate">{player.performanceData || 'N/A'}</TableCell>
-                        <TableCell className="text-center">
-                            <Badge variant={'default'}>
-                                Active
-                            </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                            <Link href={`/dashboard?role=coach&userId=${userId}&tab=messages&conversationId=${getConversationId(userId, player.id)}`}>
-                                <Button variant="outline" size="sm">
-                                    <MessageSquare className="mr-2 h-4 w-4" />
-                                    Contact
-                                </Button>
-                            </Link>
-                        </TableCell>
+                <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                        <TableRow>
+                            <TableHead>Player</TableHead>
+                            <TableHead>Profile</TableHead>
+                            <TableHead>Latest Performance</TableHead>
+                            <TableHead className="text-center">Status</TableHead>
+                            <TableHead className="text-center">Actions</TableHead>
                         </TableRow>
-                    ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                        {players.map((player) => (
+                            <TableRow key={player.id}>
+                            <TableCell className="font-medium whitespace-nowrap">{player.name}</TableCell>
+                            <TableCell>{player.userProfile}</TableCell>
+                            <TableCell className="max-w-xs truncate">{player.performanceData || 'N/A'}</TableCell>
+                            <TableCell className="text-center">
+                                <Badge variant={'default'}>
+                                    Active
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-center space-x-2 whitespace-nowrap">
+                                <Button variant="outline" size="sm" onClick={() => onViewPlayerDashboard(player.id)}>
+                                    <BarChart3 className="mr-2 h-4 w-4" />
+                                    View Dashboard
+                                </Button>
+                                <Link href={`/dashboard?role=coach&userId=${userId}&tab=messages&conversationId=${getConversationId(userId, player.id)}`}>
+                                    <Button variant="outline" size="sm">
+                                        <MessageSquare className="mr-2 h-4 w-4" />
+                                        Contact
+                                    </Button>
+                                </Link>
+                            </TableCell>
+                            </TableRow>
+                        ))}
+                        </TableBody>
+                    </Table>
+                </div>
             )}
         </CardContent>
       </Card>

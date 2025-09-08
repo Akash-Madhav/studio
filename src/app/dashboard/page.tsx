@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   BarChart3,
@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Target,
   Users,
+  ArrowLeft,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -38,8 +39,25 @@ import Messages from '@/components/features/messages';
 function DashboardContent() {
   const searchParams = useSearchParams();
   const role = searchParams.get('role') || 'player';
-  const userId = searchParams.get('userId') || (role === 'coach' ? 'coach1' : 'player1');
+  const initialUserId = searchParams.get('userId') || (role === 'coach' ? 'coach1' : 'player1');
   const isCoach = role === 'coach';
+
+  const [currentView, setCurrentView] = useState<'coach' | 'player'>(isCoach ? 'coach' : 'player');
+  const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
+
+  const handleViewPlayerDashboard = (playerId: string) => {
+    setViewingPlayerId(playerId);
+    setCurrentView('player');
+  };
+
+  const handleReturnToCoachView = () => {
+    setViewingPlayerId(null);
+    setCurrentView('coach');
+  };
+  
+  const userId = viewingPlayerId || initialUserId;
+  const dashboardIsCoachView = isCoach && currentView === 'coach';
+  const dashboardIsPlayerView = !isCoach || (isCoach && currentView === 'player');
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
@@ -49,19 +67,25 @@ function DashboardContent() {
           <span className="font-bold">OptiFit AI</span>
         </div>
         <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
+           {isCoach && viewingPlayerId && (
+            <Button variant="outline" size="sm" onClick={handleReturnToCoachView}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Coach View
+            </Button>
+          )}
           <div className="ml-auto flex-1 sm:flex-initial"></div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="icon" className="rounded-full">
                 <Avatar>
                   <AvatarImage
-                    src={`https://picsum.photos/seed/${userId}/50/50`}
+                    src={`https://picsum.photos/seed/${initialUserId}/50/50`}
                     alt="@user"
                     width={50}
                     height={50}
                     data-ai-hint="person face"
                   />
-                  <AvatarFallback>{userId.charAt(0).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback>{initialUserId.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <span className="sr-only">Toggle user menu</span>
               </Button>
@@ -80,33 +104,54 @@ function DashboardContent() {
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <div className="grid gap-2">
           <h1 className="text-3xl font-bold tracking-tight text-primary">
-            {isCoach ? 'Coach' : 'Fitness'} Dashboard
+            {dashboardIsCoachView ? 'Coach Dashboard' : 'Fitness Dashboard'}
           </h1>
           <p className="text-muted-foreground">
-            {isCoach
+             {dashboardIsCoachView
               ? 'Your central hub for scouting and analyzing player performance.'
               : 'Your central hub for tracking, analyzing, and optimizing your fitness journey.'}
           </p>
         </div>
-        <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6'}`}>
-            <TabsTrigger value="dashboard">
-              <BarChart3 className="mr-2" />
-              Dashboard
-            </TabsTrigger>
-            {isCoach ? (
-              <TabsTrigger value="player-stats">
-                <BrainCircuit className="mr-2" />
-                Player Stats
-              </TabsTrigger>
-            ) : (
+        
+        {dashboardIsCoachView && (
+           <Tabs defaultValue="player-stats" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="player-stats">
+                    <BrainCircuit className="mr-2" />
+                    Player Stats
+                  </TabsTrigger>
+                  <TabsTrigger value="player-scouting">
+                    <Users className="mr-2" />
+                    Scouting
+                  </TabsTrigger>
+                  <TabsTrigger value="messages">
+                    <MessageSquare className="mr-2" />
+                    Messages
+                  </TabsTrigger>
+              </TabsList>
+              <TabsContent value="player-stats" className="mt-4">
+                  <PlayerStats userId={userId} onViewPlayerDashboard={handleViewPlayerDashboard} />
+              </TabsContent>
+               <TabsContent value="player-scouting" className="mt-4">
+                  <PlayerScouting />
+              </TabsContent>
+              <TabsContent value="messages" className="mt-4">
+                  <Messages userId={userId} />
+              </TabsContent>
+           </Tabs>
+        )}
+
+        {dashboardIsPlayerView && (
+           <Tabs defaultValue="dashboard" className="w-full">
+            <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
+                <TabsTrigger value="dashboard">
+                  <BarChart3 className="mr-2" />
+                  Dashboard
+                </TabsTrigger>
                 <TabsTrigger value="ai-insights">
                   <BrainCircuit className="mr-2" />
                   Insights
                 </TabsTrigger>
-            )}
-            {!isCoach && (
-              <>
                 <TabsTrigger value="log-performance">
                   <LogIn className="mr-2" />
                   Log
@@ -119,53 +164,31 @@ function DashboardContent() {
                   <Medal className="mr-2" />
                   Match
                 </TabsTrigger>
-              </>
-            )}
-            {isCoach && (
-              <TabsTrigger value="player-scouting">
-                <Users className="mr-2" />
-                Scouting
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="messages">
-                <MessageSquare className="mr-2" />
-                Messages
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="dashboard" className="mt-4">
-            <ProgressVisualization userId={userId} />
-          </TabsContent>
-          {isCoach ? (
-            <TabsContent value="player-stats" className="mt-4">
-              <PlayerStats userId={userId}/>
-            </TabsContent>
-          ) : (
-            <TabsContent value="ai-insights" className="mt-4">
-              <AiInsights userId={userId} />
-            </TabsContent>
-          )}
-          {!isCoach && (
-            <>
+                 <TabsTrigger value="messages">
+                    <MessageSquare className="mr-2" />
+                    Messages
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="dashboard" className="mt-4">
+                <ProgressVisualization userId={userId} />
+              </TabsContent>
+              <TabsContent value="ai-insights" className="mt-4">
+                  <AiInsights userId={userId} />
+              </TabsContent>
               <TabsContent value="log-performance" className="mt-4">
-                <PerformanceLogging userId={userId}/>
+                  <PerformanceLogging userId={userId}/>
               </TabsContent>
               <TabsContent value="recommendations" className="mt-4">
-                <PersonalizedRecommendations userId={userId} />
+                  <PersonalizedRecommendations userId={userId} />
               </TabsContent>
               <TabsContent value="sport-match" className="mt-4">
-                <SportMatch userId={userId} />
+                  <SportMatch userId={userId} />
               </TabsContent>
-            </>
-          )}
-          {isCoach && (
-              <TabsContent value="player-scouting" className="mt-4">
-                <PlayerScouting />
+              <TabsContent value="messages" className="mt-4">
+                  <Messages userId={userId} />
               </TabsContent>
-          )}
-           <TabsContent value="messages" className="mt-4">
-              <Messages userId={userId} />
-            </TabsContent>
-        </Tabs>
+           </Tabs>
+        )}
       </main>
     </div>
   );
