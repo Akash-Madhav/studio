@@ -302,3 +302,39 @@ export async function sendMessage(values: z.infer<typeof sendMessageSchema>) {
         return { success: false };
     }
 }
+
+
+const updateUserProfileSchema = z.object({
+    userId: z.string(),
+    name: z.string().min(2, "Name is required."),
+    email: z.string().email("Invalid email address."),
+    age: z.coerce.number().int().min(16, "Must be at least 16.").optional(),
+    experience: z.string().optional(),
+    goals: z.string().optional(),
+});
+
+
+export async function updateUserProfile(values: z.infer<typeof updateUserProfileSchema>) {
+    const validatedData = updateUserProfileSchema.parse(values);
+    try {
+        const userIndex = sampleUsers.findIndex(u => u.id === validatedData.userId);
+        if (userIndex === -1) {
+            return { success: false, message: "User not found." };
+        }
+
+        sampleUsers[userIndex] = {
+            ...sampleUsers[userIndex],
+            name: validatedData.name,
+            email: validatedData.email,
+            age: validatedData.age,
+            experience: validatedData.experience,
+            goals: validatedData.goals,
+        };
+
+        return { success: true, message: "Profile updated successfully!" };
+
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        return { success: false, message: "An unexpected error occurred." };
+    }
+}

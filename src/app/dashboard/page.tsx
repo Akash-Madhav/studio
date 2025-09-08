@@ -15,6 +15,7 @@ import {
   Users,
   ArrowLeft,
   RefreshCw,
+  User as UserIcon,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -38,6 +39,7 @@ import PlayerScouting from "@/components/features/player-scouting";
 import PlayerStats from '@/components/features/player-stats';
 import Messages from '@/components/features/messages';
 import PendingInvites from '@/components/features/pending-invites';
+import ProfileSettings from '@/components/features/profile-settings';
 import { getPlayersForScouting, getPendingInvites } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { sampleUsers } from '@/lib/sample-data';
@@ -191,7 +193,9 @@ function DashboardContent() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <Link href={`/dashboard/settings?role=${role}&userId=${initialUserId}`}>
+                    <DropdownMenuItem>Settings</DropdownMenuItem>
+                </Link>
                 <DropdownMenuItem>Support</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <Link href="/">
@@ -251,7 +255,7 @@ function DashboardContent() {
 
         {dashboardIsPlayerView && (
            <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
-            <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
+            <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-4 md:grid-cols-7">
                 <TabsTrigger value="dashboard">
                   <BarChart3 className="mr-2" />
                   Dashboard
@@ -276,6 +280,10 @@ function DashboardContent() {
                     <MessageSquare className="mr-2" />
                     Messages
                 </TabsTrigger>
+                 <TabsTrigger value="profile">
+                    <UserIcon className="mr-2" />
+                    Profile
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="dashboard" className="mt-4">
                 <ProgressVisualization userId={userId} />
@@ -294,6 +302,9 @@ function DashboardContent() {
               </TabsContent>
               <TabsContent value="messages" className="mt-4">
                   <Messages userId={userId} />
+              </TabsContent>
+              <TabsContent value="profile" className="mt-4">
+                  <ProfileSettings userId={userId} />
               </TabsContent>
            </Tabs>
         )}
