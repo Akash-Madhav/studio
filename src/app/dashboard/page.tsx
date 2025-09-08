@@ -257,7 +257,7 @@ function DashboardContent() {
 
         {dashboardIsPlayerView && (
            <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
-            <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-4 md:grid-cols-8">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-8 h-auto">
                 <TabsTrigger value="dashboard">
                   <BarChart3 className="mr-2" />
                   Dashboard

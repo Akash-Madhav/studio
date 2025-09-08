@@ -117,13 +117,17 @@ export default function AiInsights({ userId }: { userId: string }) {
         userProfile: values.userProfile,
       });
       setInsights(result);
-    } catch (error) {
-      console.error("Failed to get AI insights:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to generate AI insights. Please try again.",
-      });
+    } catch (error: any) {
+        console.error("Failed to get AI insights:", error);
+        let errorDescription = "Failed to generate AI insights. Please try again.";
+        if (error.message?.includes("503") || error.message?.includes("overloaded")) {
+            errorDescription = "The AI model is currently busy. Please wait a moment and try again.";
+        }
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: errorDescription,
+        });
     } finally {
       setIsLoading(false);
     }
