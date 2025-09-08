@@ -10,12 +10,13 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { googleAI } from '@genkit-ai/googleai';
 
 const VideoAnalysisInputSchema = z.object({
   videoDataUri: z
     .string()
     .describe(
-      "A video of a workout, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "A video of a workout, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'"
     ),
 });
 export type VideoAnalysisInput = z.infer<typeof VideoAnalysisInputSchema>;
@@ -41,6 +42,7 @@ const prompt = ai.definePrompt({
   name: 'videoWorkoutAnalysisPrompt',
   input: {schema: VideoAnalysisInputSchema},
   output: {schema: VideoAnalysisOutputSchema},
+  model: googleAI.model('gemini-2.5-pro-preview'),
   config: {
     temperature: 0,
   },
