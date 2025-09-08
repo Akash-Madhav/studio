@@ -2,7 +2,7 @@
 'use client';
 
 import React, { Suspense, useState, useEffect, useTransition, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   BarChart3,
@@ -14,11 +14,9 @@ import {
   Search,
   Target,
   Users,
-  ArrowLeft,
-  RefreshCw,
+  Rss,
   User as UserIcon,
   History,
-  Rss,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -48,7 +46,6 @@ import { getPlayersForScouting, getPendingInvites, getUser } from '@/app/actions
 import { useToast } from '@/hooks/use-toast';
 import SportMatch from '@/components/features/sport-match';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface PlayerData {
@@ -97,64 +94,62 @@ function DashboardContent() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const fetchUser = useCallback(async () => {
+  const fetchAllData = useCallback(async () => {
     if (!initialUserId) {
       setIsLoadingUser(false);
       return;
     };
+    
     setIsLoadingUser(true);
-    const userResult = await getUser(initialUserId);
-    if (userResult.success && userResult.user) {
-        setCurrentUser(userResult.user);
-    } else {
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
-        setCurrentUser(null);
-    }
-    setIsLoadingUser(false);
-  }, [initialUserId, toast]);
-
-  const fetchCoachData = useCallback(async () => {
-    if (!isCoach) return;
-
     setIsLoadingData(true);
+
     startTransition(async () => {
         try {
-            const playersResult = await getPlayersForScouting(initialUserId);
-            if (playersResult.success && playersResult.players) {
-                setPlayers(playersResult.players.map(p => ({...p, name: p.name || `Player ${p.id.substring(0,4)}`})));
-                setRecruitedPlayerIds(playersResult.recruitedPlayerIds || []);
+            const userResult = await getUser(initialUserId);
+            if (userResult.success && userResult.user) {
+                setCurrentUser(userResult.user);
             } else {
-                toast({
-                    variant: 'destructive',
-                    title: 'Error fetching players',
-                    description: 'Could not load player data. Please try refreshing.',
-                });
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
+                setCurrentUser(null);
             }
-        
-            const invitesResult = await getPendingInvites(initialUserId);
-            if (invitesResult.success && invitesResult.invites) {
-                setInvites(invitesResult.invites);
-            } else {
-                toast({
-                    variant: 'destructive',
-                    title: 'Error fetching invites',
-                    description: 'Could not load invites. Please try refreshing.',
-                });
+
+            if (role === 'coach') {
+                const playersResult = await getPlayersForScouting(initialUserId);
+                if (playersResult.success && playersResult.players) {
+                    setPlayers(playersResult.players.map(p => ({...p, name: p.name || `Player ${p.id.substring(0,4)}`})));
+                    setRecruitedPlayerIds(playersResult.recruitedPlayerIds || []);
+                } else {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Error fetching players',
+                        description: 'Could not load player data. Please try refreshing.',
+                    });
+                }
+            
+                const invitesResult = await getPendingInvites(initialUserId);
+                if (invitesResult.success && invitesResult.invites) {
+                    setInvites(invitesResult.invites);
+                } else {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Error fetching invites',
+                        description: 'Could not load invites. Please try refreshing.',
+                    });
+                }
             }
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch coach data.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch dashboard data.' });
         } finally {
+            setIsLoadingUser(false);
             setIsLoadingData(false);
         }
     });
-  }, [isCoach, initialUserId, toast]);
+  }, [initialUserId, role, toast]);
   
   useEffect(() => {
-    fetchUser();
-    if (isCoach) {
-      fetchCoachData();
-    }
-  }, [fetchUser, isCoach, fetchCoachData]);
+    fetchAllData();
+  }, [fetchAllData, searchParams]); // Re-fetch when searchParams change (e.g., after settings update)
+
 
   useEffect(() => {
     const tab = searchParams.get('tab') || (isCoach ? 'player-stats' : 'dashboard');
@@ -164,11 +159,8 @@ function DashboardContent() {
 
   const handleRefreshAllData = useCallback(() => {
     toast({ title: 'Refreshing data...' });
-    fetchUser();
-    if (isCoach) {
-        fetchCoachData();
-    }
-  }, [fetchUser, isCoach, fetchCoachData, toast]);
+    fetchAllData();
+  }, [fetchAllData, toast]);
 
   if (isLoadingUser) {
     return (
@@ -221,7 +213,7 @@ function DashboardContent() {
     newUrl.searchParams.set('tab', tab);
     newUrl.searchParams.set('userId', initialUserId);
     newUrl.searchParams.set('role', role);
-    window.history.pushState({ ...window.history.state, as: newUrl.href, url: newUrl.href }, '', newUrl.href);
+    router.push(newUrl.href);
     setActiveTab(tab);
   };
 
@@ -234,10 +226,6 @@ function DashboardContent() {
           <span className="font-bold">OptiFit AI</span>
         </div>
         <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-            <Button variant="ghost" size="sm" onClick={handleRefreshAllData} disabled={isPending || isLoadingData}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${isPending || isLoadingData ? 'animate-spin' : ''}`} />
-                Refresh Data
-            </Button>
           <div className="ml-auto flex-1 sm:flex-initial"></div>
           <div className="flex items-center gap-3">
              <ThemeToggle />
@@ -316,7 +304,7 @@ function DashboardContent() {
                   <PlayerStats players={recruitedPlayers} isLoading={isPending || isLoadingData} />
               </TabsContent>
                <TabsContent value="player-scouting" className="mt-4">
-                  <PlayerScouting players={players} isLoading={isPending || isLoadingData} onInviteSent={fetchCoachData} />
+                  <PlayerScouting players={players} isLoading={isPending || isLoadingData} onInviteSent={fetchAllData} />
               </TabsContent>
               <TabsContent value="pending-invites" className="mt-4">
                   <PendingInvites invites={invites} isLoading={isPending || isLoadingData}/>
@@ -377,7 +365,7 @@ function DashboardContent() {
                   <AiInsights userId={userId} />
               </TabsContent>
               <TabsContent value="log-performance" className="mt-4">
-                  <PerformanceLogging userId={userId} onWorkoutLogged={handleRefreshAllData} />
+                  <PerformanceLogging userId={userId} onWorkoutLogged={fetchAllData} />
               </TabsContent>
               <TabsContent value="recommendations" className="mt-4">
                   <PersonalizedRecommendations userId={userId} />

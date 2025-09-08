@@ -41,7 +41,12 @@ const formSchema = z.object({
   goals: z.string().optional(),
 });
 
-export default function ProfileSettings({ userId }: { userId: string }) {
+interface ProfileSettingsProps {
+    userId: string;
+    onProfileUpdate: () => void;
+}
+
+export default function ProfileSettings({ userId, onProfileUpdate }: ProfileSettingsProps) {
   const { toast } = useToast();
   const [isSubmitting, startTransition] = useTransition();
   const [isFetchingUser, setIsFetchingUser] = useState(true);
@@ -91,8 +96,7 @@ export default function ProfileSettings({ userId }: { userId: string }) {
           title: "Profile Updated",
           description: "Your changes have been saved successfully.",
         });
-        // Re-sync the form with the successfully submitted values
-        form.reset(values);
+        onProfileUpdate();
       } else {
         toast({
           variant: "destructive",

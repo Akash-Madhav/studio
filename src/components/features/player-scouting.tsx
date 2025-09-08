@@ -133,10 +133,15 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
             });
             onInviteSent();
             // Optimistically update UI
-            setRecommendations(prev => prev ? ({
+            setRecommendations(prev => {
+              if (!prev) return null;
+              return {
                 ...prev,
-                recommendations: prev.recommendations.filter(r => r.playerId !== playerId)
-            }) : null);
+                recommendations: prev.recommendations.map(r => 
+                  r.playerId === playerId ? { ...r, status: 'pending_invite' } : r
+                )
+              };
+            });
         } else {
             toast({
                 variant: 'destructive',
@@ -149,8 +154,9 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
   }
 
   const getPlayerStatus = (playerId: string) => {
-    return players.find(p => p.id === playerId)?.status;
-  }
+    const player = players.find(p => p.id === playerId);
+    return player?.status;
+  };
 
   const isLoading = isFetchingPlayers || isScouting;
 
@@ -223,6 +229,9 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                       {getPlayerStatus(rec.playerId) === 'pending_invite' && (
                           <Badge variant="secondary">Invite Pending</Badge>
                       )}
+                       {getPlayerStatus(rec.playerId) === 'recruited' && (
+                          <Badge variant="default">Recruited</Badge>
+                      )}
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="space-y-4 pt-2">
@@ -249,14 +258,14 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                         size="sm" 
                         className="w-full"
                         onClick={() => handleSendInvite(rec.playerId)}
-                        disabled={(isPending && isSendingInvite === rec.playerId) || getPlayerStatus(rec.playerId) === 'pending_invite'}
+                        disabled={isPending && isSendingInvite === rec.playerId || getPlayerStatus(rec.playerId) !== 'active'}
                       >
                          {(isPending && isSendingInvite === rec.playerId) ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                          ) : (
                             <Send className="mr-2 h-4 w-4" />
                          )}
-                        {getPlayerStatus(rec.playerId) === 'pending_invite' ? 'Invite Already Sent' : 'Send Recruit Invite'}
+                        {getPlayerStatus(rec.playerId) === 'pending_invite' ? 'Invite Sent' : getPlayerStatus(rec.playerId) === 'recruited' ? 'Already Recruited' : 'Send Recruit Invite'}
                       </Button>
                     </div>
                   </AccordionContent>
@@ -269,7 +278,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                     {isFetchingPlayers
                         ? "Fetching player data..."
                         : players.filter(p => p.status === 'active').length === 0 
-                        ? "No available players to scout. Players with pending invites are excluded."
+                        ? "No available players to scout. Players with pending invites or on a team are excluded."
                         : "Player recommendations will appear here."}
                 </div>
             )
@@ -279,5 +288,3 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     </div>
   );
 }
-
-    

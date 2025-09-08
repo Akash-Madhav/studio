@@ -18,9 +18,11 @@ const getAge = (dob?: Date) => {
 }
 
 export async function getUser(userId: string) {
-    // In a real app, this would fetch from a database.
     const user = sampleUsers.find(u => u.id === userId);
-    return { success: true, user: user ? { ...user } : null };
+    if (!user) {
+        return { success: false, user: null };
+    }
+    return { success: true, user: { ...user } };
 }
 
 const logWorkoutSchema = z.object({
@@ -307,7 +309,8 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
         return { success: false, message: "User not found." };
     }
 
-    const updatedUser = {
+    // Directly modify the object in the array
+    sampleUsers[userIndex] = {
         ...sampleUsers[userIndex],
         name: validatedData.name,
         email: validatedData.email,
@@ -315,8 +318,6 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
         experience: validatedData.experience,
         goals: validatedData.goals,
     };
-    
-    sampleUsers[userIndex] = updatedUser;
 
     return { success: true, message: "Profile updated successfully!" };
 }

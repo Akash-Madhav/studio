@@ -2,7 +2,7 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Dumbbell } from 'lucide-react';
 import ProfileSettings from '@/components/features/profile-settings';
@@ -10,16 +10,22 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 function SettingsContent() {
+    const router = useRouter();
     const searchParams = useSearchParams();
     const userId = searchParams.get('userId');
     const role = searchParams.get('role');
-    const [backUrl, setBackUrl] = useState(`/dashboard?role=${role}&userId=${userId}`);
+    const [backUrl, setBackUrl] = useState('');
 
     useEffect(() => {
-        // This ensures the timestamp is only generated on the client-side, avoiding hydration errors.
-        setBackUrl(`/dashboard?role=${role}&userId=${userId}&t=${new Date().getTime()}`);
+        if (role && userId) {
+            setBackUrl(`/dashboard?role=${role}&userId=${userId}`);
+        }
     }, [role, userId]);
 
+    const handleProfileUpdate = () => {
+        // Navigate back to the dashboard, which will trigger a re-fetch
+        router.push(backUrl);
+    };
 
     if (!userId) {
         return (
@@ -32,7 +38,6 @@ function SettingsContent() {
         );
     }
     
-
     return (
         <div className="flex flex-col min-h-screen bg-background">
             <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 z-50 justify-between">
@@ -42,16 +47,18 @@ function SettingsContent() {
                 </div>
                 <div className="flex items-center gap-4">
                     <ThemeToggle />
-                    <Link href={backUrl} passHref>
-                        <Button variant="outline">
-                            <ArrowLeft className="mr-2"/>
-                            Back to Dashboard
-                        </Button>
-                    </Link>
+                    {backUrl && (
+                        <Link href={backUrl} passHref>
+                            <Button variant="outline">
+                                <ArrowLeft className="mr-2"/>
+                                Back to Dashboard
+                            </Button>
+                        </Link>
+                    )}
                 </div>
             </header>
             <main className="flex-1 p-4 md:p-8">
-                <ProfileSettings userId={userId} />
+                <ProfileSettings userId={userId} onProfileUpdate={handleProfileUpdate} />
             </main>
         </div>
     )
