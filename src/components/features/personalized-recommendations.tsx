@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -10,6 +10,7 @@ import {
   generatePersonalizedRecommendations,
   PersonalizedTrainingRecommendationsOutput,
 } from "@/ai/flows/personalized-training-recommendations";
+import { sampleWorkouts, sampleUsers } from "@/lib/sample-data";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +37,29 @@ const formSchema = z.object({
   performanceData: z.string().min(1, "Performance data is required."),
 });
 
-export default function PersonalizedRecommendations() {
+function getPerformanceSummary(userId: string) {
+    const userWorkouts = sampleWorkouts
+      .filter((w) => w.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 5);
+  
+    if (userWorkouts.length === 0) {
+      return "No recent workouts to analyze.";
+    }
+  
+    return userWorkouts
+      .map((data) => {
+        let record = `${data.exercise}:`;
+        if (data.reps) record += ` ${data.reps} reps`;
+        if (data.weight) record += ` at ${data.weight}kg`;
+        if (data.distance) record += ` for ${data.distance}km`;
+        if (data.time) record += ` in ${data.time}`;
+        return record;
+      })
+      .join("\n");
+  }
+
+export default function PersonalizedRecommendations({ userId }: { userId: string }) {
   const { toast } = useToast();
   const [recommendations, setRecommendations] =
     useState<PersonalizedTrainingRecommendationsOutput | null>(null);
@@ -45,11 +68,18 @@ export default function PersonalizedRecommendations() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      fitnessGoals: "Build muscle and increase deadlift personal record.",
-      performanceData:
-        "Last 3 workouts:\n- Deadlift: 5x5 at 120kg\n- Squat: 5x5 at 100kg\n- Bench Press: 5x5 at 80kg",
+      fitnessGoals: "",
+      performanceData: "",
     },
   });
+
+  useEffect(() => {
+    if (userId) {
+        const user = sampleUsers.find(u => u.id === userId);
+        form.setValue('fitnessGoals', user?.goals || '');
+        form.setValue('performanceData', getPerformanceSummary(userId));
+    }
+  }, [userId, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);

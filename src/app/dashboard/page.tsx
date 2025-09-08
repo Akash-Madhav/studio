@@ -133,7 +133,7 @@ function DashboardContent() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="dashboard" className="mt-4">
-            <ProgressVisualization />
+            <ProgressVisualization userId={userId} />
           </TabsContent>
           {isCoach ? (
             <TabsContent value="player-stats" className="mt-4">
@@ -141,7 +141,7 @@ function DashboardContent() {
             </TabsContent>
           ) : (
             <TabsContent value="ai-insights" className="mt-4">
-              <AiInsights />
+              <AiInsights userId={userId} />
             </TabsContent>
           )}
           {!isCoach && (
@@ -150,10 +150,10 @@ function DashboardContent() {
                 <PerformanceLogging userId={userId}/>
               </TabsContent>
               <TabsContent value="recommendations" className="mt-4">
-                <PersonalizedRecommendations />
+                <PersonalizedRecommendations userId={userId} />
               </TabsContent>
               <TabsContent value="sport-match" className="mt-4">
-                <SportMatch />
+                <SportMatch userId={userId} />
               </TabsContent>
             </>
           )}

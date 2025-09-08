@@ -1,7 +1,10 @@
 
 "use client";
 
+import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
+import { sampleWorkouts } from "@/lib/sample-data";
+import dayjs from "dayjs";
 
 import {
   Card,
@@ -17,15 +20,6 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 
-const weightChartData = [
-  { month: "January", weight: 186 },
-  { month: "February", weight: 305 },
-  { month: "March", weight: 237 },
-  { month: "April", weight: 73 },
-  { month: "May", weight: 209 },
-  { month: "June", weight: 214 },
-];
-
 const weightChartConfig = {
   weight: {
     label: "Weight (kg)",
@@ -33,14 +27,6 @@ const weightChartConfig = {
   },
 } satisfies ChartConfig;
 
-const cardioChartData = [
-  { month: "January", minutes: 30 },
-  { month: "February", minutes: 45 },
-  { month: "March", minutes: 35 },
-  { month: "April", minutes: 50 },
-  { month: "May", minutes: 60 },
-  { month: "June", minutes: 55 },
-];
 
 const cardioChartConfig = {
   minutes: {
@@ -49,14 +35,6 @@ const cardioChartConfig = {
   },
 } satisfies ChartConfig;
 
-const repsChartData = [
-  { exercise: "Push-ups", reps: 45 },
-  { exercise: "Squats", reps: 60 },
-  { exercise: "Pull-ups", reps: 15 },
-  { exercise: "Lunges", reps: 40 },
-  { exercise: "Plank (s)", reps: 90 },
-];
-
 const repsChartConfig = {
   reps: {
     label: "Reps",
@@ -64,10 +42,57 @@ const repsChartConfig = {
   },
 } satisfies ChartConfig;
 
-export default function ProgressVisualization() {
+export default function ProgressVisualization({ userId }: { userId: string}) {
+
+    const userWorkouts = useMemo(() => {
+        return sampleWorkouts.filter(w => w.userId === userId);
+    }, [userId]);
+
+    const weightChartData = useMemo(() => {
+        const monthlyData: {[key: string]: number} = {};
+        userWorkouts.filter(w => w.weight).forEach(w => {
+            const month = dayjs(w.createdAt).format('MMMM');
+            monthlyData[month] = (monthlyData[month] || 0) + (w.weight! * (w.reps || 1));
+        });
+        return Object.keys(monthlyData).map(month => ({ month, weight: monthlyData[month]}));
+    }, [userWorkouts]);
+
+    const cardioChartData = useMemo(() => {
+        const monthlyData: {[key: string]: { totalMinutes: number, count: number }} = {};
+        userWorkouts.filter(w => w.time).forEach(w => {
+            const month = dayjs(w.createdAt).format('MMMM');
+            const [minutes] = (w.time || "0:0").split(':').map(Number);
+            if (!monthlyData[month]) {
+                monthlyData[month] = { totalMinutes: 0, count: 0};
+            }
+            monthlyData[month].totalMinutes += minutes;
+            monthlyData[month].count++;
+        });
+
+        return Object.keys(monthlyData).map(month => ({ month, minutes: Math.round(monthlyData[month].totalMinutes / monthlyData[month].count) }));
+    }, [userWorkouts]);
+
+    const repsChartData = useMemo(() => {
+        const maxReps: {[key: string]: number} = {};
+        userWorkouts.filter(w => w.reps).forEach(w => {
+            maxReps[w.exercise] = Math.max(maxReps[w.exercise] || 0, w.reps!);
+        });
+        return Object.keys(maxReps).map(exercise => ({ exercise, reps: maxReps[exercise]}));
+    }, [userWorkouts]);
+    
+    if (userWorkouts.length === 0) {
+        return (
+            <Card>
+                <CardContent className="flex items-center justify-center h-96">
+                    <p className="text-muted-foreground">Log a workout to see your progress here.</p>
+                </CardContent>
+            </Card>
+        )
+    }
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      <Card>
+     {weightChartData.length > 0 && <Card>
         <CardHeader>
           <CardTitle>Weight Lifted Progress</CardTitle>
           <CardDescription>Total weight lifted per month</CardDescription>
@@ -90,8 +115,8 @@ export default function ProgressVisualization() {
             </BarChart>
           </ChartContainer>
         </CardContent>
-      </Card>
-      <Card>
+      </Card>}
+     {cardioChartData.length > 0 && <Card>
         <CardHeader>
           <CardTitle>Cardio Duration</CardTitle>
           <CardDescription>Average cardio duration per month</CardDescription>
@@ -127,8 +152,8 @@ export default function ProgressVisualization() {
             </LineChart>
           </ChartContainer>
         </CardContent>
-      </Card>
-      <Card>
+      </Card>}
+      {repsChartData.length > 0 && <Card>
         <CardHeader>
           <CardTitle>Max Reps per Exercise</CardTitle>
           <CardDescription>Your personal bests</CardDescription>
@@ -149,6 +174,7 @@ export default function ProgressVisualization() {
                 tickMargin={10}
                 axisLine={false}
                 className="w-20"
+                width={80}
               />
               <XAxis dataKey="reps" type="number" hide />
               <ChartTooltip
@@ -159,7 +185,7 @@ export default function ProgressVisualization() {
             </BarChart>
           </ChartContainer>
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   );
 }

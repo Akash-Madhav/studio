@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -10,6 +10,7 @@ import {
   suggestSports,
   SportSuggestionOutput,
 } from "@/ai/flows/ai-sport-match-suggestion";
+import { sampleWorkouts } from "@/lib/sample-data";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +37,30 @@ const formSchema = z.object({
   userPreferences: z.string().min(1, "User preferences are required."),
 });
 
-export default function SportMatch() {
+
+function getPerformanceSummary(userId: string) {
+    const userWorkouts = sampleWorkouts
+      .filter((w) => w.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 5);
+  
+    if (userWorkouts.length === 0) {
+      return "No recent workouts to analyze.";
+    }
+  
+    return userWorkouts
+      .map((data) => {
+        let record = `${data.exercise}:`;
+        if (data.reps) record += ` ${data.reps} reps`;
+        if (data.weight) record += ` at ${data.weight}kg`;
+        if (data.distance) record += ` for ${data.distance}km`;
+        if (data.time) record += ` in ${data.time}`;
+        return record;
+      })
+      .join(", ");
+  }
+
+export default function SportMatch({ userId }: { userId: string }) {
   const { toast } = useToast();
   const [suggestions, setSuggestions] = useState<SportSuggestionOutput | null>(
     null
@@ -46,12 +70,17 @@ export default function SportMatch() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      performanceData:
-        "Strong runner (5k in 22 mins), good endurance. Decent upper body strength (can do 10 pull-ups).",
+      performanceData: "",
       userPreferences:
         "Enjoy team sports, competitive environments, and being outdoors.",
     },
   });
+
+  useEffect(() => {
+    if (userId) {
+        form.setValue('performanceData', getPerformanceSummary(userId));
+    }
+  }, [userId, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
