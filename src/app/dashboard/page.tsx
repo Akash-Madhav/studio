@@ -277,14 +277,6 @@ function DashboardContent() {
           </p>
         </div>
         
-        <Alert variant="default" className="mt-2">
-            <Info className="h-4 w-4" />
-            <AlertTitle>Quick Tip</AlertTitle>
-            <AlertDescription>
-                Profile changes not showing up? Do a full page refresh (Cmd+R or Ctrl+R) to see your updates.
-            </AlertDescription>
-        </Alert>
-
         {dashboardIsCoachView && (
            <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
               <TabsList className="grid w-full grid-cols-5">
@@ -408,5 +400,7 @@ export default function Dashboard() {
     </Suspense>
   );
 }
+
+    
 
     
