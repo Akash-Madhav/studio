@@ -4,7 +4,7 @@ export const sampleUsers = [
     { id: 'player2', name: 'Maria Garcia', email: 'maria.g@example.com', role: 'player', age: 28, experience: 'Advanced', goals: 'Complete a full marathon in under 4 hours.', status: 'active' },
     { id: 'player3', name: 'Sam Chen', email: 'sam.c@example.com', role: 'player', age: 22, experience: 'Beginner', goals: 'Build a consistent workout routine, focusing on bodyweight exercises and light cardio.', status: 'active' },
     { id: 'player4', name: 'Emily Rodriguez', email: 'emily.r@example.com', role: 'player', age: 31, experience: 'Intermediate', goals: 'Improve cardiovascular health and tone up for summer.', status: 'active' },
-    { id: 'player5', name: 'David Lee', email: 'david.l@example.com', role: 'player', age: 26, experience: 'Advanced', goals: 'Compete in a local CrossFit competition.', status: 'pending_invite' },
+    { id: 'player5', name: 'David Lee', email: 'david.l@example.com', role: 'player', age: 26, experience: 'Advanced', goals: 'Compete in a local CrossFit competition.', status: 'active' },
     { id: 'coach1', name: 'Coach Davis', email: 'davis.c@example.com', role: 'coach' },
     { id: 'coach2', name: 'Coach Miller', email: 'miller.c@example.com', role: 'coach' },
 ];
@@ -71,16 +71,8 @@ export const sampleConversations = [
             { _id: 'm7', senderId: 'player3', text: 'Excited to be here, Coach! The push-ups were tougher than I expected.', createdAt: new Date('2024-07-23T13:02:00Z') },
             { _id: 'm8', senderId: 'coach2', text: 'That\'s normal. We\'ll build up that strength. Try doing them on your knees for now if you need to, and focus on form.', createdAt: new Date('2024-07-23T13:05:00Z') },
         ]
-    },
-    {
-        _id: 'coach1_player5',
-        participantIds: ['coach1', 'player5'],
-        messages: [
-            { _id: 'm9', senderId: 'coach1', text: 'David, your Clean and Jerk form is looking sharp. Let\'s work on the speed of your dip and drive.', createdAt: new Date('2024-07-24T10:00:00Z') },
-        ]
     }
 ];
 
-export const sampleInvites = [
-    { _id: 'inv1', coachId: 'coach1', playerId: 'player5', status: 'pending', createdAt: new Date('2024-07-28T10:00:00Z') },
+export const sampleInvites: { _id: string; coachId: string; playerId: string; status: 'pending' | 'accepted' | 'declined'; createdAt: Date; }[] = [
 ];

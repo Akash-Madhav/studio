@@ -88,6 +88,11 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
       return { success: false, message: 'Player not found.' };
     }
 
+    const existingConversation = sampleConversations.find(c => c.participantIds.includes(playerId) && c.participantIds.includes(coachId));
+    if (existingConversation) {
+        return { success: false, message: `You are already connected with ${player.name}.` };
+    }
+
     const existingInvite = sampleInvites.find(inv => inv.playerId === playerId && inv.coachId === coachId && inv.status === 'pending');
     if (existingInvite) {
         return { success: false, message: `${player.name} already has a pending invite.` };
