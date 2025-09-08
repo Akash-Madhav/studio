@@ -42,7 +42,7 @@ const prompt = ai.definePrompt({
   name: 'videoWorkoutAnalysisPrompt',
   input: {schema: VideoAnalysisInputSchema},
   output: {schema: VideoAnalysisOutputSchema},
-  model: googleAI.model('gemini-2.5-pro-preview'),
+  model: googleAI.model('gemini-1.5-flash-preview-0514'),
   config: {
     temperature: 0,
   },
