@@ -6,6 +6,7 @@ import {
   LogIn,
   Medal,
   Target,
+  Users,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -25,6 +26,7 @@ import PerformanceLogging from "@/components/features/performance-logging";
 import PersonalizedRecommendations from "@/components/features/personalized-recommendations";
 import ProgressVisualization from "@/components/features/progress-visualization";
 import SportMatch from "@/components/features/sport-match";
+import PlayerScouting from "@/components/features/player-scouting";
 import { Card } from "@/components/ui/card";
 
 export default function Dashboard() {
@@ -75,7 +77,7 @@ export default function Dashboard() {
           </p>
         </div>
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+          <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
             <TabsTrigger value="dashboard">
               <BarChart3 className="mr-2" />
               Dashboard
@@ -96,6 +98,10 @@ export default function Dashboard() {
               <Medal className="mr-2" />
               Match
             </TabsTrigger>
+            <TabsTrigger value="player-scouting">
+              <Users className="mr-2" />
+              Scouting
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="dashboard" className="mt-4">
             <ProgressVisualization />
@@ -111,6 +117,9 @@ export default function Dashboard() {
           </TabsContent>
           <TabsContent value="sport-match" className="mt-4">
             <SportMatch />
+          </TabsContent>
+          <TabsContent value="player-scouting" className="mt-4">
+            <PlayerScouting />
           </TabsContent>
         </Tabs>
       </main>
