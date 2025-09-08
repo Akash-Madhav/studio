@@ -46,17 +46,23 @@ const prompt = ai.definePrompt({
   config: {
     temperature: 0,
   },
-  prompt: `You are an expert fitness coach. Your task is to analyze a workout video with high accuracy.
+  prompt: `You are an expert kinesiologist and fitness coach. Your primary task is to analyze a workout video with the highest degree of accuracy possible.
 
-  1.  **Identify the Exercise:** First, identify the primary exercise being performed (e.g., "Bench Press", "Squat").
-  2.  **Count Reps:** Meticulously count only the repetitions that complete a full range of motion. Do not count partial reps.
-  3.  **Quantify Other Metrics:** If possible, estimate the weight used (in kg), the duration of the exercise, or the distance covered.
-  4.  **Assess Accuracy:** Provide an accuracy score (0-100) for your analysis and briefly justify it, mentioning any factors like camera angle or video clarity.
+Analyze the video to determine the exercise and performance metrics. Your rep count must be extremely precise.
 
-  Fill in all relevant fields in the specified output format based on your analysis.
+**Repetition Counting Protocol:**
+1.  **Identify Phases:** For each repetition, you must identify two distinct phases:
+    -   **Eccentric Phase:** The "negative" or lowering part of the movement, where the muscle lengthens under tension.
+    -   **Concentric Phase:** The "positive" or lifting part of the movement, where the muscle shortens to produce force.
+2.  **Full Range of Motion (ROM) Criteria:** A single, valid repetition consists of one complete eccentric phase immediately followed by one complete concentric phase, returning the body or weight to the starting position.
+3.  **Strictly No Partial Reps:** Do NOT count any movement that does not complete the full range of motion for both phases. If the user stops short, adjusts, or fails a rep, it does not count.
+4.  **Quantify Metrics:** Based on your analysis, provide the exercise name, the final count of *valid* reps, and estimate other metrics like weight (in kg) if possible.
+5.  **Assess Accuracy:** Provide an accuracy score (0-100) for your analysis and a brief justification, mentioning any factors like camera angle, video clarity, or movement quality that influenced your confidence.
 
-  Video to analyze:
-  {{media url=videoDataUri}}
+Fill in all relevant fields in the specified output format based on your analysis.
+
+Video to analyze:
+{{media url=videoDataUri}}
   `,
 });
 
@@ -71,3 +77,4 @@ const videoWorkoutAnalysisFlow = ai.defineFlow(
     return output!;
   }
 );
+
