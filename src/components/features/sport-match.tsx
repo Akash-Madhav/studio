@@ -1,0 +1,173 @@
+
+"use client";
+
+import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { Loader2, Medal } from "lucide-react";
+import {
+  suggestSports,
+  SportSuggestionOutput,
+} from "@/ai/flows/ai-sport-match-suggestion";
+
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+
+const formSchema = z.object({
+  performanceData: z.string().min(1, "Performance data is required."),
+  userPreferences: z.string().min(1, "User preferences are required."),
+});
+
+export default function SportMatch() {
+  const { toast } = useToast();
+  const [suggestions, setSuggestions] = useState<SportSuggestionOutput | null>(
+    null
+  );
+  const [isLoading, setIsLoading] = useState(false);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      performanceData:
+        "Strong runner (5k in 22 mins), good endurance. Decent upper body strength (can do 10 pull-ups).",
+      userPreferences:
+        "Enjoy team sports, competitive environments, and being outdoors.",
+    },
+  });
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
+    setSuggestions(null);
+
+    try {
+      const result = await suggestSports(values);
+      setSuggestions(result);
+    } catch (error) {
+      console.error("Failed to get AI sport suggestions:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description:
+          "Failed to generate sport suggestions. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <div className="grid md:grid-cols-2 gap-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>Find Your Sport</CardTitle>
+          <CardDescription>
+            Discover sports you might excel at based on your current fitness
+            profile and preferences.
+          </CardDescription>
+        </CardHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="performanceData"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Your Performance Data</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="e.g., Fast sprinter, high vertical jump, good hand-eye coordination."
+                        className="min-h-[120px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="userPreferences"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Your Preferences</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="e.g., I prefer individual sports, enjoy strategy, and don't like early mornings."
+                        className="min-h-[120px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+            <CardFooter>
+              <Button type="submit" disabled={isLoading} className="w-full">
+                {isLoading && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Match Me
+              </Button>
+            </CardFooter>
+          </form>
+        </Form>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Top Sport Matches</CardTitle>
+          <CardDescription>
+            Based on your profile, here are some sports you might love.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isLoading && (
+            <div className="flex justify-center items-center h-48">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
+          {suggestions ? (
+            <ul className="space-y-4">
+              {suggestions.suggestions.map((suggestion, index) => (
+                <li key={index} className="p-4 bg-background/50 rounded-lg">
+                  <h3 className="font-semibold text-primary flex items-center mb-2">
+                    <Medal className="w-5 h-5 mr-2 text-accent" />
+                    {suggestion.sport}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {suggestion.reason}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            !isLoading && (
+              <div className="text-center text-muted-foreground py-12">
+                Your sport matches will appear here.
+              </div>
+            )
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
