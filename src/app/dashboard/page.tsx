@@ -9,6 +9,7 @@ import {
   Dumbbell,
   LogIn,
   Medal,
+  MessageSquare,
   Target,
   Users,
 } from "lucide-react";
@@ -32,6 +33,7 @@ import ProgressVisualization from "@/components/features/progress-visualization"
 import SportMatch from "@/components/features/sport-match";
 import PlayerScouting from "@/components/features/player-scouting";
 import PlayerStats from '@/components/features/player-stats';
+import Messages from '@/components/features/messages';
 
 function DashboardContent() {
   const searchParams = useSearchParams();
@@ -86,7 +88,7 @@ function DashboardContent() {
           </p>
         </div>
         <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5'}`}>
+        <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6'}`}>
             <TabsTrigger value="dashboard">
               <BarChart3 className="mr-2" />
               Dashboard
@@ -124,6 +126,10 @@ function DashboardContent() {
                 Scouting
               </TabsTrigger>
             )}
+            <TabsTrigger value="messages">
+                <MessageSquare className="mr-2" />
+                Messages
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="dashboard" className="mt-4">
             <ProgressVisualization />
@@ -155,6 +161,9 @@ function DashboardContent() {
                 <PlayerScouting />
               </TabsContent>
           )}
+           <TabsContent value="messages" className="mt-4">
+              <Messages />
+            </TabsContent>
         </Tabs>
       </main>
     </div>

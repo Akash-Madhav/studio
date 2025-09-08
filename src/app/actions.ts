@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, where, limit, updateDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, limit, updateDoc, doc, getDoc, Timestamp, orderBy } from 'firebase/firestore';
 import { faker } from '@faker-js/faker';
 
 
@@ -27,8 +27,6 @@ async function getOrCreateUser(userId?: string) {
     }
   }
 
-  // To keep it simple, we'll create a new user if no ID is provided or if the ID doesn't exist.
-  // In a real app, you'd have a more robust user management system.
   const newUser = {
     name: faker.person.fullName(),
     age: Math.floor(Math.random() * (40 - 18 + 1)) + 18,
@@ -102,3 +100,100 @@ export async function getPlayersForScouting() {
     return { success: false, players: [] };
   }
 }
+
+// CHAT ACTIONS
+
+export interface Conversation {
+    id: string;
+    participants: { id: string; name: string; }[];
+    lastMessage: { text: string; sentAt: Date } | null;
+}
+
+export async function getConversations(userId: string) {
+    try {
+        const q = query(collection(db, 'conversations'), where('participantIds', 'array-contains', userId));
+        const querySnapshot = await getDocs(q);
+        const conversations: Conversation[] = [];
+
+        for (const docSnap of querySnapshot.docs) {
+            const convoData = docSnap.data();
+            const participantIds = convoData.participantIds.filter((id: string) => id !== userId);
+            
+            const participantsInfo: { id: string; name: string }[] = [];
+            for(const pId of participantIds) {
+                // In a real app, this might be a single query for all participants
+                const userDoc = await getDoc(doc(db, 'users', pId));
+                if(userDoc.exists()){
+                    participantsInfo.push({ id: pId, name: userDoc.data().name || 'Unknown User' });
+                }
+            }
+             // Add current user as well to have full context
+            const currentUserDoc = await getDoc(doc(db, 'users', userId));
+            if(currentUserDoc.exists()){
+                participantsInfo.push({ id: userId, name: currentUserDoc.data().name || 'Me' });
+            }
+
+
+            conversations.push({
+                id: docSnap.id,
+                participants: participantsInfo,
+                lastMessage: convoData.lastMessage ? {
+                    text: convoData.lastMessage.text,
+                    sentAt: convoData.lastMessage.sentAt.toDate(),
+                } : null,
+            });
+        }
+
+        return { success: true, conversations };
+
+    } catch (error) {
+        console.error("Error fetching conversations:", error);
+        return { success: false, conversations: [] };
+    }
+}
+
+
+export async function getMessages(conversationId: string) {
+    try {
+        const messagesQuery = query(collection(db, 'conversations', conversationId, 'messages'), orderBy('createdAt', 'asc'));
+        const messagesSnapshot = await getDocs(messagesQuery);
+        const messages = messagesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        return { success: true, messages };
+    } catch (error) {
+        console.error("Error fetching messages:", error);
+        return { success: false, messages: [] };
+    }
+}
+
+const sendMessageSchema = z.object({
+    conversationId: z.string(),
+    senderId: z.string(),
+    text: z.string().min(1),
+});
+
+export async function sendMessage(values: z.infer<typeof sendMessageSchema>) {
+    const validatedData = sendMessageSchema.parse(values);
+    try {
+        const message = {
+            senderId: validatedData.senderId,
+            text: validatedData.text,
+            createdAt: Timestamp.now(),
+        };
+
+        const messageRef = await addDoc(collection(db, 'conversations', validatedData.conversationId, 'messages'), message);
+        
+        await updateDoc(doc(db, 'conversations', validatedData.conversationId), {
+            lastMessage: {
+                text: validatedData.text,
+                sentAt: message.createdAt,
+            }
+        });
+
+        return { success: true, message: {id: messageRef.id, ...message} };
+    } catch (error) {
+        console.error("Error sending message:", error);
+        return { success: false };
+    }
+}
+

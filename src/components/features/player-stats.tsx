@@ -17,6 +17,8 @@ import {
     CardTitle,
   } from "@/components/ui/card"
   import { Badge } from "@/components/ui/badge";
+  import { Button } from "@/components/ui/button";
+import { MessageSquare } from "lucide-react";
   
   const players = [
     {
@@ -95,6 +97,7 @@ import {
                 <TableHead className="text-right">Rebounds</TableHead>
                 <TableHead className="text-right">Assists</TableHead>
                 <TableHead className="text-center">Status</TableHead>
+                <TableHead className="text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -109,6 +112,12 @@ import {
                     <Badge variant={player.stats.status === 'Active' ? 'default' : 'destructive'}>
                         {player.stats.status}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                      <Button variant="outline" size="sm">
+                          <MessageSquare className="mr-2 h-4 w-4" />
+                          Contact
+                      </Button>
                   </TableCell>
                 </TableRow>
               ))}
