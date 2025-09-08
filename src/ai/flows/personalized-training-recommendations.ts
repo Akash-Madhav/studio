@@ -51,13 +51,14 @@ const personalizedTrainingRecommendationsPrompt = ai.definePrompt({
   name: 'personalizedTrainingRecommendationsPrompt',
   input: {schema: PersonalizedTrainingRecommendationsInputSchema},
   output: {schema: PersonalizedTrainingRecommendationsOutputSchema},
-  prompt: `You are a personal fitness trainer. Analyze the user's fitness goals and performance data to provide a summary and personalized training suggestions.
+  prompt: `You are a personal fitness trainer. Analyze the user's fitness goals and their detailed performance data to provide a summary and personalized training suggestions. The recommendations should be directly based on the performance logs provided.
 
 Fitness Goals: {{{fitnessGoals}}}
-Performance Data: {{{performanceData}}}
 
-Summary:
-Suggestions: `,
+Performance Data Logs:
+{{{performanceData}}}
+
+Based on this data, provide a summary of their recent activity and concrete suggestions for their next workouts. For example, if they are lifting, suggest specific adjustments to weight or reps. If they are running, suggest changes to distance or pace.`,
 });
 
 const personalizedTrainingRecommendationsFlow = ai.defineFlow(
