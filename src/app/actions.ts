@@ -86,7 +86,6 @@ export async function getPlayersForScouting(coachId: string) {
         };
       });
 
-    // A player is "recruited" if they have a conversation AND are not available for scouting.
     const recruitedPlayerIds = Array.from(coachConversationPlayerIds).filter(playerId => {
         const player = players.find(p => p.id === playerId);
         return player && player.status !== 'active';
@@ -101,7 +100,6 @@ export async function getPlayersForScouting(coachId: string) {
 }
 
 export async function sendRecruitInvite(playerId: string, coachId: string) {
-    // In a real app, this would trigger a notification or email.
     const player = sampleUsers.find(u => u.id === playerId);
     if (!player) {
       return { success: false, message: 'Player not found.' };
@@ -126,7 +124,6 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
     };
     sampleInvites.push(newInvite);
     
-    // You might want to update the player's status in your database here
     const user = sampleUsers.find(u => u.id === playerId);
     if(user) {
         user.status = 'pending_invite';
@@ -219,10 +216,8 @@ export async function respondToInvite(values: z.infer<typeof respondToInviteSche
                 ]
             };
             sampleConversations.push(newConversation);
-            // remove invite from list
             sampleInvites.splice(inviteIndex, 1);
         } else {
-             // remove invite from list
             sampleInvites.splice(inviteIndex, 1);
         }
 
@@ -330,7 +325,9 @@ const updateUserProfileSchema = z.object({
     userId: z.string(),
     name: z.string().min(2, "Name is required."),
     email: z.string().email("Invalid email address."),
-    dob: z.date().optional(),
+    dob: z.string().optional().refine(val => !val || !isNaN(Date.parse(val)), {
+        message: "Invalid date format"
+    }),
     experience: z.string().optional(),
     goals: z.string().optional(),
 });
@@ -348,7 +345,7 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
             ...sampleUsers[userIndex],
             name: validatedData.name,
             email: validatedData.email,
-            dob: validatedData.dob,
+            dob: validatedData.dob ? new Date(validatedData.dob) : undefined,
             experience: validatedData.experience,
             goals: validatedData.goals,
         };

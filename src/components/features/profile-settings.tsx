@@ -66,7 +66,7 @@ export default function ProfileSettings({ userId }: { userId: string }) {
       form.reset({
         name: user.name || "",
         email: user.email || "",
-        dob: user.dob,
+        dob: user.dob ? new Date(user.dob) : undefined,
         experience: user.experience || "",
         goals: user.goals || "",
       });
@@ -75,13 +75,16 @@ export default function ProfileSettings({ userId }: { userId: string }) {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(async () => {
-      const result = await updateUserProfile({ ...values, userId });
+      const result = await updateUserProfile({ 
+          ...values, 
+          userId,
+          dob: values.dob?.toISOString()
+      });
       if (result.success) {
         toast({
           title: "Profile Updated",
           description: result.message,
         });
-        // Force a refresh of the page to show the new name in the header
         router.refresh();
       } else {
         toast({
