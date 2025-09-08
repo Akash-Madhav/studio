@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -10,6 +10,7 @@ import {
   getPlayerRecommendations,
   PlayerScoutingOutput,
 } from "@/ai/flows/player-scouting-flow";
+import { getPlayersForScouting } from "@/app/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -42,35 +43,38 @@ const formSchema = z.object({
   sport: z.string().min(1, "Sport is required."),
 });
 
-// Mock data for players, in a real application this would come from a database.
-const mockPlayersData = [
-  {
-    id: "player-1",
-    performanceData: "Excellent stamina, 5k run in 18 minutes. Lifts 1.5x bodyweight in squats.",
-    userProfile: "22-year-old male, competitive runner, aims to go pro.",
-  },
-  {
-    id: "player-2",
-    performanceData: "Explosive power, high vertical jump. Can sprint 100m in 11.5s.",
-    userProfile: "20-year-old female, basketball player, focuses on agility and power.",
-  },
-  {
-    id: "player-3",
-    performanceData: "Great hand-eye coordination and reflexes. Excels at racket sports.",
-    userProfile: "25-year-old male, recreational tennis player.",
-  },
-  {
-    id: "player-4",
-    performanceData: "Strong swimmer, can swim 1500m under 25 minutes. Good upper body strength.",
-    userProfile: "19-year-old female, competitive swimmer, trains 5 times a week.",
-  },
-];
+interface PlayerData {
+  id: string;
+  name: string;
+  performanceData: string;
+  userProfile: string;
+}
 
 export default function PlayerScouting() {
   const { toast } = useToast();
   const [recommendations, setRecommendations] =
     useState<PlayerScoutingOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [players, setPlayers] = useState<PlayerData[]>([]);
+  const [isFetchingPlayers, setIsFetchingPlayers] = useState(true);
+
+  useEffect(() => {
+    async function fetchPlayers() {
+      setIsFetchingPlayers(true);
+      const result = await getPlayersForScouting();
+      if (result.success && result.players) {
+        setPlayers(result.players.map(p => ({...p, name: p.name || `Player ${p.id.substring(0,4)}`})));
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to fetch player data.",
+        });
+      }
+      setIsFetchingPlayers(false);
+    }
+    fetchPlayers();
+  }, [toast]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -83,10 +87,20 @@ export default function PlayerScouting() {
     setIsLoading(true);
     setRecommendations(null);
 
+    if (players.length === 0) {
+        toast({
+            variant: "destructive",
+            title: "No Players Found",
+            description: "There are no players in the database to scout.",
+        });
+        setIsLoading(false);
+        return;
+    }
+
     try {
       const result = await getPlayerRecommendations({
         sport: values.sport,
-        playersData: mockPlayersData,
+        playersData: players,
       });
       setRecommendations(result);
     } catch (error) {
@@ -129,13 +143,13 @@ export default function PlayerScouting() {
               />
             </CardContent>
             <CardFooter>
-              <Button type="submit" disabled={isLoading} className="w-full">
-                {isLoading ? (
+              <Button type="submit" disabled={isLoading || isFetchingPlayers} className="w-full">
+                {isLoading || isFetchingPlayers ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Search className="mr-2" />
                 )}
-                Find Players
+                {isFetchingPlayers ? 'Loading Players...' : 'Find Players'}
               </Button>
             </CardFooter>
           </form>
@@ -186,9 +200,13 @@ export default function PlayerScouting() {
             </Accordion>
           ) : (
             !isLoading && (
-              <div className="text-center text-muted-foreground py-12">
-                Player recommendations will appear here.
-              </div>
+                <div className="text-center text-muted-foreground py-12">
+                    {isFetchingPlayers
+                        ? "Fetching player data..."
+                        : players.length === 0 
+                        ? "No players found to scout. New players will appear here once they log a workout."
+                        : "Player recommendations will appear here."}
+                </div>
             )
           )}
         </CardContent>

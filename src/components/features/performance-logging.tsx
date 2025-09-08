@@ -42,6 +42,7 @@ export default function PerformanceLogging() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [userId, setUserId] = useState<string | undefined>(undefined);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -76,7 +77,7 @@ export default function PerformanceLogging() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    const result = await logWorkout(values);
+    const result = await logWorkout({...values, userId});
     setIsLoading(false);
 
     if (result.success) {
@@ -84,6 +85,9 @@ export default function PerformanceLogging() {
         title: "Workout Logged!",
         description: result.message,
       });
+      if(result.userId) {
+        setUserId(result.userId);
+      }
       form.reset();
     } else {
       toast({
