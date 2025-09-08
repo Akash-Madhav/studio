@@ -4,6 +4,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { logWorkout } from "@/app/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +39,7 @@ const formSchema = z.object({
 
 export default function PerformanceLogging() {
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -47,13 +51,24 @@ export default function PerformanceLogging() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log("Logged workout:", values);
-    toast({
-      title: "Workout Logged!",
-      description: `${values.exercise} has been added to your history.`,
-    });
-    form.reset();
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
+    const result = await logWorkout(values);
+    setIsLoading(false);
+
+    if (result.success) {
+      toast({
+        title: "Workout Logged!",
+        description: result.message,
+      });
+      form.reset();
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: result.message,
+      });
+    }
   }
 
   return (
@@ -88,7 +103,7 @@ export default function PerformanceLogging() {
                   <FormItem>
                     <FormLabel>Reps</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 10" {...field} />
+                      <Input type="number" placeholder="e.g., 10" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -101,7 +116,7 @@ export default function PerformanceLogging() {
                   <FormItem>
                     <FormLabel>Weight (kg)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 60" {...field} />
+                      <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -116,7 +131,7 @@ export default function PerformanceLogging() {
                   <FormItem>
                     <FormLabel>Time</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., 30:00" {...field} />
+                      <Input placeholder="e.g., 30:00" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -129,7 +144,7 @@ export default function PerformanceLogging() {
                   <FormItem>
                     <FormLabel>Distance (km)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 5" {...field} />
+                      <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -138,7 +153,8 @@ export default function PerformanceLogging() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full" variant="default">
+            <Button type="submit" className="w-full" variant="default" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Log Workout
             </Button>
           </CardFooter>
