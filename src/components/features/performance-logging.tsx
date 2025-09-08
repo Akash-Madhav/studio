@@ -4,9 +4,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Camera, Loader2, Video } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { Loader2, Video, UploadCloud, Rocket } from "lucide-react";
+import { useState, useRef } from "react";
 import { logWorkout } from "@/app/actions";
+import { analyzeWorkoutVideo } from "@/ai/flows/video-workout-analysis-flow";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -40,28 +41,11 @@ const formSchema = z.object({
 
 export default function PerformanceLogging({ userId }: { userId?: string }) {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const getCameraPermission = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        setHasCameraPermission(true);
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (error) {
-        console.error('Error accessing camera:', error);
-        setHasCameraPermission(false);
-      }
-    };
-
-    getCameraPermission();
-  }, []);
-
+  const [isLogging, setIsLogging] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -74,6 +58,62 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     },
   });
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setVideoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setVideoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      form.reset();
+    }
+  };
+
+  const handleAnalyzeVideo = async () => {
+    if (!videoFile) {
+        toast({
+            variant: 'destructive',
+            title: 'No Video Selected',
+            description: 'Please upload a video to analyze.'
+        });
+        return;
+    }
+    setIsAnalyzing(true);
+    try {
+        const videoDataUri = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(videoFile);
+        });
+
+        const result = await analyzeWorkoutVideo({ videoDataUri });
+        
+        form.setValue('exercise', result.exercise || '');
+        form.setValue('reps', result.reps);
+        form.setValue('weight', result.weight);
+        form.setValue('time', result.time);
+        form.setValue('distance', result.distance);
+
+        toast({
+            title: 'Analysis Complete!',
+            description: 'The workout details have been filled in below. Please review and save.',
+        });
+
+    } catch (error) {
+        console.error("Error analyzing video:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Analysis Failed',
+            description: 'There was an error analyzing your video. Please try again.'
+        });
+    } finally {
+        setIsAnalyzing(false);
+    }
+  };
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!userId) {
       toast({
@@ -83,9 +123,9 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
       });
       return;
     }
-    setIsLoading(true);
-    const result = await logWorkout({...values, userId});
-    setIsLoading(false);
+    setIsLogging(true);
+    const result = await logWorkout({ ...values, userId });
+    setIsLogging(false);
 
     if (result.success) {
       toast({
@@ -93,6 +133,11 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
         description: result.message,
       });
       form.reset();
+      setVideoPreview(null);
+      setVideoFile(null);
+      if(fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } else {
       toast({
         variant: "destructive",
@@ -102,17 +147,71 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     }
   }
 
+  const isFormPopulated = form.watch('exercise') !== '';
+
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Log New Workout</CardTitle>
+        <CardTitle>Log New Workout with AI</CardTitle>
         <CardDescription>
-          Enter the details of your activity. Fill in what's relevant.
+          Upload a video of your workout, and let our AI analyze it for you.
         </CardDescription>
       </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+            <FormLabel>Workout Video</FormLabel>
+            <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 space-y-4">
+              <div className="bg-muted rounded-md aspect-video flex items-center justify-center relative">
+                {videoPreview ? (
+                    <video src={videoPreview} className="w-full aspect-video rounded-md" controls />
+                ) : (
+                    <div className="text-center text-muted-foreground">
+                        <UploadCloud className="mx-auto h-12 w-12" />
+                        <p>Upload a video to get started</p>
+                    </div>
+                )}
+                 {isAnalyzing && (
+                  <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center rounded-md">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+                    <p className="text-lg font-semibold">Analyzing your form...</p>
+                    <p className="text-sm text-muted-foreground">This may take a moment.</p>
+                  </div>
+                )}
+              </div>
+            
+              <div className="flex gap-2 flex-wrap">
+                  <Button asChild variant="outline">
+                    <label htmlFor="video-upload">
+                      <Video className="mr-2" />
+                      {videoFile ? 'Change Video' : 'Select Video'}
+                      <input 
+                        ref={fileInputRef}
+                        id="video-upload" 
+                        type="file" 
+                        accept="video/*" 
+                        className="sr-only" 
+                        onChange={handleFileChange}
+                        disabled={isAnalyzing}
+                      />
+                    </label>
+                  </Button>
+                  <Button 
+                    type="button" 
+                    onClick={handleAnalyzeVideo}
+                    disabled={!videoFile || isAnalyzing}
+                    >
+                    {isAnalyzing ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <Rocket className="mr-2"/>
+                    )}
+                    Analyze Workout
+                  </Button>
+              </div>
+            </div>
+        </div>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="exercise"
@@ -120,7 +219,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
                 <FormItem>
                   <FormLabel>Exercise</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Bench Press" {...field} />
+                    <Input placeholder="e.g., Bench Press" {...field} disabled={!isFormPopulated}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -134,7 +233,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
                   <FormItem>
                     <FormLabel>Reps</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 10" {...field} value={field.value ?? ''} />
+                      <Input type="number" placeholder="e.g., 10" {...field} value={field.value ?? ''} disabled={!isFormPopulated}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -147,7 +246,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
                   <FormItem>
                     <FormLabel>Weight (kg)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} />
+                      <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} disabled={!isFormPopulated}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -162,7 +261,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
                   <FormItem>
                     <FormLabel>Time</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., 30:00" {...field} value={field.value ?? ''} />
+                      <Input placeholder="e.g., 30:00" {...field} value={field.value ?? ''} disabled={!isFormPopulated}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -175,53 +274,22 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
                   <FormItem>
                     <FormLabel>Distance (km)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} />
+                      <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} disabled={!isFormPopulated}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-            
-            <div className="space-y-2">
-                <FormLabel>Visual Proof</FormLabel>
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 space-y-4">
-                  <div className="bg-muted rounded-md aspect-video flex items-center justify-center">
-                    <video ref={videoRef} className="w-full aspect-video rounded-md" autoPlay muted />
-                  </div>
-                  {hasCameraPermission === false && (
-                    <Alert variant="destructive">
-                      <AlertTitle>Camera Access Required</AlertTitle>
-                      <AlertDescription>
-                        Please allow camera access in your browser settings to provide live proof. You can also upload a video instead.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  <div className="flex gap-2 flex-wrap">
-                      <Button type="button" variant="outline" disabled={!hasCameraPermission}>
-                          <Camera className="mr-2"/>
-                          Capture Proof
-                      </Button>
-                      <Button asChild variant="outline">
-                        <label htmlFor="video-upload">
-                          <Video className="mr-2" />
-                          Upload Video
-                          <input id="video-upload" type="file" accept="video/*" className="sr-only" />
-                        </label>
-                      </Button>
-                  </div>
-                </div>
-            </div>
-
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" className="w-full" variant="default" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Log Workout
-            </Button>
-          </CardFooter>
-        </form>
-      </Form>
+            <CardFooter className="px-0 pt-4">
+              <Button type="submit" className="w-full" variant="default" disabled={isLogging || !isFormPopulated}>
+                {isLogging && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Log Workout
+              </Button>
+            </CardFooter>
+          </form>
+        </Form>
+      </CardContent>
     </Card>
   );
 }
