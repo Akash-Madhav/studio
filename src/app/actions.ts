@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import { sampleUsers, sampleWorkouts, sampleConversations } from '@/lib/sample-data';
+import { sampleUsers, sampleWorkouts, sampleConversations, sampleInvites } from '@/lib/sample-data';
 
 
 const logWorkoutSchema = z.object({
@@ -64,6 +64,7 @@ export async function getPlayersForScouting() {
           name: user.name || `Player ${user.id.substring(0, 4)}`,
           performanceData: performanceData || "No workouts logged yet.",
           userProfile: `Age: ${user.age || 'N/A'}, Experience: ${user.experience || 'N/A'}, Goals: ${user.goals || 'N/A'}`,
+          status: user.status
         };
       });
 
@@ -74,14 +75,54 @@ export async function getPlayersForScouting() {
   }
 }
 
-export async function sendRecruitInvite(playerId: string, playerName: string) {
+export async function sendRecruitInvite(playerId: string, coachId: string) {
     // In a real app, this would trigger a notification or email.
-    // For now, we'll just log it to the console.
-    console.log(`Recruitment invite sent to player: ${playerName} (ID: ${playerId})`);
+    const player = sampleUsers.find(u => u.id === playerId);
+    if (!player) {
+      return { success: false, message: 'Player not found.' };
+    }
+
+    const existingInvite = sampleInvites.find(inv => inv.playerId === playerId && inv.coachId === coachId && inv.status === 'pending');
+    if (existingInvite) {
+        return { success: false, message: `${player.name} already has a pending invite.` };
+    }
+
+    const newInvite = {
+        _id: `inv${Date.now()}`,
+        coachId,
+        playerId,
+        status: 'pending',
+        createdAt: new Date(),
+    };
+    sampleInvites.push(newInvite);
     
     // You might want to update the player's status in your database here
+    player.status = 'pending_invite';
     
-    return { success: true, message: `Recruitment invite sent to ${playerName}!` };
+    return { success: true, message: `Recruitment invite sent to ${player.name}!` };
+}
+
+export async function getPendingInvites(coachId: string) {
+  try {
+    const pending = sampleInvites
+      .filter(inv => inv.coachId === coachId && inv.status === 'pending')
+      .map(invite => {
+        const player = sampleUsers.find(u => u.id === invite.playerId);
+        return {
+          inviteId: invite._id,
+          playerId: invite.playerId,
+          playerName: player?.name || 'Unknown Player',
+          playerAvatar: `https://picsum.photos/seed/${invite.playerId}/100/100`,
+          sentAt: invite.createdAt,
+        };
+      })
+      .sort((a,b) => b.sentAt.getTime() - a.sentAt.getTime());
+
+    return { success: true, invites: pending };
+  } catch (error) {
+    console.error("Error fetching pending invites:", error);
+    return { success: false, invites: [] };
+  }
 }
 
 // CHAT ACTIONS

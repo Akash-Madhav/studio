@@ -13,6 +13,7 @@ import {
   Target,
   Users,
   ArrowLeft,
+  Mail,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -35,6 +36,7 @@ import SportMatch from "@/components/features/sport-match";
 import PlayerScouting from "@/components/features/player-scouting";
 import PlayerStats from '@/components/features/player-stats';
 import Messages from '@/components/features/messages';
+import PendingInvites from '@/components/features/pending-invites';
 
 function DashboardContent() {
   const searchParams = useSearchParams();
@@ -131,7 +133,7 @@ function DashboardContent() {
         
         {dashboardIsCoachView && (
            <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="player-stats">
                     <BrainCircuit className="mr-2" />
                     Player Stats
@@ -139,6 +141,10 @@ function DashboardContent() {
                   <TabsTrigger value="player-scouting">
                     <Users className="mr-2" />
                     Scouting
+                  </TabsTrigger>
+                  <TabsTrigger value="pending-invites">
+                    <Mail className="mr-2" />
+                    Invites
                   </TabsTrigger>
                   <TabsTrigger value="messages">
                     <MessageSquare className="mr-2" />
@@ -150,6 +156,9 @@ function DashboardContent() {
               </TabsContent>
                <TabsContent value="player-scouting" className="mt-4">
                   <PlayerScouting />
+              </TabsContent>
+              <TabsContent value="pending-invites" className="mt-4">
+                  <PendingInvites userId={userId} />
               </TabsContent>
               <TabsContent value="messages" className="mt-4">
                   <Messages userId={userId} />

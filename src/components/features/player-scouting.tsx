@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Loader2, UserCheck, Search, Send } from "lucide-react";
+import { useSearchParams } from 'next/navigation';
 import {
   getPlayerRecommendations,
   PlayerScoutingOutput,
@@ -38,6 +39,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 
 const formSchema = z.object({
   sport: z.string().min(1, "Sport is required."),
@@ -48,10 +50,14 @@ interface PlayerData {
   name: string;
   performanceData: string;
   userProfile: string;
+  status: string;
 }
 
 export default function PlayerScouting() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const coachId = searchParams.get('userId') || 'coach1';
+
   const [recommendations, setRecommendations] =
     useState<PlayerScoutingOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -100,9 +106,23 @@ export default function PlayerScouting() {
     }
 
     try {
+      const scoutablePlayers = players.filter(p => p.status === 'active');
+      if (scoutablePlayers.length === 0) {
+        toast({
+            title: "All players have pending invites!",
+            description: "Check the 'Invites' tab to see their status.",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const result = await getPlayerRecommendations({
         sport: values.sport,
-        playersData: players,
+        playersData: scoutablePlayers.map(p => ({
+            id: p.id,
+            performanceData: p.performanceData,
+            userProfile: p.userProfile
+        }))
       });
       setRecommendations(result);
     } catch (error) {
@@ -121,21 +141,31 @@ export default function PlayerScouting() {
   const handleSendInvite = (playerId: string, playerName: string) => {
     startTransition(async () => {
         setIsSendingInvite(playerId);
-        const result = await sendRecruitInvite(playerId, playerName);
+        const result = await sendRecruitInvite(playerId, coachId);
         if (result.success) {
             toast({
                 title: "Invite Sent!",
                 description: result.message,
             });
+            // Update player status locally
+            setPlayers(prev => prev.map(p => p.id === playerId ? {...p, status: 'pending_invite' } : p));
+            setRecommendations(prev => prev ? ({
+                ...prev,
+                recommendations: prev.recommendations.filter(r => r.playerId !== playerId)
+            }) : null);
         } else {
             toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: 'Failed to send invite. Please try again.'
+                description: result.message || 'Failed to send invite. Please try again.'
             });
         }
         setIsSendingInvite(null);
     });
+  }
+
+  const getPlayerStatus = (playerId: string) => {
+    return players.find(p => p.id === playerId)?.status;
   }
 
   return (
@@ -204,6 +234,9 @@ export default function PlayerScouting() {
                           Suitability: {rec.suitabilityScore}%
                         </p>
                       </div>
+                      {getPlayerStatus(rec.playerId) === 'pending_invite' && (
+                          <Badge variant="secondary">Invite Pending</Badge>
+                      )}
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="space-y-4 pt-2">
