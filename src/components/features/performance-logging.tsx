@@ -157,61 +157,62 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
           Upload a video of your workout, and let our AI analyze it for you.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-            <FormLabel>Workout Video</FormLabel>
-            <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 space-y-4">
-              <div className="bg-muted rounded-md aspect-video flex items-center justify-center relative">
-                {videoPreview ? (
-                    <video src={videoPreview} className="w-full aspect-video rounded-md" controls />
-                ) : (
-                    <div className="text-center text-muted-foreground">
-                        <UploadCloud className="mx-auto h-12 w-12" />
-                        <p>Upload a video to get started</p>
-                    </div>
-                )}
-                 {isAnalyzing && (
-                  <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center rounded-md">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-                    <p className="text-lg font-semibold">Analyzing your form...</p>
-                    <p className="text-sm text-muted-foreground">This may take a moment.</p>
-                  </div>
-                )}
-              </div>
-            
-              <div className="flex gap-2 flex-wrap">
-                  <Button asChild variant="outline">
-                    <label htmlFor="video-upload">
-                      <Video className="mr-2" />
-                      {videoFile ? 'Change Video' : 'Select Video'}
-                      <input 
-                        ref={fileInputRef}
-                        id="video-upload" 
-                        type="file" 
-                        accept="video/*" 
-                        className="sr-only" 
-                        onChange={handleFileChange}
-                        disabled={isAnalyzing}
-                      />
-                    </label>
-                  </Button>
-                  <Button 
-                    type="button" 
-                    onClick={handleAnalyzeVideo}
-                    disabled={!videoFile || isAnalyzing}
-                    >
-                    {isAnalyzing ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="space-y-2">
+                <FormLabel>Workout Video</FormLabel>
+                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 space-y-4">
+                  <div className="bg-muted rounded-md aspect-video flex items-center justify-center relative">
+                    {videoPreview ? (
+                        <video src={videoPreview} className="w-full aspect-video rounded-md" controls />
                     ) : (
-                        <Rocket className="mr-2"/>
+                        <div className="text-center text-muted-foreground">
+                            <UploadCloud className="mx-auto h-12 w-12" />
+                            <p>Upload a video to get started</p>
+                        </div>
                     )}
-                    Analyze Workout
-                  </Button>
-              </div>
+                     {isAnalyzing && (
+                      <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center rounded-md">
+                        <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+                        <p className="text-lg font-semibold">Analyzing your form...</p>
+                        <p className="text-sm text-muted-foreground">This may take a moment.</p>
+                      </div>
+                    )}
+                  </div>
+                
+                  <div className="flex gap-2 flex-wrap">
+                      <Button asChild variant="outline">
+                        <label htmlFor="video-upload">
+                          <Video className="mr-2" />
+                          {videoFile ? 'Change Video' : 'Select Video'}
+                          <input 
+                            ref={fileInputRef}
+                            id="video-upload" 
+                            type="file" 
+                            accept="video/*" 
+                            className="sr-only" 
+                            onChange={handleFileChange}
+                            disabled={isAnalyzing}
+                          />
+                        </label>
+                      </Button>
+                      <Button 
+                        type="button" 
+                        onClick={handleAnalyzeVideo}
+                        disabled={!videoFile || isAnalyzing}
+                        >
+                        {isAnalyzing ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Rocket className="mr-2"/>
+                        )}
+                        Analyze Workout
+                      </Button>
+                  </div>
+                </div>
             </div>
-        </div>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          
             <FormField
               control={form.control}
               name="exercise"
