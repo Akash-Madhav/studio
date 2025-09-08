@@ -105,15 +105,6 @@ export default function PlayerStats({ userId, onViewPlayerDashboard }: PlayerSta
                                                 Dashboard
                                             </Button>
                                         </DialogTrigger>
-                                        <Link
-                                            href={`/dashboard?role=coach&userId=${userId}&tab=messages&conversationId=${getConversationId(userId, player.id)}`}
-                                            scroll={false}
-                                        >
-                                            <Button variant="default" size="sm">
-                                                <MessageSquare className="mr-2 h-4 w-4" />
-                                                Contact
-                                            </Button>
-                                        </Link>
                                     </CardFooter>
                                 </Card>
                                 <DialogContent className="max-w-4xl">
