@@ -44,7 +44,6 @@ import Messages from '@/components/features/messages';
 import CommunityHub from '@/components/features/community-hub';
 import PendingInvites from '@/components/features/pending-invites';
 import ProfileSettings from '@/components/features/profile-settings';
-import WorkoutHistory from '@/components/features/workout-history';
 import { getPlayersForScouting, getPendingInvites, getUser } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import SportMatch from '@/components/features/sport-match';
@@ -98,24 +97,25 @@ function DashboardContent() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    async function fetchUser() {
-        if (!initialUserId) {
-            setIsLoadingUser(false);
-            return;
-        };
-        setIsLoadingUser(true);
-        const userResult = await getUser(initialUserId);
-        if (userResult.success && userResult.user) {
-            setCurrentUser(userResult.user);
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
-            setCurrentUser(null);
-        }
-        setIsLoadingUser(false);
+  const fetchUser = React.useCallback(async () => {
+    if (!initialUserId) {
+      setIsLoadingUser(false);
+      return;
+    };
+    setIsLoadingUser(true);
+    const userResult = await getUser(initialUserId);
+    if (userResult.success && userResult.user) {
+        setCurrentUser(userResult.user);
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
+        setCurrentUser(null);
     }
+    setIsLoadingUser(false);
+  }, [initialUserId, toast]);
+
+  useEffect(() => {
     fetchUser();
-  }, [initialUserId, toast, searchParams]);
+  }, [fetchUser]);
 
 
   const fetchCoachData = React.useCallback(async () => {
@@ -159,6 +159,16 @@ function DashboardContent() {
     setActiveTab(tab);
   }, [searchParams, isCoach]);
 
+
+  const handleRefreshAllData = () => {
+    startTransition(() => {
+        toast({ title: 'Refreshing data...' });
+        fetchUser();
+        if (isCoach) {
+            fetchCoachData();
+        }
+    });
+  };
 
   if (isLoadingUser) {
     return (
@@ -224,12 +234,10 @@ function DashboardContent() {
           <span className="font-bold">OptiFit AI</span>
         </div>
         <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-          {isCoach && (
-            <Button variant="ghost" size="sm" onClick={fetchCoachData} disabled={isPending || isLoadingData}>
+            <Button variant="ghost" size="sm" onClick={handleRefreshAllData} disabled={isPending || isLoadingData}>
                 <RefreshCw className={`mr-2 h-4 w-4 ${isPending || isLoadingData ? 'animate-spin' : ''}`} />
                 Refresh Data
             </Button>
-          )}
           <div className="ml-auto flex-1 sm:flex-initial"></div>
           <div className="flex items-center gap-3">
              <ThemeToggle />

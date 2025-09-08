@@ -89,7 +89,7 @@ export default function ProfileSettings({ userId }: { userId: string }) {
       if (result.success) {
         toast({
           title: "Profile Updated",
-          description: result.message,
+          description: "Your changes have been saved successfully.",
         });
         // Re-sync the form with the successfully submitted values
         form.reset(values);
