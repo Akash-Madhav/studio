@@ -1,22 +1,23 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Send, Rss, MessageCircle, Newspaper } from "lucide-react";
+import { Loader2, Newspaper, MessageCircle, Rss } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getPosts, createPost, getGroupMessages, sendGroupMessage } from "@/app/actions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { getPosts, createPost } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { sampleUsers } from "@/lib/sample-data";
+import GroupChat from "./group-chat";
 
 dayjs.extend(relativeTime);
 
@@ -27,16 +28,6 @@ interface Post {
     authorAvatar: string;
     role: 'player' | 'coach';
     content: string;
-    createdAt: Date;
-}
-
-interface GroupMessage {
-    _id: string;
-    senderId: string;
-    authorName: string;
-    authorAvatar: string;
-    role: 'player' | 'coach';
-    text: string;
     createdAt: Date;
 }
 
@@ -52,15 +43,10 @@ const postFormSchema = z.object({
 export default function CommunityHub({ userId, role }: CommunityHubProps) {
     const { toast } = useToast();
     const [posts, setPosts] = useState<Post[]>([]);
-    const [messages, setMessages] = useState<GroupMessage[]>([]);
-    const [newMessage, setNewMessage] = useState("");
     
     const [isFetching, setIsFetching] = useState(true);
     const [isPosting, setIsPosting] = useState(false);
-    const [isSending, setIsSending] = useState(false);
     
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-
     const postForm = useForm<z.infer<typeof postFormSchema>>({
         resolver: zodResolver(postFormSchema),
         defaultValues: { content: "" },
@@ -70,26 +56,16 @@ export default function CommunityHub({ userId, role }: CommunityHubProps) {
         async function fetchData() {
             setIsFetching(true);
             try {
-                const [postRes, messageRes] = await Promise.all([
-                    getPosts(role),
-                    getGroupMessages(role)
-                ]);
-
+                const postRes = await getPosts(role);
                 if (postRes.success) setPosts(postRes.posts as Post[]);
-                if (messageRes.success) setMessages(messageRes.messages as GroupMessage[]);
-
             } catch (error) {
-                toast({ variant: 'destructive', title: "Error", description: "Failed to load community data." });
+                toast({ variant: 'destructive', title: "Error", description: "Failed to load community feed." });
             } finally {
                 setIsFetching(false);
             }
         }
         fetchData();
     }, [role, toast]);
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
 
     const handleCreatePost = async (values: z.infer<typeof postFormSchema>) => {
         setIsPosting(true);
@@ -109,24 +85,12 @@ export default function CommunityHub({ userId, role }: CommunityHubProps) {
         setIsPosting(false);
     };
 
-    const handleSendMessage = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newMessage.trim()) return;
-
-        setIsSending(true);
-        const result = await sendGroupMessage({ senderId: userId, role, text: newMessage });
-        if (result.success && result.message) {
-            setMessages(prev => [...prev, result.message as GroupMessage]);
-            setNewMessage("");
-        } else {
-            toast({ variant: 'destructive', title: "Error", description: "Failed to send message." });
-        }
-        setIsSending(false);
-    };
-
     if (isFetching) {
         return <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin" /></div>;
     }
+
+    const groupChatName = role === 'player' ? "Player's Lounge" : "Coaches' Corner";
+    const groupChatDescription = role === 'player' ? "Chat with all other players." : "Discuss strategies with your fellow coaches.";
 
     return (
         <Tabs defaultValue="feed" className="w-full">
@@ -191,41 +155,32 @@ export default function CommunityHub({ userId, role }: CommunityHubProps) {
             </TabsContent>
             <TabsContent value="chat" className="mt-6">
                  <div className="max-w-2xl mx-auto">
-                    <Card className="flex flex-col h-[calc(100vh-300px)]">
+                    <Card>
                         <CardHeader>
-                            <CardTitle>{role === 'player' ? "Player" : "Coach"} Group Chat</CardTitle>
-                            <CardDescription>Chat with your peers in real-time.</CardDescription>
+                            <CardTitle>Group Chats</CardTitle>
+                            <CardDescription>Join the conversation with your peers.</CardDescription>
                         </CardHeader>
-                        <CardContent className="flex-grow overflow-y-auto space-y-4 pr-4">
-                            {messages.map(msg => (
-                                <div key={msg._id} className={`flex items-start gap-3 ${msg.senderId === userId ? 'justify-end' : ''}`}>
-                                    {msg.senderId !== userId && 
-                                        <Avatar className="h-8 w-8">
-                                            <AvatarImage src={msg.authorAvatar} data-ai-hint="person face"/>
-                                            <AvatarFallback>{msg.authorName.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                    }
-                                    <div className={`rounded-lg px-3 py-2 max-w-xs ${msg.senderId === userId ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                                        {msg.senderId !== userId && <p className="text-xs font-bold mb-1">{msg.authorName}</p>}
-                                        <p className="text-sm">{msg.text}</p>
+                        <CardContent>
+                           <Dialog>
+                               <DialogTrigger asChild>
+                                    <div className="p-4 rounded-lg border flex items-center gap-4 cursor-pointer hover:bg-muted">
+                                        <div className="bg-primary/10 text-primary p-3 rounded-full">
+                                            <MessageCircle className="h-6 w-6" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="font-semibold text-lg">{groupChatName}</p>
+                                            <p className="text-muted-foreground">{groupChatDescription}</p>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
-                            <div ref={messagesEndRef} />
+                               </DialogTrigger>
+                               <DialogContent className="max-w-2xl w-full h-[80vh] flex flex-col p-0">
+                                   <DialogHeader className="p-6 pb-0">
+                                       <DialogTitle>{groupChatName}</DialogTitle>
+                                   </DialogHeader>
+                                   <GroupChat userId={userId} role={role} />
+                               </DialogContent>
+                           </Dialog>
                         </CardContent>
-                        <CardFooter className="pt-4 border-t">
-                            <form onSubmit={handleSendMessage} className="w-full flex items-center gap-2">
-                                <Input
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    placeholder="Type a message..."
-                                    disabled={isSending}
-                                />
-                                <Button type="submit" size="icon" disabled={isSending || !newMessage.trim()}>
-                                    {isSending ? <Loader2 className="animate-spin" /> : <Send />}
-                                </Button>
-                            </form>
-                        </CardFooter>
                     </Card>
                 </div>
             </TabsContent>
