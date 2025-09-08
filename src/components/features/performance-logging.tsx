@@ -245,9 +245,9 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     cleanupCamera();
     setVideoMode('upload');
     setHasCameraPermission(null);
-     if(fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -444,7 +444,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
                       <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} disabled={!isFormPopulated}/>
                     </FormControl>
                     <FormMessage />
-                  </Item>
+                  </FormItem>
                 )}
               />
             </div>
@@ -460,3 +460,5 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     </Card>
   );
 }
+
+    
