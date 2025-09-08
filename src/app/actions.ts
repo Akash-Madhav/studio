@@ -2,9 +2,8 @@
 'use server';
 
 import { z } from 'zod';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, where, limit, updateDoc, doc, getDoc, Timestamp, orderBy, setDoc } from 'firebase/firestore';
-import { faker } from '@faker-js/faker';
+import { sampleUsers, sampleWorkouts, sampleConversations } from '@/lib/sample-data';
+import { Timestamp } from 'firebase/firestore';
 
 
 const logWorkoutSchema = z.object({
@@ -16,83 +15,46 @@ const logWorkoutSchema = z.object({
   userId: z.string(), 
 });
 
-async function ensureUserExists(userId: string) {
-  const userDocRef = doc(db, 'users', userId);
-  const userDoc = await getDoc(userDocRef);
-  
-  if (!userDoc.exists()) {
-    // This part is for users created on the fly, outside of the seed script.
-    const newUser = {
-        name: faker.person.fullName(),
-        age: Math.floor(Math.random() * (40 - 18 + 1)) + 18,
-        experience: 'Intermediate',
-        goals: 'Improve overall fitness',
-        createdAt: new Date(),
-    };
-    await setDoc(userDocRef, newUser);
-    console.log(`Created new user with ID: ${userId}`);
-  }
-  return userId;
-}
-
 
 export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
   const validatedData = logWorkoutSchema.parse(values);
   
-  try {
-    const userId = await ensureUserExists(validatedData.userId);
-
-    const workoutData = {
-      ...validatedData,
-      userId: userId,
-      createdAt: new Date(),
-    };
-
-    const docRef = await addDoc(collection(db, "workouts"), workoutData);
-    
-    return { 
-      success: true, 
-      message: `${validatedData.exercise} has been added to your history.`,
-      userId: userId,
-    };
-  } catch (e) {
-    console.error("Error adding document: ", e);
-    return { success: false, message: "Failed to log workout." };
-  }
+  // This is a mock function, in a real app you'd save to a database.
+  console.log("Logged workout:", validatedData);
+  
+  return { 
+    success: true, 
+    message: `${validatedData.exercise} has been added to your history.`,
+    userId: validatedData.userId,
+  };
 }
 
 export async function getPlayersForScouting() {
   try {
-    const usersSnapshot = await getDocs(collection(db, "users"));
-    const players = [];
+    const players = sampleUsers
+      .filter(u => u.role === 'player')
+      .map(user => {
+        const userWorkouts = sampleWorkouts
+          .filter(w => w.userId === user.id)
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, 5);
 
-    for (const userDoc of usersSnapshot.docs) {
-      const user = userDoc.data();
-      const userId = userDoc.id;
+        const performanceData = userWorkouts.map(data => {
+          let record = `${data.exercise}:`;
+          if (data.reps) record += ` ${data.reps} reps`;
+          if (data.weight) record += ` at ${data.weight}kg`;
+          if (data.distance) record += ` for ${data.distance}km`;
+          if (data.time) record += ` in ${data.time}`;
+          return record;
+        }).join(', ');
 
-      // Simple way to check if it's a player, could be a role field in a real app
-      if (user.email && user.email.includes('coach')) continue;
-
-      const workoutsQuery = query(collection(db, "workouts"), where("userId", "==", userId), orderBy('createdAt', 'desc'), limit(5));
-      const workoutsSnapshot = await getDocs(workoutsQuery);
-      
-      const performanceData = workoutsSnapshot.docs.map(doc => {
-        const data = doc.data();
-        let record = `${data.exercise}:`;
-        if (data.reps) record += ` ${data.reps} reps`;
-        if (data.weight) record += ` at ${data.weight}kg`;
-        if (data.distance) record += ` for ${data.distance}km`;
-        if (data.time) record += ` in ${data.time}`;
-        return record;
-      }).join(', ');
-
-      players.push({
-        id: userId,
-        name: user.name || `Player ${userId.substring(0, 4)}`,
-        performanceData: performanceData || "No workouts logged yet.",
-        userProfile: `Age: ${user.age || 'N/A'}, Experience: ${user.experience || 'N/A'}, Goals: ${user.goals || 'N/A'}`,
+        return {
+          id: user.id,
+          name: user.name || `Player ${user.id.substring(0, 4)}`,
+          performanceData: performanceData || "No workouts logged yet.",
+          userProfile: `Age: ${user.age || 'N/A'}, Experience: ${user.experience || 'N/A'}, Goals: ${user.goals || 'N/A'}`,
+        };
       });
-    }
 
     return { success: true, players };
   } catch (error) {
@@ -109,40 +71,24 @@ export interface Conversation {
     lastMessage: { text: string; sentAt: Date } | null;
 }
 
-export async function getConversations(userId: string) {
+export async function getConversations(userId: string): Promise<{success: boolean, conversations: Conversation[]}> {
     try {
-        const q = query(collection(db, 'conversations'), where('participantIds', 'array-contains', userId));
-        const querySnapshot = await getDocs(q);
-        const conversations: Conversation[] = [];
-
-        for (const docSnap of querySnapshot.docs) {
-            const convoData = docSnap.data();
-            const participantIds = convoData.participantIds.filter((id: string) => id !== userId);
-            
-            const participantsInfo: { id: string; name: string }[] = [];
-            // Get the other participant's info
-            for(const pId of participantIds) {
-                const userDoc = await getDoc(doc(db, 'users', pId));
-                if(userDoc.exists()){
-                    participantsInfo.push({ id: pId, name: userDoc.data().name || 'Unknown User' });
-                }
+        const userConversations = sampleConversations.filter(c => c.participantIds.includes(userId));
+        
+        const conversations: Conversation[] = userConversations.map(convo => {
+            const lastMessage = convo.messages.length > 0 ? convo.messages[convo.messages.length - 1] : null;
+            return {
+                id: convo._id,
+                participants: convo.participantIds.map(pId => {
+                    const user = sampleUsers.find(u => u.id === pId);
+                    return { id: pId, name: user?.name || "Unknown" };
+                }),
+                lastMessage: lastMessage ? {
+                    text: lastMessage.text,
+                    sentAt: lastMessage.createdAt
+                } : null
             }
-            // Get current user's info
-            const currentUserDoc = await getDoc(doc(db, 'users', userId));
-            if(currentUserDoc.exists()){
-                participantsInfo.push({ id: userId, name: currentUserDoc.data().name || 'Me' });
-            }
-
-
-            conversations.push({
-                id: docSnap.id,
-                participants: participantsInfo,
-                lastMessage: convoData.lastMessage ? {
-                    text: convoData.lastMessage.text,
-                    sentAt: convoData.lastMessage.sentAt.toDate(),
-                } : null,
-            });
-        }
+        });
 
         return { success: true, conversations };
 
@@ -155,9 +101,17 @@ export async function getConversations(userId: string) {
 
 export async function getMessages(conversationId: string) {
     try {
-        const messagesQuery = query(collection(db, 'conversations', conversationId, 'messages'), orderBy('createdAt', 'asc'));
-        const messagesSnapshot = await getDocs(messagesQuery);
-        const messages = messagesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const conversation = sampleConversations.find(c => c._id === conversationId);
+        if (!conversation) {
+            return { success: false, messages: [] };
+        }
+        
+        const messages = conversation.messages.map(msg => ({
+            id: msg._id,
+            senderId: msg.senderId,
+            text: msg.text,
+            createdAt: Timestamp.fromDate(msg.createdAt)
+        }));
 
         return { success: true, messages };
     } catch (error) {
@@ -172,36 +126,23 @@ const sendMessageSchema = z.object({
     text: z.string().min(1),
 });
 
-async function ensureConversationExists(conversationId: string, senderId: string) {
-    const convoRef = doc(db, 'conversations', conversationId);
-    const convoDoc = await getDoc(convoRef);
-    if (!convoDoc.exists()) {
-        const participantIds = conversationId.split('_');
-        await setDoc(convoRef, { participantIds });
-    }
-}
-
 export async function sendMessage(values: z.infer<typeof sendMessageSchema>) {
     const validatedData = sendMessageSchema.parse(values);
     try {
-        await ensureConversationExists(validatedData.conversationId, validatedData.senderId);
+       // This is a mock function. In a real app, you would save this to your database.
+       console.log("Sending message:", validatedData);
 
-        const message = {
+       const message = {
+            id: `m${Date.now()}`,
+            _id: `m${Date.now()}`,
             senderId: validatedData.senderId,
             text: validatedData.text,
             createdAt: Timestamp.now(),
         };
 
-        const messageRef = await addDoc(collection(db, 'conversations', validatedData.conversationId, 'messages'), message);
-        
-        await updateDoc(doc(db, 'conversations', validatedData.conversationId), {
-            lastMessage: {
-                text: validatedData.text,
-                sentAt: message.createdAt,
-            }
-        });
-
-        return { success: true, message: {id: messageRef.id, ...message} };
+        // In a real app, you would push this to the conversation in the database.
+        // For this mock, it won't be persisted.
+        return { success: true, message: {...message, id: message.id} };
     } catch (error) {
         console.error("Error sending message:", error);
         return { success: false };
