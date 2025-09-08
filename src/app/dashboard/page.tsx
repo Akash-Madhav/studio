@@ -50,6 +50,7 @@ import { useToast } from '@/hooks/use-toast';
 import SportMatch from '@/components/features/sport-match';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useRouter } from 'next/navigation';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface PlayerData {
   id: string;
@@ -78,7 +79,7 @@ interface User {
     status?: string;
 }
 
-async function DashboardContent() {
+function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -87,6 +88,8 @@ async function DashboardContent() {
   const isCoach = role === 'coach';
   const initialTab = searchParams.get('tab') || (isCoach ? 'player-stats' : 'dashboard');
   
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const [players, setPlayers] = useState<PlayerData[]>([]);
@@ -95,8 +98,24 @@ async function DashboardContent() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const userResult = await getUser(initialUserId);
-  const currentUser = userResult.user as User | null;
+  useEffect(() => {
+    async function fetchUser() {
+        if (!initialUserId) {
+            setIsLoadingUser(false);
+            return;
+        };
+        setIsLoadingUser(true);
+        const userResult = await getUser(initialUserId);
+        if (userResult.success && userResult.user) {
+            setCurrentUser(userResult.user);
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
+        }
+        setIsLoadingUser(false);
+    }
+    fetchUser();
+  }, [initialUserId, toast]);
+
 
   const fetchCoachData = React.useCallback(async () => {
     if (!isCoach) return;
@@ -139,6 +158,32 @@ async function DashboardContent() {
     setActiveTab(tab);
   }, [searchParams, isCoach]);
 
+
+  if (isLoadingUser) {
+    return (
+        <div className="flex flex-col min-h-screen w-full">
+            <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 z-50">
+                <div className="flex items-center gap-2 text-lg font-semibold text-primary">
+                    <Dumbbell className="h-6 w-6" />
+                    <span className="font-bold">OptiFit AI</span>
+                </div>
+                 <div className="ml-auto flex items-center gap-3">
+                    <Skeleton className="h-8 w-24" />
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                 </div>
+            </header>
+            <main className="flex-1 p-4 md:p-8">
+                <Skeleton className="h-8 w-64 mb-2" />
+                <Skeleton className="h-4 w-96 mb-8" />
+                <div className="flex gap-2">
+                    <Skeleton className="h-10 w-32" />
+                    <Skeleton className="h-10 w-32" />
+                    <Skeleton className="h-10 w-32" />
+                </div>
+            </main>
+        </div>
+    )
+  }
 
   if (!currentUser) {
     return (
