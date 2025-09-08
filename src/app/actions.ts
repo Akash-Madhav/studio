@@ -358,9 +358,7 @@ const updateUserProfileSchema = z.object({
     userId: z.string(),
     name: z.string().min(2, "Name is required."),
     email: z.string().email("Invalid email address."),
-    dob: z.string().optional().refine(val => !val || !isNaN(Date.parse(val)), {
-        message: "Invalid date format"
-    }),
+    dob: z.string().optional(),
     experience: z.string().optional(),
     goals: z.string().optional(),
 });
@@ -406,3 +404,5 @@ export async function getUsersForLogin(role: string) {
         return { success: false, users: [] };
     }
 }
+
+    
