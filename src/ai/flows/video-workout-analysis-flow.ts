@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to analyze a workout video and extract performance data.
@@ -44,7 +45,7 @@ const prompt = ai.definePrompt({
 
   Your tasks are:
   1.  Identify the primary exercise (e.g., "Bench Press", "Squat", "Deadlift", "Running").
-  2.  Count the number of successful repetitions (reps). A rep is a full, complete range of motion.
+  2.  Carefully analyze the video to count the number of successful repetitions (reps). A successful rep must involve a full and complete range of motion for the identified exercise. Be precise. Do not count partial or incomplete reps.
   3.  If weights are visible (e.g., plates on a barbell, dumbbells), estimate the total weight in kilograms.
   4.  If the exercise is timed (like a plank or run), estimate the duration.
   5.  If the exercise involves distance (like running), estimate the distance in kilometers.
