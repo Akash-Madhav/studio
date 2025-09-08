@@ -251,7 +251,11 @@ function DashboardContent() {
                         Settings
                     </DropdownMenuItem>
                  </Link>
-                <DropdownMenuItem>Support</DropdownMenuItem>
+                <a href="mailto:support@optifit.ai?subject=OptiFit AI Support Request">
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        Support
+                    </DropdownMenuItem>
+                </a>
                 <DropdownMenuSeparator />
                 <Link href="/">
                   <DropdownMenuItem>Logout</DropdownMenuItem>
