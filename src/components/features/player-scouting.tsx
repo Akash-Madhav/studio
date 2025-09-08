@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useTransition } from "react";
@@ -110,6 +109,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
         sport: values.sport,
         playersData: scoutablePlayers.map(p => ({
             id: p.id,
+            name: p.name,
             performanceData: p.performanceData,
             userProfile: p.userProfile
         }))

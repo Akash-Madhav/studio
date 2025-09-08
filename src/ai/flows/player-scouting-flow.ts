@@ -14,6 +14,7 @@ const PlayerScoutingInputSchema = z.object({
   sport: z.string().describe('The sport the coach is scouting for.'),
   playersData: z.array(z.object({
     id: z.string(),
+    name: z.string().describe('The name of the player.'),
     performanceData: z.string().describe("A summary of the player's performance data, including exercises and metrics."),
     userProfile: z.string().describe("A description of the player's profile, including age, experience, and goals."),
   })).describe('An array of player data to analyze.')
@@ -44,17 +45,17 @@ const prompt = ai.definePrompt({
   output: {schema: PlayerScoutingOutputSchema},
   prompt: `You are an expert sports scout. A coach is looking for players for the sport: {{{sport}}}.
 
-  Analyze the following list of players and their performance data. For each player, provide a suitability score (0-100), a brief analysis of their strengths and weaknesses for the specified sport, and a detailed report.
+  Analyze the following list of players and their performance data. For each player, provide a suitability score (0-100), a brief analysis of their strengths and weaknesses for the specified sport, and a detailed report. Use the provided name for each player in your response.
 
   Players:
   {{#each playersData}}
   - Player ID: {{this.id}}
+    - Name: {{this.name}}
     - Profile: {{this.userProfile}}
     - Performance Data: {{this.performanceData}}
   {{/each}}
 
-  Recommend the top 3 most suitable players. Your response should be based on the provided data and tailored to the demands of the sport of {{{sport}}}.
-  Provide a playerName for each player, you can just use "Player" and their ID.`,
+  Recommend the top 3 most suitable players. Your response should be based on the provided data and tailored to the demands of the sport of {{{sport}}}.`,
 });
 
 
