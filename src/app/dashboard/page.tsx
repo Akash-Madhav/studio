@@ -235,7 +235,7 @@ function DashboardContent() {
         )}
 
         {dashboardIsPlayerView && (
-           <Tabs value={activeTab} onValuecha/ge={updateUrl} className="w-full">
+           <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
             <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
                 <TabsTrigger value="dashboard">
                   <BarChart3 className="mr-2" />
@@ -294,5 +294,3 @@ export default function Dashboard() {
     </Suspense>
   );
 }
-
-    
