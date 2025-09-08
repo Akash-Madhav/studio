@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   BarChart3,
@@ -41,9 +41,32 @@ function DashboardContent() {
   const role = searchParams.get('role') || 'player';
   const initialUserId = searchParams.get('userId') || (role === 'coach' ? 'coach1' : 'player1');
   const isCoach = role === 'coach';
+  const initialTab = searchParams.get('tab') || (isCoach ? 'player-stats' : 'dashboard');
 
   const [currentView, setCurrentView] = useState<'coach' | 'player'>(isCoach ? 'coach' : 'player');
   const [viewingPlayerId, setViewingPlayerId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    const handlePopState = () => {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab') || (isCoach ? 'player-stats' : 'dashboard');
+        setActiveTab(tab);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    // Set initial tab from URL on component mount
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isCoach, searchParams]);
 
   const handleViewPlayerDashboard = (playerId: string) => {
     setViewingPlayerId(playerId);
@@ -114,7 +137,7 @@ function DashboardContent() {
         </div>
         
         {dashboardIsCoachView && (
-           <Tabs defaultValue="player-stats" className="w-full">
+           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="player-stats">
                     <BrainCircuit className="mr-2" />
@@ -142,7 +165,7 @@ function DashboardContent() {
         )}
 
         {dashboardIsPlayerView && (
-           <Tabs defaultValue="dashboard" className="w-full">
+           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full h-auto grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
                 <TabsTrigger value="dashboard">
                   <BarChart3 className="mr-2" />

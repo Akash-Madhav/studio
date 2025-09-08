@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useTransition } from "react";
 import { useSearchParams } from 'next/navigation';
 import { Loader2, Send } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,6 +17,8 @@ dayjs.extend(relativeTime);
 
 export default function Messages({ userId }: { userId: string }) {
     const searchParams = useSearchParams();
+    const [isPending, startTransition] = useTransition();
+
 
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -37,20 +39,22 @@ export default function Messages({ userId }: { userId: string }) {
                 const sortedConversations = result.conversations.sort((a, b) => {
                     if (!a.lastMessage) return 1;
                     if (!b.lastMessage) return -1;
-                    return b.lastMessage.sentAt.getTime() - a.lastMessage.sentAt.getTime();
+                    return new Date(b.lastMessage.sentAt).getTime() - new Date(a.lastMessage.sentAt).getTime();
                 });
                 setConversations(sortedConversations);
                 
-                const preselectedConvoId = searchParams.get('conversationId');
-
-                if (preselectedConvoId) {
-                    const convo = sortedConversations.find(c => c.id === preselectedConvoId);
-                    if (convo) {
-                        setSelectedConversation(convo);
+                startTransition(() => {
+                    const preselectedConvoId = searchParams.get('conversationId');
+                    if (preselectedConvoId) {
+                        const convo = sortedConversations.find(c => c.id === preselectedConvoId);
+                        if (convo) {
+                            setSelectedConversation(convo);
+                        }
+                    } else if (sortedConversations.length > 0) {
+                        setSelectedConversation(sortedConversations[0]);
                     }
-                } else if (sortedConversations.length > 0) {
-                    setSelectedConversation(sortedConversations[0]);
-                }
+                });
+
             } else {
                 toast({ variant: 'destructive', title: "Error", description: "Failed to fetch conversations." });
             }
@@ -70,6 +74,8 @@ export default function Messages({ userId }: { userId: string }) {
                 }
             }
             fetchMessages();
+        } else {
+            setMessages([]);
         }
     }, [selectedConversation, toast]);
 
@@ -104,7 +110,7 @@ export default function Messages({ userId }: { userId: string }) {
                 .sort((a, b) => {
                     if (!a.lastMessage) return 1;
                     if (!b.lastMessage) return -1;
-                    return b.lastMessage.sentAt.getTime() - a.lastMessage.sentAt.getTime();
+                    return new Date(b.lastMessage.sentAt).getTime() - new Date(a.lastMessage.sentAt).getTime();
                 })
             );
 
@@ -135,7 +141,7 @@ export default function Messages({ userId }: { userId: string }) {
                     <CardTitle>Conversations</CardTitle>
                 </CardHeader>
                 <CardContent className="flex-grow overflow-y-auto">
-                    {isLoading ? (
+                    {isLoading || isPending ? (
                         <div className="flex justify-center items-center h-full">
                             <Loader2 className="animate-spin"/>
                         </div>
@@ -205,7 +211,7 @@ export default function Messages({ userId }: { userId: string }) {
                     </>
                 ) : (
                     <CardContent className="flex justify-center items-center h-full">
-                        <p className="text-muted-foreground">{conversations.length > 0 ? "Select a conversation to start chatting." : "No conversations yet."}</p>
+                         {isLoading || isPending ? <Loader2 className="animate-spin"/> : <p className="text-muted-foreground">{conversations.length > 0 ? "Select a conversation to start chatting." : "No conversations yet."}</p>}
                     </CardContent>
                 )}
             </Card>
