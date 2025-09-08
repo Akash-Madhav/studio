@@ -47,6 +47,7 @@ import { getPlayersForScouting, getPendingInvites } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { sampleUsers } from '@/lib/sample-data';
 import SportMatch from '@/components/features/sport-match';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 interface PlayerData {
   id: string;
@@ -175,6 +176,7 @@ function DashboardContent() {
           )}
           <div className="ml-auto flex-1 sm:flex-initial"></div>
           <div className="flex items-center gap-3">
+             <ThemeToggle />
              <span className="hidden sm:inline-block text-sm font-medium text-right">{displayName}</span>
              <DropdownMenu>
               <DropdownMenuTrigger asChild>

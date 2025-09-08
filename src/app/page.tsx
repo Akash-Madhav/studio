@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { sampleUsers } from "@/lib/sample-data";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
   const [userRole, setUserRole] = useState("player");
@@ -23,6 +24,7 @@ export default function LoginPage() {
           <Dumbbell className="w-6 h-6" />
           <span className="font-bold">OptiFit AI</span>
         </div>
+        <ThemeToggle />
       </header>
 
       <main className="flex-1 flex items-center justify-center p-4">
