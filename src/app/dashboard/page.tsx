@@ -3,6 +3,7 @@
 
 import React, { Suspense, useState, useEffect, useTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   BarChart3,
   BrainCircuit,
@@ -186,7 +187,9 @@ function DashboardContent() {
               <DropdownMenuItem>Settings</DropdownMenuItem>
               <DropdownMenuItem>Support</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Logout</DropdownMenuItem>
+              <Link href="/">
+                <DropdownMenuItem>Logout</DropdownMenuItem>
+              </Link>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
