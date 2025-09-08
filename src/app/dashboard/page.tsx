@@ -40,6 +40,7 @@ import Messages from '@/components/features/messages';
 import PendingInvites from '@/components/features/pending-invites';
 import { getPlayersForScouting, getPendingInvites } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
+import { sampleUsers } from '@/lib/sample-data';
 
 interface PlayerData {
   id: string;
@@ -130,6 +131,11 @@ function DashboardContent() {
   const userId = viewingPlayerId || initialUserId;
   const dashboardIsCoachView = isCoach && currentView === 'coach';
   const dashboardIsPlayerView = !isCoach || (isCoach && currentView === 'player');
+  
+  const currentUser = sampleUsers.find(u => u.id === initialUserId);
+  const userName = currentUser?.name || '';
+  const displayName = isCoach ? `Coach ${userName}` : userName;
+  
   const recruitedPlayers = players.filter(p => recruitedPlayerIds.includes(p.id));
 
 
@@ -164,33 +170,36 @@ function DashboardContent() {
             </Button>
           )}
           <div className="ml-auto flex-1 sm:flex-initial"></div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="icon" className="rounded-full">
-                <Avatar>
-                  <AvatarImage
-                    src={`https://picsum.photos/seed/${initialUserId}/50/50`}
-                    alt="@user"
-                    width={50}
-                    height={50}
-                    data-ai-hint="person face"
-                  />
-                  <AvatarFallback>{initialUserId.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <span className="sr-only">Toggle user menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuItem>Support</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <Link href="/">
-                <DropdownMenuItem>Logout</DropdownMenuItem>
-              </Link>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-3">
+             <span className="hidden sm:inline-block text-sm font-medium text-right">{displayName}</span>
+             <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="icon" className="rounded-full">
+                  <Avatar>
+                    <AvatarImage
+                      src={`https://picsum.photos/seed/${initialUserId}/50/50`}
+                      alt="@user"
+                      width={50}
+                      height={50}
+                      data-ai-hint="person face"
+                    />
+                    <AvatarFallback>{initialUserId.charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <span className="sr-only">Toggle user menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuItem>Support</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <Link href="/">
+                  <DropdownMenuItem>Logout</DropdownMenuItem>
+                </Link>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
