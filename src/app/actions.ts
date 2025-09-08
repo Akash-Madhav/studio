@@ -109,7 +109,7 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
         _id: `inv${Date.now()}`,
         coachId,
         playerId,
-        status: 'pending',
+        status: 'pending' as const,
         createdAt: new Date(),
     };
     sampleInvites.push(newInvite);
