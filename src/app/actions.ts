@@ -74,6 +74,16 @@ export async function getPlayersForScouting() {
   }
 }
 
+export async function sendRecruitInvite(playerId: string, playerName: string) {
+    // In a real app, this would trigger a notification or email.
+    // For now, we'll just log it to the console.
+    console.log(`Recruitment invite sent to player: ${playerName} (ID: ${playerId})`);
+    
+    // You might want to update the player's status in your database here
+    
+    return { success: true, message: `Recruitment invite sent to ${playerName}!` };
+}
+
 // CHAT ACTIONS
 
 export interface Conversation {

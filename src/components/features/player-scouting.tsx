@@ -1,16 +1,16 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Loader2, UserCheck, Search } from "lucide-react";
+import { Loader2, UserCheck, Search, Send } from "lucide-react";
 import {
   getPlayerRecommendations,
   PlayerScoutingOutput,
 } from "@/ai/flows/player-scouting-flow";
-import { getPlayersForScouting } from "@/app/actions";
+import { getPlayersForScouting, sendRecruitInvite } from "@/app/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -55,8 +55,10 @@ export default function PlayerScouting() {
   const [recommendations, setRecommendations] =
     useState<PlayerScoutingOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSendingInvite, setIsSendingInvite] = useState<string | null>(null);
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [isFetchingPlayers, setIsFetchingPlayers] = useState(true);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     async function fetchPlayers() {
@@ -114,6 +116,26 @@ export default function PlayerScouting() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  const handleSendInvite = (playerId: string, playerName: string) => {
+    startTransition(async () => {
+        setIsSendingInvite(playerId);
+        const result = await sendRecruitInvite(playerId, playerName);
+        if (result.success) {
+            toast({
+                title: "Invite Sent!",
+                description: result.message,
+            });
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to send invite. Please try again.'
+            });
+        }
+        setIsSendingInvite(null);
+    });
   }
 
   return (
@@ -193,6 +215,21 @@ export default function PlayerScouting() {
                     <div>
                       <h4 className="font-semibold text-primary mb-1">Scouting Report</h4>
                       <p className="text-sm text-muted-foreground">{rec.report}</p>
+                    </div>
+                     <div className="pt-2 border-t">
+                      <Button 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => handleSendInvite(rec.playerId, rec.playerName)}
+                        disabled={isPending && isSendingInvite === rec.playerId}
+                      >
+                         {isPending && isSendingInvite === rec.playerId ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                         ) : (
+                            <Send className="mr-2 h-4 w-4" />
+                         )}
+                        Send Recruit Invite
+                      </Button>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
