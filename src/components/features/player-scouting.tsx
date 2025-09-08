@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Loader2, UserCheck, Search, Send } from "lucide-react";
+import { Loader2, UserCheck, Search, Send, FileText } from "lucide-react";
 import { useSearchParams } from 'next/navigation';
 import {
   getPlayerRecommendations,
@@ -76,6 +76,10 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
       sport: "Soccer",
     },
   });
+
+  const getPlayerProfile = (playerId: string) => {
+    return players.find(p => p.id === playerId)?.userProfile;
+  }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsScouting(true);
@@ -233,9 +237,18 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                   </AccordionTrigger>
                   <AccordionContent className="space-y-4 pt-2">
                     <div>
-                      <Progress value={rec.suitabilityScore} className="h-2 mb-2" />
+                        <h4 className="font-semibold text-primary mb-1 flex items-center gap-2">
+                           <FileText size={16}/> Mini Profile
+                        </h4>
+                        <p className="text-sm text-muted-foreground pl-6">{getPlayerProfile(rec.playerId)}</p>
+                    </div>
+                    <div>
                       <h4 className="font-semibold text-primary mb-1">Analysis</h4>
                       <p className="text-sm text-muted-foreground">{rec.analysis}</p>
+                    </div>
+                     <div>
+                      <h4 className="font-semibold text-primary mb-1">Suitability Score</h4>
+                      <Progress value={rec.suitabilityScore} className="h-2 mb-2" />
                     </div>
                     <div>
                       <h4 className="font-semibold text-primary mb-1">Scouting Report</h4>
@@ -276,5 +289,3 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     </div>
   );
 }
-
-    
