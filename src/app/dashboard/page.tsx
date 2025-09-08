@@ -110,11 +110,12 @@ function DashboardContent() {
             setCurrentUser(userResult.user);
         } else {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
+            setCurrentUser(null);
         }
         setIsLoadingUser(false);
     }
     fetchUser();
-  }, [initialUserId, toast]);
+  }, [initialUserId, toast, searchParams]);
 
 
   const fetchCoachData = React.useCallback(async () => {
@@ -244,7 +245,7 @@ function DashboardContent() {
                       height={50}
                       data-ai-hint="person face"
                     />
-                    <AvatarFallback>{initialUserId.charAt(0).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>{(currentUser?.name || '').charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <span className="sr-only">Toggle user menu</span>
                 </Button>

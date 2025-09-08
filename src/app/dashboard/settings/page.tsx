@@ -25,6 +25,8 @@ function SettingsContent() {
         );
     }
     
+    const backUrl = `/dashboard?role=${role}&userId=${userId}&t=${new Date().getTime()}`;
+
     return (
         <div className="flex flex-col min-h-screen bg-background">
             <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 z-50 justify-between">
@@ -34,7 +36,7 @@ function SettingsContent() {
                 </div>
                 <div className="flex items-center gap-4">
                     <ThemeToggle />
-                    <Link href={`/dashboard?role=${role}&userId=${userId}`} passHref>
+                    <Link href={backUrl} passHref>
                         <Button variant="outline">
                             <ArrowLeft className="mr-2"/>
                             Back to Dashboard

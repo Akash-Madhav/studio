@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { useState, useEffect, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import { updateUserProfile } from "@/app/actions";
-import { sampleUsers } from "@/lib/sample-data";
+import { updateUserProfile, getUser } from "@/app/actions";
 import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
@@ -46,11 +45,8 @@ const formSchema = z.object({
 export default function ProfileSettings({ userId }: { userId: string }) {
   const { toast } = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isSubmitting, startTransition] = useTransition();
-
-  const user = sampleUsers.find(u => u.id === userId);
-  const role = searchParams.get('role');
+  const [isFetchingUser, setIsFetchingUser] = useState(true);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -64,16 +60,26 @@ export default function ProfileSettings({ userId }: { userId: string }) {
   });
 
   useEffect(() => {
-    if (user) {
-      form.reset({
-        name: user.name || "",
-        email: user.email || "",
-        dob: user.dob ? new Date(user.dob) : undefined,
-        experience: user.experience || "",
-        goals: user.goals || "",
-      });
+    async function fetchUser() {
+      setIsFetchingUser(true);
+      const result = await getUser(userId);
+      if (result.success && result.user) {
+        form.reset({
+          name: result.user.name || "",
+          email: result.user.email || "",
+          dob: result.user.dob ? new Date(result.user.dob) : undefined,
+          experience: result.user.experience || "",
+          goals: result.user.goals || "",
+        });
+      } else {
+        toast({ variant: 'destructive', title: "Error", description: "Failed to load user profile." });
+      }
+      setIsFetchingUser(false);
     }
-  }, [user, form]);
+    if (userId) {
+      fetchUser();
+    }
+  }, [userId, form, toast]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(async () => {
@@ -87,9 +93,6 @@ export default function ProfileSettings({ userId }: { userId: string }) {
           title: "Profile Updated",
           description: result.message,
         });
-        // We use router.refresh() to tell the server to re-fetch the data for the current route.
-        // It's a soft navigation that won't lose client-side state.
-        router.push(`/dashboard?role=${role}&userId=${userId}&t=${new Date().getTime()}`);
       } else {
         toast({
           variant: "destructive",
@@ -100,11 +103,17 @@ export default function ProfileSettings({ userId }: { userId: string }) {
     });
   }
 
-  if (!user) {
+  if (isFetchingUser) {
     return (
-      <Card>
-        <CardContent>
-          <p>User not found.</p>
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader>
+          <CardTitle>Profile Settings</CardTitle>
+          <CardDescription>
+            Loading your profile...
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center py-12">
+            <Loader2 className="animate-spin h-8 w-8" />
         </CardContent>
       </Card>
     );
