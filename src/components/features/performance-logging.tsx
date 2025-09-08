@@ -38,7 +38,12 @@ const formSchema = z.object({
   distance: z.coerce.number().min(0).optional(),
 });
 
-export default function PerformanceLogging({ userId }: { userId?: string }) {
+interface PerformanceLoggingProps {
+    userId?: string;
+    onWorkoutLogged: () => void;
+}
+
+export default function PerformanceLogging({ userId, onWorkoutLogged }: PerformanceLoggingProps) {
   const { toast } = useToast();
   const [isLogging, setIsLogging] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -143,6 +148,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
       if(fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+      onWorkoutLogged();
     } else {
       toast({
         variant: "destructive",
@@ -311,5 +317,3 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
     </Card>
   );
 }
-
-    

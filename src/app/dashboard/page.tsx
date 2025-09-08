@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { Suspense, useState, useEffect, useTransition } from 'react';
+import React, { Suspense, useState, useEffect, useTransition, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -43,7 +43,7 @@ import PlayerStats from '@/components/features/player-stats';
 import Messages from '@/components/features/messages';
 import CommunityHub from '@/components/features/community-hub';
 import PendingInvites from '@/components/features/pending-invites';
-import ProfileSettings from '@/components/features/profile-settings';
+import WorkoutHistory from '@/components/features/workout-history';
 import { getPlayersForScouting, getPendingInvites, getUser } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import SportMatch from '@/components/features/sport-match';
@@ -97,7 +97,7 @@ function DashboardContent() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const fetchUser = React.useCallback(async () => {
+  const fetchUser = useCallback(async () => {
     if (!initialUserId) {
       setIsLoadingUser(false);
       return;
@@ -113,46 +113,48 @@ function DashboardContent() {
     setIsLoadingUser(false);
   }, [initialUserId, toast]);
 
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
-
-
-  const fetchCoachData = React.useCallback(async () => {
+  const fetchCoachData = useCallback(async () => {
     if (!isCoach) return;
 
     setIsLoadingData(true);
     startTransition(async () => {
-        const playersResult = await getPlayersForScouting(initialUserId);
-        if (playersResult.success && playersResult.players) {
-            setPlayers(playersResult.players.map(p => ({...p, name: p.name || `Player ${p.id.substring(0,4)}`})));
-            setRecruitedPlayerIds(playersResult.recruitedPlayerIds || []);
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Error fetching players',
-                description: 'Could not load player data. Please try refreshing.',
-            });
+        try {
+            const playersResult = await getPlayersForScouting(initialUserId);
+            if (playersResult.success && playersResult.players) {
+                setPlayers(playersResult.players.map(p => ({...p, name: p.name || `Player ${p.id.substring(0,4)}`})));
+                setRecruitedPlayerIds(playersResult.recruitedPlayerIds || []);
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Error fetching players',
+                    description: 'Could not load player data. Please try refreshing.',
+                });
+            }
+        
+            const invitesResult = await getPendingInvites(initialUserId);
+            if (invitesResult.success && invitesResult.invites) {
+                setInvites(invitesResult.invites);
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Error fetching invites',
+                    description: 'Could not load invites. Please try refreshing.',
+                });
+            }
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch coach data.' });
+        } finally {
+            setIsLoadingData(false);
         }
-    
-        const invitesResult = await getPendingInvites(initialUserId);
-        if (invitesResult.success && invitesResult.invites) {
-            setInvites(invitesResult.invites);
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Error fetching invites',
-                description: 'Could not load invites. Please try refreshing.',
-            });
-        }
-        setIsLoadingData(false);
     });
   }, [isCoach, initialUserId, toast]);
-
+  
   useEffect(() => {
-    fetchCoachData();
-  }, [fetchCoachData]);
-
+    fetchUser();
+    if (isCoach) {
+      fetchCoachData();
+    }
+  }, [fetchUser, isCoach, fetchCoachData]);
 
   useEffect(() => {
     const tab = searchParams.get('tab') || (isCoach ? 'player-stats' : 'dashboard');
@@ -160,15 +162,13 @@ function DashboardContent() {
   }, [searchParams, isCoach]);
 
 
-  const handleRefreshAllData = () => {
-    startTransition(() => {
-        toast({ title: 'Refreshing data...' });
-        fetchUser();
-        if (isCoach) {
-            fetchCoachData();
-        }
-    });
-  };
+  const handleRefreshAllData = useCallback(() => {
+    toast({ title: 'Refreshing data...' });
+    fetchUser();
+    if (isCoach) {
+        fetchCoachData();
+    }
+  }, [fetchUser, isCoach, fetchCoachData, toast]);
 
   if (isLoadingUser) {
     return (
@@ -377,7 +377,7 @@ function DashboardContent() {
                   <AiInsights userId={userId} />
               </TabsContent>
               <TabsContent value="log-performance" className="mt-4">
-                  <PerformanceLogging userId={userId}/>
+                  <PerformanceLogging userId={userId} onWorkoutLogged={handleRefreshAllData} />
               </TabsContent>
               <TabsContent value="recommendations" className="mt-4">
                   <PersonalizedRecommendations userId={userId} />
