@@ -87,8 +87,7 @@ export default function ProfileSettings({ userId }: { userId: string }) {
           title: "Profile Updated",
           description: result.message,
         });
-        const currentTab = searchParams.get('tab');
-        const newUrl = `/dashboard?role=${role}&userId=${userId}&tab=${currentTab}&t=${new Date().getTime()}`;
+        const newUrl = `/dashboard?role=${role}&userId=${userId}&t=${new Date().getTime()}`;
         router.push(newUrl);
         router.refresh();
 
@@ -239,5 +238,3 @@ export default function ProfileSettings({ userId }: { userId: string }) {
     </Card>
   );
 }
-
-    

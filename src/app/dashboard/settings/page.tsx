@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Suspense } from 'react';
@@ -8,6 +7,7 @@ import Link from 'next/link';
 import { ArrowLeft, Dumbbell } from 'lucide-react';
 import ProfileSettings from '@/components/features/profile-settings';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 function SettingsContent() {
     const searchParams = useSearchParams();
@@ -32,12 +32,15 @@ function SettingsContent() {
                     <Dumbbell className="h-6 w-6" />
                     <span className="font-bold">OptiFit AI</span>
                 </div>
-                <Link href={`/dashboard?role=${role}&userId=${userId}`} passHref>
-                    <Button variant="outline">
-                        <ArrowLeft className="mr-2"/>
-                        Back to Dashboard
-                    </Button>
-                </Link>
+                <div className="flex items-center gap-4">
+                    <ThemeToggle />
+                    <Link href={`/dashboard?role=${role}&userId=${userId}`} passHref>
+                        <Button variant="outline">
+                            <ArrowLeft className="mr-2"/>
+                            Back to Dashboard
+                        </Button>
+                    </Link>
+                </div>
             </header>
             <main className="flex-1 p-4 md:p-8">
                 <ProfileSettings userId={userId} />
@@ -54,5 +57,3 @@ export default function SettingsPage() {
         </Suspense>
     )
 }
-
-    

@@ -182,9 +182,11 @@ function DashboardContent() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                 <DropdownMenuItem onSelect={() => updateUrl('settings')}>
-                    Settings
-                </DropdownMenuItem>
+                 <Link href={`/dashboard/settings?role=${role}&userId=${userId}`}>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        Settings
+                    </DropdownMenuItem>
+                 </Link>
                 <DropdownMenuItem>Support</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <Link href="/">
@@ -251,7 +253,7 @@ function DashboardContent() {
 
         {dashboardIsPlayerView && (
            <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-10 h-auto">
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 md:grid-cols-9 h-auto">
                 <TabsTrigger value="dashboard">
                   <BarChart3 className="mr-2" />
                   Dashboard
@@ -288,10 +290,6 @@ function DashboardContent() {
                     <Rss className="mr-2" />
                     Community
                   </TabsTrigger>
-                <TabsTrigger value="settings">
-                    <UserIcon className="mr-2" />
-                    Settings
-                </TabsTrigger>
               </TabsList>
               <TabsContent value="dashboard" className="mt-4">
                 <ProgressVisualization userId={userId} />
@@ -320,9 +318,6 @@ function DashboardContent() {
               <TabsContent value="community" className="mt-4">
                   <CommunityHub userId={userId} role="player" />
               </TabsContent>
-              <TabsContent value="settings" className="mt-4">
-                  <ProfileSettings userId={userId} />
-              </TabsContent>
            </Tabs>
         )}
       </main>
@@ -337,5 +332,3 @@ export default function Dashboard() {
     </Suspense>
   );
 }
-
-    
