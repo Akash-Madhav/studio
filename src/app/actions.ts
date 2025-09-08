@@ -1,5 +1,7 @@
 
 'use server';
+import { db } from '@/lib/firebase';
+import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc } from 'firebase/firestore';
 
 import { z } from 'zod';
 import { sampleUsers, sampleWorkouts, sampleConversations, sampleInvites } from '@/lib/sample-data';
@@ -28,42 +30,48 @@ const logWorkoutSchema = z.object({
 export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
   const validatedData = logWorkoutSchema.parse(values);
   
-  // This is a mock function, in a real app you'd save to a database.
-  console.log("Logged workout:", validatedData);
-
-  const newWorkout = {
-    _id: `w${Date.now()}`,
-    userId: validatedData.userId,
-    exercise: validatedData.exercise,
-    reps: validatedData.reps,
-    weight: validatedData.weight,
-    time: validatedData.time,
-    distance: validatedData.distance,
-    createdAt: new Date(),
-  };
-  sampleWorkouts.push(newWorkout);
-  
-  return { 
-    success: true, 
-    message: `${validatedData.exercise} has been added to your history.`,
-    userId: validatedData.userId,
-  };
+  try {
+    const newWorkout = {
+        userId: validatedData.userId,
+        exercise: validatedData.exercise,
+        reps: validatedData.reps,
+        weight: validatedData.weight,
+        time: validatedData.time,
+        distance: validatedData.distance,
+        createdAt: serverTimestamp(),
+    };
+    await addDoc(collection(db, 'workouts'), newWorkout);
+    
+    return { 
+      success: true, 
+      message: `${validatedData.exercise} has been added to your history.`,
+      userId: validatedData.userId,
+    };
+  } catch (error) {
+    console.error("Error logging workout: ", error);
+    return { success: false, message: 'Failed to log workout.' };
+  }
 }
 
 export async function getPlayersForScouting(coachId: string) {
   try {
+    const usersSnapshot = await getDocs(collection(db, 'users'));
+    const allUsers = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const conversationsSnapshot = await getDocs(query(collection(db, 'conversations'), where('participantIds', 'array-contains', coachId)));
     const coachConversationPlayerIds = new Set(
-      sampleConversations
-        .filter(c => c.participantIds.includes(coachId))
-        .flatMap(c => c.participantIds.filter(pId => pId !== coachId))
+        conversationsSnapshot.docs.flatMap(doc => doc.data().participantIds.filter((pId: string) => pId !== coachId))
     );
 
-    const players = sampleUsers
+    const workoutsSnapshot = await getDocs(collection(db, 'workouts'));
+    const allWorkouts = workoutsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const players = allUsers
       .filter(u => u.role === 'player')
       .map(user => {
-        const userWorkouts = sampleWorkouts
+        const userWorkouts = allWorkouts
           .filter(w => w.userId === user.id)
-          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .sort((a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime())
           .slice(0, 5);
 
         const performanceData = userWorkouts.map(data => {
@@ -75,7 +83,7 @@ export async function getPlayersForScouting(coachId: string) {
           return record;
         }).join(', ');
 
-        const age = getAge(user.dob);
+        const age = getAge(user.dob?.toDate());
 
         return {
           id: user.id,
@@ -100,50 +108,63 @@ export async function getPlayersForScouting(coachId: string) {
 }
 
 export async function sendRecruitInvite(playerId: string, coachId: string) {
-    const player = sampleUsers.find(u => u.id === playerId);
-    if (!player) {
+    const playerRef = doc(db, 'users', playerId);
+    const playerDoc = await getDoc(playerRef);
+
+    if (!playerDoc.exists()) {
       return { success: false, message: 'Player not found.' };
     }
+    const player = {id: playerDoc.id, ...playerDoc.data()};
 
-    const existingConversation = sampleConversations.find(c => c.participantIds.includes(playerId) && c.participantIds.includes(coachId));
+    const existingConversationQuery = query(collection(db, 'conversations'), where('participantIds', 'array-contains', playerId));
+    const existingConversationSnapshot = await getDocs(existingConversationQuery);
+    const existingConversation = existingConversationSnapshot.docs.find(doc => doc.data().participantIds.includes(coachId));
+
     if (existingConversation) {
         return { success: false, message: `You are already connected with ${player.name}.` };
     }
 
-    const existingInvite = sampleInvites.find(inv => inv.playerId === playerId && inv.coachId === coachId && inv.status === 'pending');
-    if (existingInvite) {
+    const existingInviteQuery = query(collection(db, 'invites'), where('playerId', '==', playerId), where('coachId', '==', coachId), where('status', '==', 'pending'));
+    const existingInviteSnapshot = await getDocs(existingInviteQuery);
+    if (!existingInviteSnapshot.empty) {
         return { success: false, message: `${player.name} already has a pending invite.` };
     }
 
-    const newInvite = {
-        _id: `inv${Date.now()}`,
+    const batch = writeBatch(db);
+    
+    const newInviteRef = doc(collection(db, 'invites'));
+    batch.set(newInviteRef, {
         coachId,
         playerId,
-        status: 'pending' as const,
-        createdAt: new Date(),
-    };
-    sampleInvites.push(newInvite);
+        status: 'pending',
+        createdAt: serverTimestamp(),
+    });
+
+    const userRef = doc(db, 'users', playerId);
+    batch.update(userRef, { status: 'pending_invite' });
     
-    const user = sampleUsers.find(u => u.id === playerId);
-    if(user) {
-        user.status = 'pending_invite';
-    }
+    await batch.commit();
     
     return { success: true, message: `Recruitment invite sent to ${player.name}!` };
 }
 
 export async function getPendingInvites(coachId: string) {
   try {
-    const pending = sampleInvites
-      .filter(inv => inv.coachId === coachId && inv.status === 'pending')
-      .map(invite => {
-        const player = sampleUsers.find(u => u.id === invite.playerId);
+    const invitesQuery = query(collection(db, 'invites'), where('coachId', '==', coachId), where('status', '==', 'pending'));
+    const invitesSnapshot = await getDocs(invitesQuery);
+
+    const usersSnapshot = await getDocs(collection(db, 'users'));
+    const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const pending = invitesSnapshot.docs.map(inviteDoc => {
+        const invite = {id: inviteDoc.id, ...inviteDoc.data()};
+        const player = users.find(u => u.id === invite.playerId);
         return {
-          inviteId: invite._id,
+          inviteId: invite.id,
           playerId: invite.playerId,
           playerName: player?.name || 'Unknown Player',
           playerAvatar: `https://picsum.photos/seed/${invite.playerId}/100/100`,
-          sentAt: invite.createdAt,
+          sentAt: invite.createdAt.toDate(),
         };
       })
       .sort((a,b) => b.sentAt.getTime() - a.sentAt.getTime());
@@ -158,16 +179,25 @@ export async function getPendingInvites(coachId: string) {
 
 export async function getPendingInvitesForPlayer(playerId: string) {
     try {
-      const pending = sampleInvites
-        .filter(inv => inv.playerId === playerId && inv.status === 'pending')
-        .map(invite => {
-          const coach = sampleUsers.find(u => u.id === invite.coachId);
+      const invitesQuery = query(collection(db, 'invites'), where('playerId', '==', playerId), where('status', '==', 'pending'));
+      const invitesSnapshot = await getDocs(invitesQuery);
+
+      if (invitesSnapshot.empty) {
+        return { success: true, invites: [] };
+      }
+      
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      const pending = invitesSnapshot.docs.map(docSnap => {
+          const invite = {id: docSnap.id, ...docSnap.data()};
+          const coach = users.find(u => u.id === invite.coachId);
           return {
-            inviteId: invite._id,
+            inviteId: invite.id,
             coachId: invite.coachId,
             coachName: coach?.name || 'Unknown Coach',
             coachAvatar: `https://picsum.photos/seed/${invite.coachId}/100/100`,
-            sentAt: invite.createdAt,
+            sentAt: invite.createdAt.toDate(),
           };
         })
         .sort((a,b) => b.sentAt.getTime() - a.sentAt.getTime());
@@ -189,38 +219,27 @@ const respondToInviteSchema = z.object({
 export async function respondToInvite(values: z.infer<typeof respondToInviteSchema>) {
     const validatedData = respondToInviteSchema.parse(values);
     try {
-        const inviteIndex = sampleInvites.findIndex(inv => inv._id === validatedData.inviteId);
-        if (inviteIndex === -1) {
-            return { success: false, message: 'Invite not found.' };
-        }
+        const batch = writeBatch(db);
+        const inviteRef = doc(db, 'invites', validatedData.inviteId);
         
-        const invite = sampleInvites[inviteIndex];
-        invite.status = validatedData.response;
-
-        const player = sampleUsers.find(u => u.id === validatedData.playerId);
-        if (player) {
-            player.status = validatedData.response === 'accepted' ? 'recruited' : 'active';
-        }
+        const playerRef = doc(db, 'users', validatedData.playerId);
+        batch.update(playerRef, { status: validatedData.response === 'accepted' ? 'recruited' : 'active' });
 
         if (validatedData.response === 'accepted') {
-            const newConversation = {
-                _id: `${validatedData.coachId}_${validatedData.playerId}`,
+            const conversationId = `${validatedData.coachId}_${validatedData.playerId}`;
+            const newConversationRef = doc(db, 'conversations', conversationId);
+            
+            batch.set(newConversationRef, {
                 participantIds: [validatedData.coachId, validatedData.playerId],
-                messages: [
-                    { 
-                        _id: `m${Date.now()}`, 
-                        senderId: validatedData.playerId, 
-                        text: 'I\'ve accepted your invitation! Looking forward to working with you.', 
-                        createdAt: new Date() 
-                    },
-                ]
-            };
-            sampleConversations.push(newConversation);
-            sampleInvites.splice(inviteIndex, 1);
+                messages: [],
+            });
+            batch.delete(inviteRef);
         } else {
-            sampleInvites.splice(inviteIndex, 1);
+            batch.delete(inviteRef);
         }
-
+        
+        await batch.commit();
+        
         return { success: true, message: `Invite ${validatedData.response}.` };
     } catch (error) {
         console.error("Error responding to invite:", error);
@@ -239,19 +258,24 @@ export interface Conversation {
 
 export async function getConversations(userId: string): Promise<{success: boolean, conversations: Conversation[]}> {
     try {
-        const userConversations = sampleConversations.filter(c => c.participantIds.includes(userId));
+        const conversationsQuery = query(collection(db, 'conversations'), where('participantIds', 'array-contains', userId));
+        const conversationsSnapshot = await getDocs(conversationsQuery);
         
-        const conversations: Conversation[] = userConversations.map(convo => {
-            const lastMessage = convo.messages.length > 0 ? convo.messages[convo.messages.length - 1] : null;
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const allUsers = usersSnapshot.docs.map(d => ({id: d.id, ...d.data()}));
+
+        const conversations: Conversation[] = conversationsSnapshot.docs.map(convoDoc => {
+            const convoData = convoDoc.data();
+            const lastMessage = convoData.messages?.length > 0 ? convoData.messages[convoData.messages.length - 1] : null;
             return {
-                id: convo._id,
-                participants: convo.participantIds.map(pId => {
-                    const user = sampleUsers.find(u => u.id === pId);
+                id: convoDoc.id,
+                participants: convoData.participantIds.map((pId: string) => {
+                    const user = allUsers.find(u => u.id === pId);
                     return { id: pId, name: user?.name || "Unknown" };
                 }),
                 lastMessage: lastMessage ? {
                     text: lastMessage.text,
-                    sentAt: lastMessage.createdAt
+                    sentAt: lastMessage.createdAt.toDate()
                 } : null
             }
         }).sort((a, b) => {
@@ -271,17 +295,20 @@ export async function getConversations(userId: string): Promise<{success: boolea
 
 export async function getMessages(conversationId: string) {
     try {
-        const conversation = sampleConversations.find(c => c._id === conversationId);
-        if (!conversation) {
+        const conversationRef = doc(db, 'conversations', conversationId);
+        const conversationSnap = await getDoc(conversationRef);
+
+        if (!conversationSnap.exists()) {
             return { success: false, messages: [] };
         }
         
-        const messages = conversation.messages.map(msg => ({
-            id: msg._id,
+        const conversation = conversationSnap.data();
+        const messages = conversation.messages?.map((msg: any) => ({
+            id: msg._id, // This might need to be generated if not present
             senderId: msg.senderId,
             text: msg.text,
-            createdAt: msg.createdAt,
-        }));
+            createdAt: msg.createdAt.toDate(),
+        })) || [];
 
         return { success: true, messages };
     } catch (error) {
@@ -299,19 +326,25 @@ const sendMessageSchema = z.object({
 export async function sendMessage(values: z.infer<typeof sendMessageSchema>) {
     const validatedData = sendMessageSchema.parse(values);
     try {
-       const conversation = sampleConversations.find(c => c._id === validatedData.conversationId);
-       if (!conversation) {
+       const conversationRef = doc(db, 'conversations', validatedData.conversationId);
+       const conversationSnap = await getDoc(conversationRef);
+
+       if (!conversationSnap.exists()) {
            return { success: false, message: 'Conversation not found' };
        }
+       
+       const conversation = conversationSnap.data();
 
        const message = {
-            _id: `m${Date.now()}`,
+            _id: `m${Date.now()}`, // Simple ID generation
             senderId: validatedData.senderId,
             text: validatedData.text,
             createdAt: new Date(),
         };
 
-        conversation.messages.push(message);
+        const updatedMessages = [...(conversation.messages || []), message];
+
+        await updateDoc(conversationRef, { messages: updatedMessages });
 
         return { success: true, message: { ...message, id: message._id } };
     } catch (error) {
@@ -336,24 +369,40 @@ const updateUserProfileSchema = z.object({
 export async function updateUserProfile(values: z.infer<typeof updateUserProfileSchema>) {
     const validatedData = updateUserProfileSchema.parse(values);
     try {
-        const userIndex = sampleUsers.findIndex(u => u.id === validatedData.userId);
-        if (userIndex === -1) {
-            return { success: false, message: "User not found." };
-        }
+        const userRef = doc(db, 'users', validatedData.userId);
 
-        sampleUsers[userIndex] = {
-            ...sampleUsers[userIndex],
+        const updateData: any = {
             name: validatedData.name,
             email: validatedData.email,
-            dob: validatedData.dob ? new Date(validatedData.dob) : undefined,
             experience: validatedData.experience,
             goals: validatedData.goals,
         };
+
+        if (validatedData.dob) {
+            updateData.dob = new Date(validatedData.dob);
+        }
+
+        await updateDoc(userRef, updateData);
 
         return { success: true, message: "Profile updated successfully!" };
 
     } catch (error) {
         console.error("Error updating profile:", error);
         return { success: false, message: "An unexpected error occurred." };
+    }
+}
+
+export async function getUsersForLogin(role: string) {
+    try {
+        const q = query(collection(db, "users"), where("role", "==", role));
+        const querySnapshot = await getDocs(q);
+        const users = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        return { success: true, users };
+    } catch (error) {
+        console.error("Error fetching users for login: ", error);
+        return { success: false, users: [] };
     }
 }
