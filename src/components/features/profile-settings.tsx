@@ -63,8 +63,8 @@ export default function ProfileSettings({ userId }: { userId: string }) {
         name: user.name || "",
         email: user.email || "",
         age: user.age,
-        experience: user.experience,
-        goals: user.goals,
+        experience: user.experience || "",
+        goals: user.goals || "",
       });
     }
   }, [user, form]);
@@ -147,7 +147,7 @@ export default function ProfileSettings({ userId }: { userId: string }) {
                         <FormItem>
                         <FormLabel>Age</FormLabel>
                         <FormControl>
-                            <Input type="number" placeholder="Your age" {...field} />
+                            <Input type="number" placeholder="Your age" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
