@@ -4,25 +4,18 @@
 import { useEffect, useState } from "react";
 import Link from 'next/link';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-  } from "@/components/ui/table"
-  import {
     Card,
     CardContent,
     CardDescription,
     CardHeader,
     CardTitle,
+    CardFooter,
   } from "@/components/ui/card"
-  import { Badge } from "@/components/ui/badge";
   import { Button } from "@/components/ui/button";
-import { Loader2, MessageSquare, BarChart3 } from "lucide-react";
+import { Loader2, MessageSquare, BarChart3, User } from "lucide-react";
 import { getPlayersForScouting } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
   
 interface Player {
   id: string;
@@ -64,60 +57,61 @@ export default function PlayerStats({ userId, onViewPlayerDashboard }: PlayerSta
     }
 
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Player Statistics</CardTitle>
-          <CardDescription>
-            An overview of your team's player performance.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            {isLoading ? (
-                <div className="flex justify-center items-center py-8">
-                    <Loader2 className="animate-spin" />
-                </div>
-            ) : (
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                        <TableRow>
-                            <TableHead>Player</TableHead>
-                            <TableHead>Profile</TableHead>
-                            <TableHead>Latest Performance</TableHead>
-                            <TableHead className="text-center">Status</TableHead>
-                            <TableHead className="text-center">Actions</TableHead>
-                        </TableRow>
-                        </TableHeader>
-                        <TableBody>
+        <Card className="border-0 shadow-none">
+            <CardHeader className="px-0">
+                <CardTitle>Player Statistics</CardTitle>
+                <CardDescription>
+                    An overview of your team's player performance.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="px-0">
+                {isLoading ? (
+                    <div className="flex justify-center items-center py-8">
+                        <Loader2 className="animate-spin h-8 w-8 text-primary" />
+                    </div>
+                ) : players.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-12 border rounded-lg">
+                        <User className="mx-auto h-12 w-12" />
+                        <h3 className="mt-4 text-lg font-semibold">No Players Found</h3>
+                        <p>New players will appear here once they log a workout.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {players.map((player) => (
-                            <TableRow key={player.id}>
-                            <TableCell className="font-medium whitespace-nowrap">{player.name}</TableCell>
-                            <TableCell>{player.userProfile}</TableCell>
-                            <TableCell className="max-w-xs truncate">{player.performanceData || 'N/A'}</TableCell>
-                            <TableCell className="text-center">
-                                <Badge variant={'default'}>
-                                    Active
-                                </Badge>
-                            </TableCell>
-                            <TableCell className="text-center space-x-2 whitespace-nowrap">
-                                <Button variant="outline" size="sm" onClick={() => onViewPlayerDashboard(player.id)}>
-                                    <BarChart3 className="mr-2 h-4 w-4" />
-                                    View Dashboard
-                                </Button>
-                                <Link href={`/dashboard?role=coach&userId=${userId}&tab=messages&conversationId=${getConversationId(userId, player.id)}`}>
-                                    <Button variant="outline" size="sm">
-                                        <MessageSquare className="mr-2 h-4 w-4" />
-                                        Contact
+                            <Card key={player.id} className="flex flex-col">
+                                <CardHeader>
+                                    <div className="flex items-center gap-4">
+                                        <Avatar className="h-12 w-12">
+                                            <AvatarImage src={`https://picsum.photos/seed/${player.id}/100/100`} data-ai-hint="person face" />
+                                            <AvatarFallback>{player.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <CardTitle className="text-lg">{player.name}</CardTitle>
+                                            <CardDescription>{player.userProfile}</CardDescription>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="flex-grow space-y-2">
+                                     <p className="text-sm font-medium">Latest Performance</p>
+                                    <p className="text-sm text-muted-foreground line-clamp-3">{player.performanceData || 'N/A'}</p>
+                                </CardContent>
+                                <CardFooter className="flex justify-end gap-2 pt-4">
+                                    <Button variant="outline" size="sm" onClick={() => onViewPlayerDashboard(player.id)}>
+                                        <BarChart3 className="mr-2 h-4 w-4" />
+                                        Dashboard
                                     </Button>
-                                </Link>
-                            </TableCell>
-                            </TableRow>
+                                    <Link href={`/dashboard?role=coach&userId=${userId}&tab=messages&conversationId=${getConversationId(userId, player.id)}`}>
+                                        <Button variant="default" size="sm">
+                                            <MessageSquare className="mr-2 h-4 w-4" />
+                                            Contact
+                                        </Button>
+                                    </Link>
+                                </CardFooter>
+                            </Card>
                         ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            )}
-        </CardContent>
-      </Card>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     )
   }
