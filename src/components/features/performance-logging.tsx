@@ -216,14 +216,13 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
 
   const handleStopRecording = async () => {
     if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.stop();
         mediaRecorderRef.current.onstop = async () => {
             // A small delay to ensure all data is available
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            const videoBlob = new Blob(recordedChunks, { type: "video/webm" });
+            const videoBlob = new Blob(recordedChunks, { type: "video/mp4" });
             const videoUrl = URL.createObjectURL(videoBlob);
-            const videoFile = new File([videoBlob], 'recorded-workout.webm', { type: 'video/webm' });
+            const videoFile = new File([videoBlob], 'recorded-workout.mp4', { type: 'video/mp4' });
             
             setVideoPreview(videoUrl);
             setVideoFile(videoFile);
@@ -232,6 +231,7 @@ export default function PerformanceLogging({ userId }: { userId?: string }) {
             setVideoMode('upload');
             setHasCameraPermission(null);
         };
+        mediaRecorderRef.current.stop();
     }
   };
 
