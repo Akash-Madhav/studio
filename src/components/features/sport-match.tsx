@@ -89,13 +89,16 @@ export default function SportMatch({ userId }: { userId: string }) {
     try {
       const result = await suggestSports(values);
       setSuggestions(result);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to get AI sport suggestions:", error);
+      let errorDescription = "Failed to generate sport suggestions. Please try again.";
+      if (error.message?.includes("503") || error.message?.includes("overloaded")) {
+          errorDescription = "The AI model is currently busy. Please wait a moment and try again.";
+      }
       toast({
         variant: "destructive",
         title: "Error",
-        description:
-          "Failed to generate sport suggestions. Please try again.",
+        description: errorDescription,
       });
     } finally {
       setIsLoading(false);
