@@ -125,13 +125,18 @@ export default function PlayerScouting() {
         }))
       });
       setRecommendations(result);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to get player recommendations:", error);
+      const errorMessage = error.message || "Failed to generate player recommendations. Please try again.";
+      let errorDescription = "An unexpected error occurred. Please check the console and try again.";
+      if (errorMessage.includes("503 Service Unavailable") || errorMessage.includes("overloaded")) {
+        errorDescription = "The AI model is currently busy. Please wait a moment and try again.";
+      }
+
       toast({
         variant: "destructive",
-        title: "Error",
-        description:
-          "Failed to generate player recommendations. Please try again.",
+        title: "Scouting Error",
+        description: errorDescription,
       });
     } finally {
       setIsLoading(false);
