@@ -31,6 +31,7 @@ import PersonalizedRecommendations from "@/components/features/personalized-reco
 import ProgressVisualization from "@/components/features/progress-visualization";
 import SportMatch from "@/components/features/sport-match";
 import PlayerScouting from "@/components/features/player-scouting";
+import PlayerStats from '@/components/features/player-stats';
 
 function DashboardContent() {
   const searchParams = useSearchParams();
@@ -90,20 +91,23 @@ function DashboardContent() {
               <BarChart3 className="mr-2" />
               Dashboard
             </TabsTrigger>
+            {isCoach ? (
+              <TabsTrigger value="player-stats">
+                <BrainCircuit className="mr-2" />
+                Player Stats
+              </TabsTrigger>
+            ) : (
+                <TabsTrigger value="ai-insights">
+                  <BrainCircuit className="mr-2" />
+                  Insights
+                </TabsTrigger>
+            )}
             {!isCoach && (
               <>
                 <TabsTrigger value="log-performance">
                   <LogIn className="mr-2" />
                   Log
                 </TabsTrigger>
-              </>
-            )}
-            <TabsTrigger value="ai-insights">
-              <BrainCircuit className="mr-2" />
-              Insights
-            </TabsTrigger>
-            {!isCoach && (
-              <>
                 <TabsTrigger value="recommendations">
                   <Target className="mr-2" />
                   Recs
@@ -124,9 +128,15 @@ function DashboardContent() {
           <TabsContent value="dashboard" className="mt-4">
             <ProgressVisualization />
           </TabsContent>
-          <TabsContent value="ai-insights" className="mt-4">
-            <AiInsights />
-          </TabsContent>
+          {isCoach ? (
+            <TabsContent value="player-stats" className="mt-4">
+              <PlayerStats />
+            </TabsContent>
+          ) : (
+            <TabsContent value="ai-insights" className="mt-4">
+              <AiInsights />
+            </TabsContent>
+          )}
           {!isCoach && (
             <>
               <TabsContent value="log-performance" className="mt-4">
