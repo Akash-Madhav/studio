@@ -74,7 +74,14 @@ export async function getPlayersForScouting(coachId: string) {
         };
       });
 
-    return { success: true, players, recruitedPlayerIds: Array.from(coachConversationPlayerIds) };
+    // A player is "recruited" if they have a conversation AND are not available for scouting.
+    const recruitedPlayerIds = Array.from(coachConversationPlayerIds).filter(playerId => {
+        const player = players.find(p => p.id === playerId);
+        return player && player.status !== 'active';
+    });
+
+
+    return { success: true, players, recruitedPlayerIds };
   } catch (error) {
     console.error("Error fetching players: ", error);
     return { success: false, players: [], recruitedPlayerIds: [] };
