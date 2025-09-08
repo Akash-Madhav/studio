@@ -21,12 +21,7 @@ function SettingsContent() {
             setBackUrl(`/dashboard?role=${role}&userId=${userId}`);
         }
     }, [role, userId]);
-
-    const handleProfileUpdate = () => {
-        // Navigate back to the dashboard, which will trigger a re-fetch
-        router.push(backUrl);
-    };
-
+    
     if (!userId) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen">
@@ -58,7 +53,7 @@ function SettingsContent() {
                 </div>
             </header>
             <main className="flex-1 p-4 md:p-8">
-                <ProfileSettings userId={userId} onProfileUpdate={handleProfileUpdate} />
+                <ProfileSettings userId={userId} />
             </main>
         </div>
     )
@@ -72,3 +67,5 @@ export default function SettingsPage() {
         </Suspense>
     )
 }
+
+    

@@ -17,6 +17,7 @@ import {
   Rss,
   User as UserIcon,
   History,
+  Info,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -47,6 +48,7 @@ import { useToast } from '@/hooks/use-toast';
 import SportMatch from '@/components/features/sport-match';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface PlayerData {
   id: string;
@@ -148,7 +150,7 @@ function DashboardContent() {
   
   useEffect(() => {
     fetchAllData();
-  }, [fetchAllData, searchParams]); // Re-fetch when searchParams change (e.g., after settings update)
+  }, [fetchAllData]);
 
 
   useEffect(() => {
@@ -156,11 +158,6 @@ function DashboardContent() {
     setActiveTab(tab);
   }, [searchParams, isCoach]);
 
-
-  const handleRefreshAllData = useCallback(() => {
-    toast({ title: 'Refreshing data...' });
-    fetchAllData();
-  }, [fetchAllData, toast]);
 
   if (isLoadingUser) {
     return (
@@ -276,8 +273,16 @@ function DashboardContent() {
           </p>
         </div>
         
+        <Alert variant="default" className="mt-2">
+            <Info className="h-4 w-4" />
+            <AlertTitle>Quick Tip</AlertTitle>
+            <AlertDescription>
+                Profile changes not showing up? Do a full page refresh (Cmd+R or Ctrl+R) to see your updates.
+            </AlertDescription>
+        </Alert>
+
         {dashboardIsCoachView && (
-           <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
+           <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
               <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="player-stats">
                     <BrainCircuit className="mr-2" />
@@ -319,7 +324,7 @@ function DashboardContent() {
         )}
 
         {dashboardIsPlayerView && (
-           <Tabs value={activeTab} onValueChange={updateUrl} className="w-full">
+           <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
             <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 md:grid-cols-9 h-auto">
                 <TabsTrigger value="dashboard">
                   <BarChart3 className="mr-2" />
@@ -399,3 +404,5 @@ export default function Dashboard() {
     </Suspense>
   );
 }
+
+    

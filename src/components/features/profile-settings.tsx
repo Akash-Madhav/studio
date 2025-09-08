@@ -43,10 +43,9 @@ const formSchema = z.object({
 
 interface ProfileSettingsProps {
     userId: string;
-    onProfileUpdate: () => void;
 }
 
-export default function ProfileSettings({ userId, onProfileUpdate }: ProfileSettingsProps) {
+export default function ProfileSettings({ userId }: ProfileSettingsProps) {
   const { toast } = useToast();
   const [isSubmitting, startTransition] = useTransition();
   const [isFetchingUser, setIsFetchingUser] = useState(true);
@@ -96,7 +95,6 @@ export default function ProfileSettings({ userId, onProfileUpdate }: ProfileSett
           title: "Profile Updated",
           description: "Your changes have been saved successfully.",
         });
-        onProfileUpdate();
       } else {
         toast({
           variant: "destructive",
@@ -250,3 +248,5 @@ export default function ProfileSettings({ userId, onProfileUpdate }: ProfileSett
     </Card>
   );
 }
+
+    
