@@ -7,6 +7,7 @@ import * as z from "zod";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { useState, useEffect, useTransition } from "react";
 import { format } from "date-fns";
+import { useSearchParams } from 'next/navigation';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -43,9 +44,10 @@ const formSchema = z.object({
 
 interface ProfileSettingsProps {
     userId: string;
+    role: string;
 }
 
-export default function ProfileSettings({ userId }: ProfileSettingsProps) {
+export default function ProfileSettings({ userId, role }: ProfileSettingsProps) {
   const { toast } = useToast();
   const [isSubmitting, startTransition] = useTransition();
   const [isFetchingUser, setIsFetchingUser] = useState(true);
@@ -95,6 +97,10 @@ export default function ProfileSettings({ userId }: ProfileSettingsProps) {
           title: "Profile Updated",
           description: "Your changes have been saved successfully.",
         });
+        // Force a full page reload to ensure data is re-fetched
+        const backUrl = `/dashboard?role=${role}&userId=${userId}`;
+        window.location.href = backUrl;
+
       } else {
         toast({
           variant: "destructive",
