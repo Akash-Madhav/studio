@@ -249,5 +249,3 @@ export default function Messages({ userId }: { userId: string }) {
         </div>
     );
 }
-
-    

@@ -63,7 +63,7 @@ export default function PlayerInvites({ userId }: { userId: string }) {
                     coachId: data.coachId,
                     coachName: coachRes.user?.name || 'Unknown Coach',
                     coachAvatar: `https://picsum.photos/seed/${data.coachId}/50/50`,
-                    sentAt: data.sentAt.toDate(),
+                    sentAt: data.sentAt,
                 } as Invite;
             }));
             setInvites(invitesData);
@@ -172,5 +172,3 @@ export default function PlayerInvites({ userId }: { userId: string }) {
         </Card>
     );
 }
-
-    

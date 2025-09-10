@@ -82,7 +82,7 @@ export default function CommunityHub({ userId, role }: CommunityHubProps) {
                     _id: doc.id,
                     authorName: userRes.user?.name || 'Unknown',
                     authorAvatar: `https://picsum.photos/seed/${data.authorId}/50/50`,
-                    createdAt: data.createdAt.toDate(),
+                    createdAt: data.createdAt,
                 } as Post;
             }));
             setPosts(postsData);
@@ -248,5 +248,3 @@ export default function CommunityHub({ userId, role }: CommunityHubProps) {
         </Dialog>
     );
 }
-
-    

@@ -47,7 +47,7 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
         const workoutsData = snapshot.docs.map(doc => ({
             ...doc.data(),
             _id: doc.id,
-            createdAt: doc.data().createdAt.toDate(),
+            createdAt: doc.data().createdAt,
         })) as Workout[];
         setWorkouts(workoutsData);
         setIsLoading(false);
@@ -116,5 +116,3 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
     </Card>
   );
 }
-
-    

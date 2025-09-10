@@ -60,7 +60,7 @@ export async function getUsersForLogin() {
             return {
                 ...data,
                 id: doc.id,
-                dob: data.dob?.toDate() // Convert Firestore Timestamp to Date
+                dob: data.dob // No .toDate() needed here
             };
         });
         return { success: true, users };
@@ -87,11 +87,11 @@ export async function getUser(userId: string) {
         }
 
         const userData = userSnap.data();
-        // Convert Firestore Timestamp to Date object for all relevant fields
+        // The Firestore JS SDK already converts Timestamps to Date objects, so no .toDate() is needed
         const user = {
             ...userData,
             id: userSnap.id,
-            dob: userData.dob?.toDate(),
+            dob: userData.dob,
         };
 
         return { success: true, user };
@@ -187,7 +187,7 @@ export async function getWorkoutHistory(userId: string) {
                 return {
                     ...data,
                     _id: doc.id,
-                    createdAt: data.createdAt.toDate(), // Convert Firestore Timestamp to Date
+                    createdAt: data.createdAt, // No .toDate() needed
                 };
             })
         
@@ -299,7 +299,7 @@ export async function getPendingInvitesForCoach(coachId: string) {
                 playerId: data.playerId,
                 playerName: playerRes.user?.name || 'Unknown',
                 playerAvatar: `https://picsum.photos/seed/${data.playerId}/50/50`,
-                sentAt: data.sentAt.toDate(),
+                sentAt: data.sentAt, // No .toDate()
             };
         }));
         return { success: true, invites };
@@ -403,7 +403,7 @@ export async function getConversations(userId: string): Promise<{ success: boole
             const lastMsgSnapshot = await getDocs(lastMsgQuery);
             const lastMessage = lastMsgSnapshot.docs[0] ? {
                 text: lastMsgSnapshot.docs[0].data().text,
-                sentAt: lastMsgSnapshot.docs[0].data().createdAt.toDate(),
+                sentAt: lastMsgSnapshot.docs[0].data().createdAt, // no .toDate()
             } : undefined;
 
             return {
@@ -430,7 +430,7 @@ export async function getMessages(conversationId: string) {
         const messages = snapshot.docs.map(doc => ({
             _id: doc.id,
             ...doc.data(),
-            createdAt: doc.data().createdAt.toDate(),
+            createdAt: doc.data().createdAt, // no .toDate()
         }));
         return { success: true, messages };
     } catch (error: any) {
@@ -455,7 +455,7 @@ export async function sendMessage({ conversationId, senderId, text }: { conversa
         const newMessage = {
             _id: newMessageSnap.id,
             ...newMessageSnap.data(),
-            createdAt: newMessageSnap.data()?.createdAt.toDate(),
+            createdAt: newMessageSnap.data()?.createdAt, // no .toDate()
         }
         return { success: true, message: newMessage };
     } catch (error: any) {
@@ -482,7 +482,7 @@ export async function getGroupMessages(role: 'player' | 'coach') {
                 ...data,
                 authorName: userRes.user?.name || 'Unknown',
                 authorAvatar: `https://picsum.photos/seed/${data.senderId}/50/50`,
-                createdAt: data.createdAt.toDate(),
+                createdAt: data.createdAt, // No .toDate()
             };
         }));
         return { success: true, messages };
@@ -514,7 +514,7 @@ export async function sendGroupMessage({ senderId, role, text }: { senderId: str
             ...data,
             authorName: userRes.user?.name || 'Unknown',
             authorAvatar: `https://picsum.photos/seed/${data?.senderId}/50/50`,
-            createdAt: data?.createdAt.toDate(),
+            createdAt: data?.createdAt, // No .toDate()
         };
 
         return { success: true, message };
