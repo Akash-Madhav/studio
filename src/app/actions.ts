@@ -523,6 +523,6 @@ export async function sendGroupMessage({ senderId, role, text }: { senderId: str
         if (error.code === 'permission-denied') {
             return { success: false, message: "Firestore permission denied. Could not send message." };
         }
-        return { success: false };
+        return { success: false, message: 'Failed to send group message.' };
     }
 }

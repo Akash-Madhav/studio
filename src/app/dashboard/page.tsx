@@ -45,8 +45,7 @@ import { getUser, getAllPlayers, getPendingInvitesForCoach, getRecruitedPlayers 
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
-import { onSnapshot, collection, query, where, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+
 
 interface User {
     id: string;
@@ -98,55 +97,40 @@ function DashboardContent() {
       setIsLoadingUser(false);
     }
   }, [initialUserId, toast]);
+
+  const fetchCoachData = useCallback(async () => {
+    if (!isCoach || !initialUserId) return;
+    setIsLoadingCoachData(true);
+    try {
+        const [playersRes, invitesRes, recruitedRes] = await Promise.all([
+            getAllPlayers(),
+            getPendingInvitesForCoach(initialUserId),
+            getRecruitedPlayers(initialUserId),
+        ]);
+
+        if (playersRes.success) setPlayers(playersRes.players);
+        else toast({ variant: 'destructive', title: 'Error', description: playersRes.message || 'Could not load players.'});
+
+        if (invitesRes.success) setPendingInvites(invitesRes.invites);
+        else toast({ variant: 'destructive', title: 'Error', description: invitesRes.message || 'Could not load pending invites.'});
+
+        if (recruitedRes.success) setRecruitedPlayers(recruitedRes.players);
+        else toast({ variant: 'destructive', title: 'Error', description: recruitedRes.message || 'Could not load recruited players.'});
+
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch coach dashboard data.' });
+    } finally {
+        setIsLoadingCoachData(false);
+    }
+  }, [isCoach, initialUserId, toast]);
   
   useEffect(() => {
     fetchUserData();
-  }, [fetchUserData]);
+    if (isCoach) {
+      fetchCoachData();
+    }
+  }, [fetchUserData, fetchCoachData, isCoach]);
 
-  useEffect(() => {
-    if (!isCoach || !initialUserId) return;
-
-    const playersQuery = query(collection(db, 'users'), where('role', '==', 'player'));
-    const playersUnsubscribe = onSnapshot(playersQuery, async (snapshot) => {
-        setIsLoadingCoachData(true);
-        const allPlayersData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        const playerWorkouts = await Promise.all(
-            allPlayersData.map(async (player) => {
-                const workoutQuery = query(collection(db, 'workouts'), where('userId', '==', player.id));
-                const workoutSnapshot = await onSnapshot(workoutQuery, () => {}); // Placeholder to ensure we listen
-                const performanceResult = await getRecruitedPlayers(initialUserId); // Re-fetch perf data
-                return {
-                    ...player,
-                    performanceData: performanceResult.players.find(p => p.id === player.id)?.performanceData || 'No workouts logged.'
-                };
-            })
-        );
-        setPlayers(playerWorkouts);
-        setIsLoadingCoachData(false);
-    });
-
-    const invitesQuery = query(collection(db, 'invites'), where('coachId', '==', initialUserId), where('status', '==', 'pending'));
-    const invitesUnsubscribe = onSnapshot(invitesQuery, async (snapshot) => {
-        const invitesData = await getPendingInvitesForCoach(initialUserId);
-        if (invitesData.success) {
-            setPendingInvites(invitesData.invites);
-        }
-    });
-
-    const recruitedQuery = query(collection(db, 'users'), where('status', '==', 'recruited'), where('coachId', '==', initialUserId));
-    const recruitedUnsubscribe = onSnapshot(recruitedQuery, async (snapshot) => {
-        const recruitedData = await getRecruitedPlayers(initialUserId);
-        if (recruitedData.success) {
-            setRecruitedPlayers(recruitedData.players);
-        }
-    });
-    
-    return () => {
-        playersUnsubscribe();
-        invitesUnsubscribe();
-        recruitedUnsubscribe();
-    };
-  }, [isCoach, initialUserId]);
 
   useEffect(() => {
     const tab = searchParams.get('tab') || (isCoach ? 'team' : 'dashboard');
@@ -291,10 +275,7 @@ function DashboardContent() {
                         <PlayerScouting 
                             players={players} 
                             isLoading={isLoadingCoachData} 
-                            onInviteSent={async () => {
-                                const invitesData = await getPendingInvitesForCoach(userId);
-                                if (invitesData.success) setPendingInvites(invitesData.invites);
-                            }} 
+                            onInviteSent={fetchCoachData} 
                         />
                     </TabsContent>
                     <TabsContent value="messages" className="mt-4">
