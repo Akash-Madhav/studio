@@ -13,38 +13,49 @@ export async function seedDatabase() {
         const workoutsCollection = collection(db, 'workouts');
 
         // Check if users already exist to prevent re-seeding
-        const existingUsers = await getDocs(usersCollection);
-        if (!existingUsers.empty) {
-            return { success: false, message: "Database has already been seeded." };
+        const existingUsersSnapshot = await getDocs(usersCollection);
+        if (!existingUsersSnapshot.empty) {
+            const existingUsers = existingUsersSnapshot.docs.map(d => ({...d.data(), id: d.id, dob: d.data().dob ? d.data().dob.toDate() : null }));
+            return { success: false, message: "Database has already been seeded.", users: existingUsers };
         }
 
         const batch = writeBatch(db);
 
-        // Add users
-        sampleUsers.forEach(user => {
+        // Prepare users with Date objects
+        const usersToSeed = sampleUsers.map(user => ({
+            ...user,
+            dob: user.dob ? new Date(user.dob) : null,
+            coachId: user.status === 'recruited' ? 'coach1' : (user.status === 'pending_invite' ? 'coach2' : null)
+        }));
+
+        usersToSeed.forEach(user => {
             const userRef = doc(db, 'users', user.id);
-            const userData: any = { ...user, dob: user.dob ? new Date(user.dob) : null };
-            // For players with specific statuses, add coachId if needed
-            if (user.status === 'recruited') userData.coachId = 'coach1';
-            if (user.status === 'pending_invite') userData.coachId = 'coach2'; // Example coachId
-            batch.set(userRef, userData);
+            batch.set(userRef, user);
         });
 
-        // Add workouts
-        sampleWorkouts.forEach(workout => {
+        // Prepare workouts with Date objects
+        const workoutsToSeed = sampleWorkouts.map(workout => ({
+            ...workout,
+            createdAt: new Date(workout.createdAt)
+        }));
+
+        workoutsToSeed.forEach(workout => {
             const workoutRef = doc(collection(db, 'workouts')); // Auto-generate ID
-            batch.set(workoutRef, { ...workout, createdAt: new Date(workout.createdAt) });
+            batch.set(workoutRef, workout);
         });
 
         await batch.commit();
         
-        return { success: true, message: "Database seeded successfully!" };
+        // Return the newly created users to avoid a refetch
+        const seededUsers = usersToSeed.map(u => ({...u, id: u.id}));
+        
+        return { success: true, message: "Database seeded successfully!", users: seededUsers };
     } catch (error: any) {
         console.error("Error seeding database: ", error);
         if (error.code === 'permission-denied') {
-            return { success: false, message: "Firestore permission denied. Please check your security rules or ensure the Firestore API is enabled." };
+            return { success: false, message: "Firestore permission denied. Please check your security rules or ensure the Firestore API is enabled.", users: [] };
         }
-        return { success: false, message: "Failed to seed database." };
+        return { success: false, message: "Failed to seed database.", users: [] };
     }
 }
 
@@ -60,7 +71,7 @@ export async function getUsersForLogin() {
             return {
                 ...data,
                 id: doc.id,
-                dob: data.dob // No .toDate() needed here
+                dob: data.dob ? data.dob.toDate() : null
             };
         });
         return { success: true, users };
@@ -91,7 +102,7 @@ export async function getUser(userId: string) {
         const user = {
             ...userData,
             id: userSnap.id,
-            dob: userData.dob,
+            dob: userData.dob ? userData.dob.toDate() : null,
         };
 
         return { success: true, user };
@@ -187,7 +198,7 @@ export async function getWorkoutHistory(userId: string) {
                 return {
                     ...data,
                     _id: doc.id,
-                    createdAt: data.createdAt, // No .toDate() needed
+                    createdAt: data.createdAt ? data.createdAt.toDate() : new Date(), 
                 };
             })
         
@@ -231,7 +242,7 @@ export async function getAllPlayers() {
         const querySnapshot = await getDocs(q);
         const players = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        const playersWithWorkouts = await Promise.all(players.map(async (player) => {
+        const playersWithWorkouts = await Promise.all(players.map(async (player: any) => {
             const workoutHistory = await getWorkoutHistory(player.id);
             const performanceData = workoutHistory.workouts
                 .slice(0, 3) // get latest 3
@@ -299,7 +310,7 @@ export async function getPendingInvitesForCoach(coachId: string) {
                 playerId: data.playerId,
                 playerName: playerRes.user?.name || 'Unknown',
                 playerAvatar: `https://picsum.photos/seed/${data.playerId}/50/50`,
-                sentAt: data.sentAt, // No .toDate()
+                sentAt: data.sentAt ? data.sentAt.toDate() : new Date(), 
             };
         }));
         return { success: true, invites };
@@ -324,11 +335,11 @@ export async function getRecruitedPlayers(coachId: string) {
                 .slice(0, 3)
                 .map(w => `${w.exercise}: ${w.reps || '-'} reps, ${w.weight || '-'} kg`)
                 .join(' | ');
-
+            const userProfile = (player.experience && player.goals) ? `${player.experience}, ${player.goals}` : 'N/A';
             return {
                 id: d.id,
                 name: player.name,
-                userProfile: player.experience && player.goals ? `${player.experience}, ${player.goals}`: 'N/A',
+                userProfile: userProfile,
                 performanceData: performanceData || 'No recent workouts logged.',
                 status: player.status
             };
@@ -403,7 +414,7 @@ export async function getConversations(userId: string): Promise<{ success: boole
             const lastMsgSnapshot = await getDocs(lastMsgQuery);
             const lastMessage = lastMsgSnapshot.docs[0] ? {
                 text: lastMsgSnapshot.docs[0].data().text,
-                sentAt: lastMsgSnapshot.docs[0].data().createdAt, // no .toDate()
+                sentAt: lastMsgSnapshot.docs[0].data().createdAt ? lastMsgSnapshot.docs[0].data().createdAt.toDate() : new Date(),
             } : undefined;
 
             return {
@@ -430,7 +441,7 @@ export async function getMessages(conversationId: string) {
         const messages = snapshot.docs.map(doc => ({
             _id: doc.id,
             ...doc.data(),
-            createdAt: doc.data().createdAt, // no .toDate()
+            createdAt: doc.data().createdAt ? doc.data().createdAt.toDate() : new Date(),
         }));
         return { success: true, messages };
     } catch (error: any) {
@@ -452,10 +463,11 @@ export async function sendMessage({ conversationId, senderId, text }: { conversa
             createdAt: serverTimestamp()
         });
         const newMessageSnap = await getDoc(newMessageRef);
+        const newMessageData = newMessageSnap.data();
         const newMessage = {
             _id: newMessageSnap.id,
-            ...newMessageSnap.data(),
-            createdAt: newMessageSnap.data()?.createdAt, // no .toDate()
+            ...newMessageData,
+            createdAt: newMessageData?.createdAt ? newMessageData.createdAt.toDate() : new Date(),
         }
         return { success: true, message: newMessage };
     } catch (error: any) {
@@ -482,7 +494,7 @@ export async function getGroupMessages(role: 'player' | 'coach') {
                 ...data,
                 authorName: userRes.user?.name || 'Unknown',
                 authorAvatar: `https://picsum.photos/seed/${data.senderId}/50/50`,
-                createdAt: data.createdAt, // No .toDate()
+                createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
             };
         }));
         return { success: true, messages };
@@ -514,7 +526,7 @@ export async function sendGroupMessage({ senderId, role, text }: { senderId: str
             ...data,
             authorName: userRes.user?.name || 'Unknown',
             authorAvatar: `https://picsum.photos/seed/${data?.senderId}/50/50`,
-            createdAt: data?.createdAt, // No .toDate()
+            createdAt: data?.createdAt ? data.createdAt.toDate() : new Date(),
         };
 
         return { success: true, message };

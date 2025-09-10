@@ -28,34 +28,31 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState("Loading users...");
 
-  const fetchUsers = useCallback(async (isInitialLoad = false) => {
+  const fetchUsers = useCallback(async () => {
     setIsLoading(true);
-    const result = await getUsersForLogin();
-    if (result.success && result.users) {
-      if (result.users.length === 0 && isInitialLoad) {
-        // If no users on first load, seed the database
-        setStatusMessage("No sample data found. Seeding database...");
-        const seedResult = await seedDatabase();
-        if (seedResult.success) {
-          toast({
-            title: "Database Seeded",
-            description: "Sample users have been created.",
-          });
-          // Refetch users after seeding
-          const postSeedResult = await getUsersForLogin();
-          if (postSeedResult.success && postSeedResult.users) {
-            setAllUsers(postSeedResult.users as User[]);
-          }
-        } else {
-           toast({
-            variant: 'destructive',
-            title: "Seeding Failed",
-            description: seedResult.message,
-          });
-        }
+    let result = await getUsersForLogin();
+    
+    if (result.success && result.users && result.users.length === 0) {
+      // If no users, seed the database
+      setStatusMessage("No sample data found. Seeding database...");
+      const seedResult = await seedDatabase();
+      if (seedResult.success) {
+        toast({
+          title: "Database Seeded",
+          description: "Sample users have been created.",
+        });
+        // Use the users returned from the seeding function
+        setAllUsers(seedResult.users as User[]);
       } else {
-        setAllUsers(result.users as User[]);
+         toast({
+          variant: 'destructive',
+          title: "Seeding Failed",
+          description: seedResult.message || "Could not seed database",
+        });
+        setAllUsers([]);
       }
+    } else if (result.success && result.users) {
+      setAllUsers(result.users as User[]);
     } else {
       toast({
         variant: 'destructive',
@@ -64,12 +61,13 @@ export default function LoginPage() {
       });
       setAllUsers([]);
     }
+
     setIsLoading(false);
     setStatusMessage("Select a role and user to access your dashboard.");
   }, [toast]);
 
   useEffect(() => {
-    fetchUsers(true);
+    fetchUsers();
   }, [fetchUsers]);
 
 
@@ -90,14 +88,13 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-2xl">Login</CardTitle>
             <CardDescription>
-             {isLoading ? "Please wait..." : "Select a role and user to access your dashboard."}
+             {isLoading ? statusMessage : "Select a role and user to access your dashboard."}
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
              {isLoading ? (
                 <div className="flex flex-col items-center justify-center h-24">
                     <Loader2 className="mr-2 h-8 w-8 animate-spin" />
-                    <p className="text-sm text-muted-foreground mt-2">{statusMessage}</p>
                 </div>
              ) : (
                 <>
