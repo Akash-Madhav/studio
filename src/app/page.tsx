@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dumbbell, Loader2 } from "lucide-react";
@@ -25,50 +25,55 @@ export default function LoginPage() {
   const [userRole, setUserRole] = useState("player");
   const [selectedUser, setSelectedUser] = useState("");
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-  const [isSeeding, setIsSeeding] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [statusMessage, setStatusMessage] = useState("Loading users...");
 
-  const fetchUsers = async () => {
-    setIsLoadingUsers(true);
+  const fetchUsers = useCallback(async (isInitialLoad = false) => {
+    setIsLoading(true);
     const result = await getUsersForLogin();
     if (result.success && result.users) {
-      setAllUsers(result.users as User[]);
+      if (result.users.length === 0 && isInitialLoad) {
+        // If no users on first load, seed the database
+        setStatusMessage("No sample data found. Seeding database...");
+        const seedResult = await seedDatabase();
+        if (seedResult.success) {
+          toast({
+            title: "Database Seeded",
+            description: "Sample users have been created.",
+          });
+          // Refetch users after seeding
+          const postSeedResult = await getUsersForLogin();
+          if (postSeedResult.success && postSeedResult.users) {
+            setAllUsers(postSeedResult.users as User[]);
+          }
+        } else {
+           toast({
+            variant: 'destructive',
+            title: "Seeding Failed",
+            description: seedResult.message,
+          });
+        }
+      } else {
+        setAllUsers(result.users as User[]);
+      }
     } else {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: result.message || 'Could not load users. You may need to seed the database.',
+        description: result.message || 'Could not load users.',
       });
       setAllUsers([]);
     }
-    setIsLoadingUsers(false);
-  };
-
-  useEffect(() => {
-    fetchUsers();
+    setIsLoading(false);
+    setStatusMessage("Select a role and user to access your dashboard.");
   }, [toast]);
 
-  const handleSeedDatabase = async () => {
-    setIsSeeding(true);
-    const result = await seedDatabase();
-    if (result.success) {
-      toast({
-        title: "Success",
-        description: result.message,
-      });
-      await fetchUsers(); // Refresh the user list
-    } else {
-      toast({
-        variant: 'destructive',
-        title: "Error",
-        description: result.message,
-      });
-    }
-    setIsSeeding(false);
-  };
+  useEffect(() => {
+    fetchUsers(true);
+  }, [fetchUsers]);
+
 
   const usersForRole = allUsers.filter(u => u.role === userRole);
-  const showSeedButton = !isLoadingUsers && allUsers.length === 0;
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -85,75 +90,70 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-2xl">Login</CardTitle>
             <CardDescription>
-              {showSeedButton
-                ? "First, seed the database with sample users to begin."
-                : "Select a role and user to access your dashboard."
-              }
+             {isLoading ? "Please wait..." : "Select a role and user to access your dashboard."}
             </CardDescription>
           </CardHeader>
-          {showSeedButton ? (
-             <CardContent>
-                <Button onClick={handleSeedDatabase} disabled={isSeeding} className="w-full">
-                    {isSeeding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Seed Sample Data
-                </Button>
-             </CardContent>
-          ) : (
-            <>
-              <CardContent className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label>I am a...</Label>
-                  <RadioGroup 
-                    defaultValue="player" 
-                    className="grid grid-cols-2 gap-4"
-                    onValueChange={(value) => {
-                      setUserRole(value);
-                      setSelectedUser("");
-                    }}
-                  >
-                    <div>
-                      <RadioGroupItem value="player" id="player" className="peer sr-only" />
-                      <Label
-                        htmlFor="player"
-                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-                      >
-                        Player
-                      </Label>
-                    </div>
-                    <div>
-                      <RadioGroupItem value="coach" id="coach" className="peer sr-only" />
-                      <Label
-                        htmlFor="coach"
-                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-                      >
-                        Coach
-                      </Label>
-                    </div>
-                  </RadioGroup>
+          <CardContent className="grid gap-4">
+             {isLoading ? (
+                <div className="flex flex-col items-center justify-center h-24">
+                    <Loader2 className="mr-2 h-8 w-8 animate-spin" />
+                    <p className="text-sm text-muted-foreground mt-2">{statusMessage}</p>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="user-select">User</Label>
-                   <Select onValueChange={setSelectedUser} value={selectedUser} disabled={isLoadingUsers}>
-                    <SelectTrigger id="user-select">
-                      <SelectValue placeholder={isLoadingUsers ? "Loading users..." : "Select a user"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {usersForRole.map(user => (
-                        <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-              <CardFooter className="flex flex-col gap-4">
-                <Link href={`/dashboard?role=${userRole}&userId=${selectedUser}`} passHref className="w-full">
-                  <Button className="w-full" disabled={!selectedUser || isLoadingUsers}>
-                    {isLoadingUsers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign in"}
-                  </Button>
-                </Link>
-              </CardFooter>
-            </>
-          )}
+             ) : (
+                <>
+                    <div className="grid gap-2">
+                      <Label>I am a...</Label>
+                      <RadioGroup 
+                        defaultValue="player" 
+                        className="grid grid-cols-2 gap-4"
+                        onValueChange={(value) => {
+                          setUserRole(value);
+                          setSelectedUser("");
+                        }}
+                      >
+                        <div>
+                          <RadioGroupItem value="player" id="player" className="peer sr-only" />
+                          <Label
+                            htmlFor="player"
+                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                          >
+                            Player
+                          </Label>
+                        </div>
+                        <div>
+                          <RadioGroupItem value="coach" id="coach" className="peer sr-only" />
+                          <Label
+                            htmlFor="coach"
+                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                          >
+                            Coach
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="user-select">User</Label>
+                       <Select onValueChange={setSelectedUser} value={selectedUser}>
+                        <SelectTrigger id="user-select">
+                          <SelectValue placeholder="Select a user" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {usersForRole.map(user => (
+                            <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                </>
+             )}
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4">
+            <Link href={`/dashboard?role=${userRole}&userId=${selectedUser}`} passHref className="w-full">
+              <Button className="w-full" disabled={!selectedUser || isLoading}>
+                Sign in
+              </Button>
+            </Link>
+          </CardFooter>
         </Card>
       </main>
 
