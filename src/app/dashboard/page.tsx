@@ -40,6 +40,7 @@ import PendingInvites from '@/components/features/pending-invites';
 import PlayerInvites from '@/components/features/player-invites';
 import Messages from '@/components/features/messages';
 import CommunityHub from '@/components/features/community-hub';
+import SportMatch from '@/components/features/sport-match';
 import { getUser, getAllPlayers, getPendingInvitesForCoach, getRecruitedPlayers } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -344,5 +345,3 @@ export default function Dashboard() {
     </Suspense>
   );
 }
-
-    

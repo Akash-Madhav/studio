@@ -169,7 +169,7 @@ export default function SportMatch({ userId }: { userId: string }) {
           {suggestions ? (
             <ul className="space-y-4">
               {suggestions.suggestions.map((suggestion, index) => (
-                <li key={index} className="p-4 bg-background/50 rounded-lg">
+                <li key={index} className="p-4 bg-muted/50 rounded-lg">
                   <h3 className="font-semibold text-primary flex items-center mb-2">
                     <Medal className="w-5 h-5 mr-2 text-accent" />
                     {suggestion.sport}
