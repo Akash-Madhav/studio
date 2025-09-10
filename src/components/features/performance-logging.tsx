@@ -121,12 +121,16 @@ export default function PerformanceLogging({ userId, onWorkoutLogged }: Performa
     try {
         const result = await analyzeWorkoutVideo({ videoDataUri });
         setAnalysisResult(result);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error analyzing video:", error);
+        let errorDescription = "Could not analyze the workout video. Please try again.";
+        if (error.message?.includes("503") || error.message?.includes("overloaded")) {
+            errorDescription = "The AI model is currently busy. Please wait a moment and try again.";
+        }
         toast({
             variant: "destructive",
             title: "Analysis Failed",
-            description: "Could not analyze the workout video. Please try again.",
+            description: errorDescription,
         });
     } finally {
         setIsAnalyzing(false);
