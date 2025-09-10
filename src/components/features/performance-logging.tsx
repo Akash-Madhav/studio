@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Loader2, Camera, Video, Upload, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Camera, Video, Upload, CheckCircle, FileVideo } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { logWorkout } from "@/app/actions";
 import { analyzeWorkoutVideo, VideoAnalysisOutput } from "@/ai/flows/video-workout-analysis-flow";
@@ -21,6 +21,8 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "../ui/input";
 
 const formSchema = z.object({
   exercise: z.string().min(2, "Exercise name is required."),
@@ -42,6 +44,10 @@ export default function PerformanceLogging({ userId, onWorkoutLogged }: Performa
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<VideoAnalysisOutput | null>(null);
+  const [activeTab, setActiveTab] = useState("live");
+  
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -59,16 +65,20 @@ export default function PerformanceLogging({ userId, onWorkoutLogged }: Performa
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Denied',
-          description: 'Please enable camera permissions in your browser settings to use this app.',
-        });
       }
     };
 
-    getCameraPermission();
-  }, [toast]);
+    if (activeTab === 'live') {
+        getCameraPermission();
+    }
+    
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [activeTab]);
 
   const handleStartRecording = () => {
     if (videoRef.current?.srcObject) {
@@ -107,6 +117,7 @@ export default function PerformanceLogging({ userId, onWorkoutLogged }: Performa
   
   const handleAnalyzeVideo = async (videoDataUri: string) => {
     setIsAnalyzing(true);
+    setAnalysisResult(null);
     try {
         const result = await analyzeWorkoutVideo({ videoDataUri });
         setAnalysisResult(result);
@@ -121,6 +132,27 @@ export default function PerformanceLogging({ userId, onWorkoutLogged }: Performa
         setIsAnalyzing(false);
     }
   };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setAnalysisResult(null);
+      setVideoFile(file);
+      const url = URL.createObjectURL(file);
+      setVideoPreviewUrl(url);
+    }
+  };
+  
+  const handleAnalyzeUpload = () => {
+    if (!videoFile) return;
+    
+    const reader = new FileReader();
+    reader.readAsDataURL(videoFile);
+    reader.onloadend = async () => {
+        const base64data = reader.result as string;
+        await handleAnalyzeVideo(base64data);
+    };
+  }
   
   const handleLogAnalyzedWorkout = async () => {
     if (!analysisResult || !userId) return;
@@ -142,6 +174,8 @@ export default function PerformanceLogging({ userId, onWorkoutLogged }: Performa
         description: `${analysisResult.exercise} has been added to your history.`,
       });
       setAnalysisResult(null);
+      setVideoFile(null);
+      setVideoPreviewUrl(null);
       onWorkoutLogged();
     } else {
       toast({
@@ -152,55 +186,85 @@ export default function PerformanceLogging({ userId, onWorkoutLogged }: Performa
     }
   }
 
-
   return (
     <Card className="w-full max-w-lg mx-auto">
       <CardHeader>
         <CardTitle>AI-Powered Workout Analysis</CardTitle>
         <CardDescription>
-          Record your exercise and let our AI analyze your form and count your reps.
+          Record your exercise or upload a video and let our AI analyze your performance.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="relative aspect-video bg-muted rounded-md overflow-hidden border">
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-            {hasCameraPermission === false && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-4">
-                    <Camera className="h-12 w-12 mb-4" />
-                    <p className="text-center font-semibold">Camera access is required.</p>
-                    <p className="text-center text-sm">Please enable camera permissions in your browser settings.</p>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="live"><Camera className="mr-2"/>Live</TabsTrigger>
+                <TabsTrigger value="upload"><Upload className="mr-2"/>Upload</TabsTrigger>
+            </TabsList>
+            <TabsContent value="live" className="mt-4">
+                <div className="relative aspect-video bg-muted rounded-md overflow-hidden border">
+                    <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                    {hasCameraPermission === false && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-4">
+                            <Camera className="h-12 w-12 mb-4" />
+                            <p className="text-center font-semibold">Camera access is required.</p>
+                            <p className="text-center text-sm">Please enable camera permissions.</p>
+                        </div>
+                    )}
+                    {isAnalyzing && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-white p-4">
+                            <Loader2 className="h-12 w-12 animate-spin mb-4" />
+                            <p className="text-center font-semibold">Analyzing your workout...</p>
+                        </div>
+                    )}
                 </div>
-            )}
-             {isAnalyzing && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-white p-4">
-                    <Loader2 className="h-12 w-12 animate-spin mb-4" />
-                    <p className="text-center font-semibold">Analyzing your workout...</p>
-                    <p className="text-center text-sm">This may take a moment.</p>
+
+                {hasCameraPermission === false && activeTab === 'live' && (
+                    <Alert variant="destructive" className="mt-4">
+                        <AlertTitle>Camera Access Required</AlertTitle>
+                        <AlertDescription>
+                            Please allow camera access to use this feature.
+                        </AlertDescription>
+                    </Alert>
+                )}
+                 {isRecording ? (
+                    <Button onClick={handleStopRecording} className="w-full mt-4" variant="destructive">
+                        <Video className="mr-2" /> Stop Recording
+                    </Button>
+                    ) : (
+                    <Button onClick={handleStartRecording} className="w-full mt-4" disabled={!hasCameraPermission || isAnalyzing}>
+                        <Camera className="mr-2" /> Start Recording
+                    </Button>
+                )}
+            </TabsContent>
+            <TabsContent value="upload" className="mt-4">
+                 <div className="relative aspect-video bg-muted rounded-md overflow-hidden border">
+                    {videoPreviewUrl ? (
+                        <video src={videoPreviewUrl} className="w-full h-full object-cover" controls />
+                    ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-4">
+                            <FileVideo className="h-12 w-12 mb-4" />
+                            <p className="text-center font-semibold">Upload a video to analyze</p>
+                        </div>
+                    )}
+                    {isAnalyzing && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-white p-4">
+                            <Loader2 className="h-12 w-12 animate-spin mb-4" />
+                            <p className="text-center font-semibold">Analyzing your workout...</p>
+                        </div>
+                    )}
                 </div>
-            )}
-        </div>
-
-        {hasCameraPermission === false && (
-            <Alert variant="destructive">
-                <AlertTitle>Camera Access Required</AlertTitle>
-                <AlertDescription>
-                    Please allow camera access to use this feature.
-                </AlertDescription>
-            </Alert>
-        )}
-
-        {isRecording ? (
-          <Button onClick={handleStopRecording} className="w-full" variant="destructive">
-            <Video className="mr-2" /> Stop Recording
-          </Button>
-        ) : (
-          <Button onClick={handleStartRecording} className="w-full" disabled={!hasCameraPermission || isAnalyzing}>
-            <Camera className="mr-2" /> Start Recording
-          </Button>
-        )}
+                 <div className="grid gap-2 mt-4">
+                    <Input id="video-upload" type="file" accept="video/*" onChange={handleFileChange} />
+                    <Button onClick={handleAnalyzeUpload} disabled={!videoFile || isAnalyzing}>
+                        <Upload className="mr-2"/>
+                        Analyze Uploaded Video
+                    </Button>
+                 </div>
+            </TabsContent>
+        </Tabs>
 
         {analysisResult && (
-            <Card className="bg-muted/50">
+            <Card className="bg-muted/50 mt-4">
                 <CardHeader>
                     <CardTitle className="text-xl">Analysis Results</CardTitle>
                 </CardHeader>
@@ -210,11 +274,11 @@ export default function PerformanceLogging({ userId, onWorkoutLogged }: Performa
                             <p className="font-semibold">Exercise</p>
                             <p>{analysisResult.exercise}</p>
                         </div>
-                         {analysisResult.reps && <div>
+                         {analysisResult.reps !== undefined && <div>
                             <p className="font-semibold">Reps</p>
                             <p>{analysisResult.reps}</p>
                         </div>}
-                        {analysisResult.weight && <div>
+                        {analysisResult.weight !== undefined && <div>
                             <p className="font-semibold">Weight (est.)</p>
                             <p>{analysisResult.weight} kg</p>
                         </div>}
@@ -222,7 +286,7 @@ export default function PerformanceLogging({ userId, onWorkoutLogged }: Performa
                             <p className="font-semibold">Time</p>
                             <p>{analysisResult.time}</p>
                         </div>}
-                         {analysisResult.distance && <div>
+                         {analysisResult.distance !== undefined && <div>
                             <p className="font-semibold">Distance (est.)</p>
                             <p>{analysisResult.distance} km</p>
                         </div>}
@@ -241,7 +305,6 @@ export default function PerformanceLogging({ userId, onWorkoutLogged }: Performa
                 </CardFooter>
             </Card>
         )}
-
       </CardContent>
     </Card>
   );
