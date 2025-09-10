@@ -217,6 +217,9 @@ export async function createPost(values: z.infer<typeof createPostSchema>) {
         return { success: true };
     } catch (error: any) {
         console.error("Error creating post: ", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, message: "Firestore permission denied. Could not create post." };
+        }
         return { success: false, message: "Failed to create post." };
     }
 }
@@ -244,8 +247,11 @@ export async function getAllPlayers() {
         }));
 
         return { success: true, players: playersWithWorkouts };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error getting all players:", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, players: [], message: "Firestore permission denied. Could not fetch players." };
+        }
         return { success: false, players: [] };
     }
 }
@@ -271,8 +277,11 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
         await updateDoc(doc(db, 'users', playerId), { status: 'pending_invite', coachId: coachId });
 
         return { success: true, message: 'Recruitment invite sent successfully!' };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error sending invite:", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, message: "Firestore permission denied. Could not send invite." };
+        }
         return { success: false, message: 'Failed to send invite.' };
     }
 }
@@ -294,8 +303,11 @@ export async function getPendingInvitesForCoach(coachId: string) {
             };
         }));
         return { success: true, invites };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching pending invites:", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, invites: [], message: "Firestore permission denied. Could not fetch invites." };
+        }
         return { success: false, invites: [] };
     }
 }
@@ -322,8 +334,11 @@ export async function getRecruitedPlayers(coachId: string) {
             };
         }));
         return { success: true, players };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching recruited players:", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, players: [], message: "Firestore permission denied. Could not fetch players." };
+        }
         return { success: false, players: [] };
     }
 }
@@ -353,8 +368,11 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
             await updateDoc(doc(db, 'users', playerId), { status: 'active', coachId: null });
         }
         return { success: true, conversationId };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error responding to invite:", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, message: "Firestore permission denied. Could not respond to invite." };
+        }
         return { success: false, message: 'Failed to respond to invite.' };
     }
 }
@@ -395,8 +413,11 @@ export async function getConversations(userId: string): Promise<{ success: boole
             };
         }));
         return { success: true, conversations };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error getting conversations:", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, conversations: [], message: "Firestore permission denied. Could not fetch conversations." };
+        }
         return { success: false, conversations: [], message: 'Failed to fetch conversations.' };
     }
 }
@@ -412,8 +433,11 @@ export async function getMessages(conversationId: string) {
             createdAt: doc.data().createdAt.toDate(),
         }));
         return { success: true, messages };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error getting messages:", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, messages: [], message: "Firestore permission denied. Could not fetch messages." };
+        }
         return { success: false, messages: [], message: 'Failed to fetch messages.' };
     }
 }
@@ -434,8 +458,11 @@ export async function sendMessage({ conversationId, senderId, text }: { conversa
             createdAt: newMessageSnap.data()?.createdAt.toDate(),
         }
         return { success: true, message: newMessage };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error sending message:", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, message: 'Firestore permission denied. Could not send message.' };
+        }
         return { success: false, message: 'Failed to send message.' };
     }
 }
@@ -459,8 +486,11 @@ export async function getGroupMessages(role: 'player' | 'coach') {
             };
         }));
         return { success: true, messages };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching group messages:", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, messages: [], message: "Firestore permission denied. Could not fetch messages." };
+        }
         return { success: false, messages: [] };
     }
 }
@@ -488,8 +518,11 @@ export async function sendGroupMessage({ senderId, role, text }: { senderId: str
         };
 
         return { success: true, message };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error sending group message:", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, message: "Firestore permission denied. Could not send message." };
+        }
         return { success: false };
     }
 }
