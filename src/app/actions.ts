@@ -194,7 +194,7 @@ export async function getWorkoutHistory(userId: string) {
             })
         
         return { success: true, workouts };
-    } catch (error) {
+    } catch (error: any) {
         console.error(`Error fetching workout history for user ${userId}:`, error);
         return { success: false, workouts: [], message: "Failed to fetch workout history." };
     }
@@ -493,3 +493,5 @@ export async function sendGroupMessage({ senderId, role, text }: { senderId: str
         return { success: false, message: 'Failed to send group message.' };
     }
 }
+
+    
