@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import dayjs from "dayjs";
 
 import {
@@ -126,7 +126,8 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
         userWorkouts.filter(w => w.reps).forEach(w => {
             maxReps[w.exercise] = Math.max(maxReps[w.exercise] || 0, w.reps!);
         });
-        return Object.keys(maxReps).map(exercise => ({ exercise, reps: maxReps[exercise]}));
+        const sortedExercises = Object.keys(maxReps).sort((a,b) => maxReps[b] - maxReps[a]).slice(0, 5);
+        return sortedExercises.map(exercise => ({ exercise, reps: maxReps[exercise]}));
     }, [userWorkouts]);
     
     if (isLoading) {
@@ -222,21 +223,20 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
           <CardDescription>Your personal bests</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={repsChartConfig}>
-            <BarChart
-              accessibilityLayer
-              layout="vertical"
-              data={repsChartData}
-              margin={{ left: 10 }}
-            >
-              <CartesianGrid horizontal={false} />
-              <XAxis dataKey="reps" type="number" hide />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent indicator="dashed" />}
-              />
-              <Bar dataKey="reps" fill="var(--color-reps)" radius={4} />
-            </BarChart>
+          <ChartContainer config={repsChartConfig} className="h-[250px] w-full">
+             <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                layout="vertical"
+                data={repsChartData}
+                margin={{ top: 5, right: 20, left: 40, bottom: 5 }}
+                >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false}/>
+                <XAxis type="number" />
+                <YAxis dataKey="exercise" type="category" width={80} tick={{fontSize: 12}}/>
+                <Tooltip content={<ChartTooltipContent indicator="dashed" />} />
+                <Bar dataKey="reps" fill="var(--color-reps)" radius={[0, 4, 4, 0]} />
+                </BarChart>
+            </ResponsiveContainer>
           </ChartContainer>
         </CardContent>
       </Card>}
