@@ -1,7 +1,7 @@
 
 'use server';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId } from 'firebase/firestore';
 
 import { z } from 'zod';
 import { sampleUsers, sampleWorkouts } from '@/lib/sample-data';
@@ -243,17 +243,20 @@ export async function getAllPlayers() {
 
         const playersWithWorkouts = await Promise.all(players.map(async (player: any) => {
             const workoutHistory = await getWorkoutHistory(player.id);
-            const performanceData = workoutHistory.workouts
-                .slice(0, 3) // get latest 3
-                .map(w => {
-                    const parts = [w.exercise];
-                    if (w.reps) parts.push(`${w.reps} reps`);
-                    if (w.weight) parts.push(`@ ${w.weight}kg`);
-                    if (w.distance) parts.push(`${w.distance}km`);
-                    if (w.time) parts.push(`in ${w.time}`);
-                    return parts.join(' ');
-                }).join('; ');
-            return { ...player, performanceData: performanceData || 'No recent workouts.' };
+            let performanceData = 'No recent workouts.';
+            if (workoutHistory.success && workoutHistory.workouts.length > 0) {
+                performanceData = workoutHistory.workouts
+                    .slice(0, 3) // get latest 3
+                    .map(w => {
+                        const parts = [w.exercise];
+                        if (w.reps) parts.push(`${w.reps} reps`);
+                        if (w.weight) parts.push(`@ ${w.weight}kg`);
+                        if (w.distance) parts.push(`${w.distance}km`);
+                        if (w.time) parts.push(`in ${w.time}`);
+                        return parts.join(' ');
+                    }).join('; ');
+            }
+            return { ...player, performanceData };
         }));
 
         return { success: true, players: playersWithWorkouts };
@@ -537,5 +540,3 @@ export async function sendGroupMessage({ senderId, role, text }: { senderId: str
         return { success: false, message: 'Failed to send group message.' };
     }
 }
-
-    
