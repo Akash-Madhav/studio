@@ -108,9 +108,8 @@ const logWorkoutSchema = z.object({
 
 
 export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
-    const validatedData = logWorkoutSchema.parse(values);
-
     try {
+        const validatedData = logWorkoutSchema.parse(values);
         const workoutsCollection = collection(db, 'workouts');
         await addDoc(workoutsCollection, {
             ...validatedData,
@@ -122,8 +121,14 @@ export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
             message: `${validatedData.exercise} has been added to your history.`,
             userId: validatedData.userId,
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error logging workout: ", error);
+        if (error instanceof z.ZodError) {
+            return { success: false, message: "Invalid data provided." };
+        }
+        if (error.code === 'permission-denied') {
+            return { success: false, message: "Firestore permission denied. Could not log workout." };
+        }
         return { success: false, message: "Failed to log workout." };
     }
 }
@@ -140,9 +145,8 @@ const updateUserProfileSchema = z.object({
 
 
 export async function updateUserProfile(values: z.infer<typeof updateUserProfileSchema>) {
-    const validatedData = updateUserProfileSchema.parse(values);
-    
     try {
+        const validatedData = updateUserProfileSchema.parse(values);
         const userRef = doc(db, 'users', validatedData.userId);
         await updateDoc(userRef, {
             name: validatedData.name,
@@ -152,8 +156,14 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
             goals: validatedData.goals,
         });
         return { success: true, message: "Profile updated successfully!" };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error updating profile: ", error);
+        if (error instanceof z.ZodError) {
+            return { success: false, message: "Invalid data provided." };
+        }
+        if (error.code === 'permission-denied') {
+            return { success: false, message: "Firestore permission denied. Could not update profile." };
+        }
         return { success: false, message: "Failed to update profile." };
     }
 }
@@ -176,8 +186,11 @@ export async function getWorkoutHistory(userId: string) {
             .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         
         return { success: true, workouts };
-    } catch (error) {
+    } catch (error: any) {
         console.error(`Error fetching workout history for user ${userId}:`, error);
+        if (error.code === 'permission-denied') {
+            return { success: false, workouts: [], message: "Firestore permission denied. Could not fetch workout history." };
+        }
         return { success: false, workouts: [], message: "Failed to fetch workout history." };
     }
 }
