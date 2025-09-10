@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { getWorkoutHistory } from '@/app/actions';
 import {
   Card,
   CardContent,
@@ -13,6 +12,8 @@ import {
 import { Loader2, Dumbbell, Calendar, Info } from "lucide-react";
 import dayjs from 'dayjs';
 import { useToast } from '@/hooks/use-toast';
+import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface Workout {
     _id: string;
@@ -31,31 +32,36 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    async function fetchHistory() {
-      if (!userId) return;
-      setIsLoading(true);
-      try {
-        const result = await getWorkoutHistory(userId);
-        if (result.success) {
-          setWorkouts(result.workouts as Workout[]);
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Could not load workout history.",
-          });
-        }
-      } catch (error) {
+    if (!userId) {
+        setIsLoading(false);
+        return;
+    }
+    
+    const q = query(
+        collection(db, 'workouts'), 
+        where("userId", "==", userId),
+        orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const workoutsData = snapshot.docs.map(doc => ({
+            ...doc.data(),
+            _id: doc.id,
+            createdAt: doc.data().createdAt.toDate(),
+        })) as Workout[];
+        setWorkouts(workoutsData);
+        setIsLoading(false);
+    }, (error) => {
+        console.error("Error fetching workout history:", error);
         toast({
             variant: "destructive",
             title: "Error",
-            description: "An unexpected error occurred while fetching history.",
+            description: "Could not load workout history.",
         });
-      } finally {
         setIsLoading(false);
-      }
-    }
-    fetchHistory();
+    });
+
+    return () => unsubscribe();
   }, [userId, toast]);
 
   const formatWorkoutDetails = (workout: Workout) => {
@@ -110,3 +116,5 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
     </Card>
   );
 }
+
+    

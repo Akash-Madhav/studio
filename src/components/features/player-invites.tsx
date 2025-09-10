@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getPendingInvitesForPlayer, respondToInvite } from "@/app/actions";
+import { respondToInvite } from "@/app/actions";
 import {
     Card,
     CardContent,
@@ -18,6 +18,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { onSnapshot, collection, query, where, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { getUser } from "@/app/actions";
 
 dayjs.extend(relativeTime);
 
@@ -38,21 +41,41 @@ export default function PlayerInvites({ userId }: { userId: string }) {
     const [isResponding, setIsResponding] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
 
-    const fetchInvites = React.useCallback(async () => {
-        if (!userId) return;
-        setIsLoading(true);
-        const result = await getPendingInvitesForPlayer(userId);
-        if (result.success) {
-            setInvites(result.invites as Invite[]);
-        } else {
-            toast({ variant: 'destructive', title: "Error", description: "Failed to fetch invites." });
-        }
-        setIsLoading(false);
-    }, [userId, toast]);
-
     useEffect(() => {
-        fetchInvites();
-    }, [fetchInvites]);
+        if (!userId) {
+            setIsLoading(false);
+            return;
+        }
+
+        const q = query(
+            collection(db, 'invites'),
+            where('playerId', '==', userId),
+            where('status', '==', 'pending')
+        );
+
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
+            setIsLoading(true);
+            const invitesData = await Promise.all(snapshot.docs.map(async (doc) => {
+                const data = doc.data();
+                const coachRes = await getUser(data.coachId);
+                return {
+                    inviteId: doc.id,
+                    coachId: data.coachId,
+                    coachName: coachRes.user?.name || 'Unknown Coach',
+                    coachAvatar: `https://picsum.photos/seed/${data.coachId}/50/50`,
+                    sentAt: data.sentAt.toDate(),
+                } as Invite;
+            }));
+            setInvites(invitesData);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching invites:", error);
+            toast({ variant: 'destructive', title: "Error", description: "Failed to fetch invites." });
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [userId, toast]);
 
     const handleResponse = (inviteId: string, coachId: string, response: 'accepted' | 'declined') => {
         startTransition(async () => {
@@ -74,10 +97,7 @@ export default function PlayerInvites({ userId }: { userId: string }) {
                    const role = searchParams.get('role');
                    const newUrl = `/dashboard?role=${role}&userId=${userId}&tab=messages&conversationId=${result.conversationId}`;
                    router.push(newUrl);
-                } else {
-                   fetchInvites();
                 }
-
             } else {
                 toast({
                     variant: 'destructive',

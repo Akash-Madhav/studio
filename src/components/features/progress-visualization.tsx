@@ -18,9 +18,10 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { getWorkoutHistory } from "@/app/actions";
 import { Info, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { onSnapshot, collection, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface Workout {
     _id: string;
@@ -61,31 +62,32 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        async function fetchHistory() {
-          if (!userId) return;
-          setIsLoading(true);
-          try {
-            const result = await getWorkoutHistory(userId);
-            if (result.success && result.workouts) {
-              setUserWorkouts(result.workouts as Workout[]);
-            } else {
-              toast({
-                variant: "destructive",
-                title: "Error",
-                description: "Could not load workout history for charts.",
-              });
-            }
-          } catch (error) {
+        if (!userId) {
+            setIsLoading(false);
+            return;
+        }
+
+        const q = query(collection(db, 'workouts'), where('userId', '==', userId));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const workoutsData = snapshot.docs.map(doc => ({
+                ...doc.data(),
+                _id: doc.id,
+                createdAt: doc.data().createdAt.toDate(),
+            })) as Workout[];
+            setUserWorkouts(workoutsData);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching workout history:", error);
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: "An unexpected error occurred while fetching chart data.",
+                description: "Could not load workout history for charts.",
             });
-          } finally {
             setIsLoading(false);
-          }
-        }
-        fetchHistory();
+        });
+
+        return () => unsubscribe();
     }, [userId, toast]);
 
 
@@ -244,3 +246,5 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
     </div>
   );
 }
+
+    

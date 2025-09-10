@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { Suspense, useState, useEffect, useTransition, useCallback } from 'react';
+import React, { Suspense, useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -12,6 +12,11 @@ import {
   Search,
   Target,
   History,
+  Users,
+  MessageSquare,
+  UserPlus,
+  Mail,
+  UserCheck,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -29,11 +34,18 @@ import PerformanceLogging from "@/components/features/performance-logging";
 import PersonalizedRecommendations from "@/components/features/personalized-recommendations";
 import ProgressVisualization from "@/components/features/progress-visualization";
 import WorkoutHistory from '@/components/features/workout-history';
-import { getUser } from '@/app/actions';
+import PlayerScouting from '@/components/features/player-scouting';
+import PlayerStats from '@/components/features/player-stats';
+import PendingInvites from '@/components/features/pending-invites';
+import PlayerInvites from '@/components/features/player-invites';
+import Messages from '@/components/features/messages';
+import CommunityHub from '@/components/features/community-hub';
+import { getUser, getAllPlayers, getPendingInvitesForCoach, getRecruitedPlayers } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
-import SportMatch from '@/components/features/sport-match';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
+import { onSnapshot, collection, query, where, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface User {
     id: string;
@@ -53,47 +65,92 @@ function DashboardContent() {
   const role = searchParams.get('role') || 'player';
   const initialUserId = searchParams.get('userId');
   const isCoach = role === 'coach';
-  const initialTab = searchParams.get('tab') || 'dashboard';
+  const initialTab = searchParams.get('tab') || (isCoach ? 'team' : 'dashboard');
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [isPending, startTransition] = useTransition();
+
+  const [players, setPlayers] = useState<any[]>([]);
+  const [recruitedPlayers, setRecruitedPlayers] = useState<any[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+  const [isLoadingCoachData, setIsLoadingCoachData] = useState(isCoach);
 
   const fetchUserData = useCallback(async () => {
     if (!initialUserId) {
       setIsLoadingUser(false);
       return;
-    };
+    }
     
     setIsLoadingUser(true);
-
-    startTransition(async () => {
-        try {
-            const userResult = await getUser(initialUserId);
-            if (userResult.success && userResult.user) {
-                setCurrentUser(userResult.user as User);
-            } else {
-                toast({ variant: 'destructive', title: 'Error', description: userResult.message || 'Could not load user data.' });
-                setCurrentUser(null);
-            }
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch dashboard data.' });
-        } finally {
-            setIsLoadingUser(false);
-        }
-    });
+    try {
+      const userResult = await getUser(initialUserId);
+      if (userResult.success && userResult.user) {
+        setCurrentUser(userResult.user as User);
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: userResult.message || 'Could not load user data.' });
+        setCurrentUser(null);
+      }
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch dashboard data.' });
+    } finally {
+      setIsLoadingUser(false);
+    }
   }, [initialUserId, toast]);
   
   useEffect(() => {
     fetchUserData();
   }, [fetchUserData]);
 
+  useEffect(() => {
+    if (!isCoach || !initialUserId) return;
+
+    const playersQuery = query(collection(db, 'users'), where('role', '==', 'player'));
+    const playersUnsubscribe = onSnapshot(playersQuery, async (snapshot) => {
+        setIsLoadingCoachData(true);
+        const allPlayersData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        const playerWorkouts = await Promise.all(
+            allPlayersData.map(async (player) => {
+                const workoutQuery = query(collection(db, 'workouts'), where('userId', '==', player.id));
+                const workoutSnapshot = await onSnapshot(workoutQuery, () => {}); // Placeholder to ensure we listen
+                const performanceResult = await getRecruitedPlayers(initialUserId); // Re-fetch perf data
+                return {
+                    ...player,
+                    performanceData: performanceResult.players.find(p => p.id === player.id)?.performanceData || 'No workouts logged.'
+                };
+            })
+        );
+        setPlayers(playerWorkouts);
+        setIsLoadingCoachData(false);
+    });
+
+    const invitesQuery = query(collection(db, 'invites'), where('coachId', '==', initialUserId), where('status', '==', 'pending'));
+    const invitesUnsubscribe = onSnapshot(invitesQuery, async (snapshot) => {
+        const invitesData = await getPendingInvitesForCoach(initialUserId);
+        if (invitesData.success) {
+            setPendingInvites(invitesData.invites);
+        }
+    });
+
+    const recruitedQuery = query(collection(db, 'users'), where('status', '==', 'recruited'), where('coachId', '==', initialUserId));
+    const recruitedUnsubscribe = onSnapshot(recruitedQuery, async (snapshot) => {
+        const recruitedData = await getRecruitedPlayers(initialUserId);
+        if (recruitedData.success) {
+            setRecruitedPlayers(recruitedData.players);
+        }
+    });
+    
+    return () => {
+        playersUnsubscribe();
+        invitesUnsubscribe();
+        recruitedUnsubscribe();
+    };
+  }, [isCoach, initialUserId]);
 
   useEffect(() => {
-    const tab = searchParams.get('tab') || 'dashboard';
+    const tab = searchParams.get('tab') || (isCoach ? 'team' : 'dashboard');
     setActiveTab(tab);
-  }, [searchParams]);
+  }, [searchParams, isCoach]);
 
 
   if (isLoadingUser) {
@@ -134,8 +191,6 @@ function DashboardContent() {
   }
 
   const userId = initialUserId || '';
-  const dashboardIsCoachView = isCoach;
-  
   const userName = currentUser?.name || '';
   const displayName = isCoach ? `Coach ${userName}` : userName;
   
@@ -144,10 +199,19 @@ function DashboardContent() {
     newUrl.searchParams.set('tab', tab);
     newUrl.searchParams.set('userId', initialUserId || '');
     newUrl.searchParams.set('role', role);
-    router.push(newUrl.href);
+    router.push(newUrl.href, { scroll: false });
     setActiveTab(tab);
   };
 
+  const commonTabs = (
+      <>
+        <TabsTrigger value="dashboard"><BarChart3 className="mr-2" />Dashboard</TabsTrigger>
+        <TabsTrigger value="log-performance"><LogIn className="mr-2" />Log</TabsTrigger>
+        <TabsTrigger value="history"><History className="mr-2" />History</TabsTrigger>
+        <TabsTrigger value="ai-insights"><BrainCircuit className="mr-2" />Insights</TabsTrigger>
+        <TabsTrigger value="recommendations"><Target className="mr-2" />Recs</TabsTrigger>
+      </>
+  );
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
@@ -165,13 +229,7 @@ function DashboardContent() {
               <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="icon" className="rounded-full">
                   <Avatar>
-                    <AvatarImage
-                      src={`https://picsum.photos/seed/${initialUserId}/50/50`}
-                      alt="@user"
-                      width={50}
-                      height={50}
-                      data-ai-hint="person face"
-                    />
+                    <AvatarImage src={`https://picsum.photos/seed/${initialUserId}/50/50`} alt="@user" data-ai-hint="person face" />
                     <AvatarFallback>{(currentUser?.name || '').charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <span className="sr-only">Toggle user menu</span>
@@ -181,19 +239,11 @@ function DashboardContent() {
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                  <Link href={`/dashboard/settings?role=${role}&userId=${userId}`}>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                        Settings
-                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Settings</DropdownMenuItem>
                  </Link>
-                <a href="mailto:support@optifit.ai?subject=OptiFit AI Support Request">
-                    <DropdownMenuItem>
-                        Support
-                    </DropdownMenuItem>
-                </a>
+                <a href="mailto:support@optifit.ai?subject=OptiFit AI Support Request"><DropdownMenuItem>Support</DropdownMenuItem></a>
                 <DropdownMenuSeparator />
-                <Link href="/">
-                  <DropdownMenuItem>Logout</DropdownMenuItem>
-                </Link>
+                <Link href="/"><DropdownMenuItem>Logout</DropdownMenuItem></Link>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -202,60 +252,85 @@ function DashboardContent() {
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <div className="grid gap-2">
           <h1 className="text-3xl font-bold tracking-tight text-primary">
-            {dashboardIsCoachView ? 'Coach Dashboard' : 'Fitness Dashboard'}
+            {isCoach ? 'Coach Dashboard' : 'Fitness Dashboard'}
           </h1>
           <p className="text-muted-foreground">
-             {dashboardIsCoachView
-              ? 'Your central hub for tracking your personal progress.'
+             {isCoach
+              ? 'Oversee your team, scout new talent, and manage communications.'
               : 'Your central hub for tracking, analyzing, and optimizing your fitness journey.'}
           </p>
         </div>
         
         <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 md:grid-cols-6 h-auto">
-              <TabsTrigger value="dashboard">
-                <BarChart3 className="mr-2" />
-                Dashboard
-              </TabsTrigger>
-              <TabsTrigger value="log-performance">
-                <LogIn className="mr-2" />
-                Log
-              </TabsTrigger>
-              <TabsTrigger value="history">
-                  <History className="mr-2" />
-                  History
-              </TabsTrigger>
-              <TabsTrigger value="ai-insights">
-                <BrainCircuit className="mr-2" />
-                Insights
-              </TabsTrigger>
-              <TabsTrigger value="recommendations">
-                <Target className="mr-2" />
-                Recs
-              </TabsTrigger>
-              <TabsTrigger value="find-sport">
-                <Search className="mr-2" />
-                Find Sport
-              </TabsTrigger>
+            <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-7'}`}>
+              {isCoach ? (
+                  <>
+                      <TabsTrigger value="team"><Users className="mr-2"/>Team</TabsTrigger>
+                      <TabsTrigger value="scouting"><UserPlus className="mr-2"/>Scouting</TabsTrigger>
+                      <TabsTrigger value="messages"><MessageSquare className="mr-2"/>Messages</TabsTrigger>
+                      <TabsTrigger value="community"><Users className="mr-2"/>Community</TabsTrigger>
+                      <TabsTrigger value="log-performance"><LogIn className="mr-2" />My Log</TabsTrigger>
+                  </>
+              ) : (
+                  <>
+                      {commonTabs}
+                      <TabsTrigger value="find-sport"><Search className="mr-2" />Find Sport</TabsTrigger>
+                      <TabsTrigger value="invites"><Mail className="mr-2" />Invites</TabsTrigger>
+                  </>
+              )}
             </TabsList>
-            <TabsContent value="dashboard" className="mt-4">
-              <ProgressVisualization userId={userId} />
-            </TabsContent>
-             <TabsContent value="log-performance" className="mt-4">
-                <PerformanceLogging userId={userId} onWorkoutLogged={fetchUserData} />
-            </TabsContent>
-             <TabsContent value="history" className="mt-4">
-                <WorkoutHistory userId={userId} />
-            </TabsContent>
-            <TabsContent value="ai-insights" className="mt-4">
-                <AiInsights userId={userId} />
-            </TabsContent>
-            <TabsContent value="recommendations" className="mt-4">
-                <PersonalizedRecommendations userId={userId} />
-            </TabsContent>
-            <TabsContent value="find-sport" className="mt-4">
-                <SportMatch userId={userId} />
-            </TabsContent>
+
+            {isCoach ? (
+                <>
+                    <TabsContent value="team" className="mt-4 space-y-8">
+                        <PlayerStats players={recruitedPlayers} isLoading={isLoadingCoachData} />
+                        <PendingInvites invites={pendingInvites} isLoading={isLoadingCoachData} />
+                    </TabsContent>
+                    <TabsContent value="scouting" className="mt-4">
+                        <PlayerScouting 
+                            players={players} 
+                            isLoading={isLoadingCoachData} 
+                            onInviteSent={async () => {
+                                const invitesData = await getPendingInvitesForCoach(userId);
+                                if (invitesData.success) setPendingInvites(invitesData.invites);
+                            }} 
+                        />
+                    </TabsContent>
+                    <TabsContent value="messages" className="mt-4">
+                        <Messages userId={userId} />
+                    </TabsContent>
+                    <TabsContent value="community" className="mt-4">
+                        <CommunityHub userId={userId} role="coach" />
+                    </TabsContent>
+                    <TabsContent value="log-performance" className="mt-4">
+                        <PerformanceLogging userId={userId} onWorkoutLogged={() => {}} />
+                    </TabsContent>
+                </>
+            ) : (
+                <>
+                    <TabsContent value="dashboard" className="mt-4">
+                      <ProgressVisualization userId={userId} />
+                    </TabsContent>
+                     <TabsContent value="log-performance" className="mt-4">
+                        <PerformanceLogging userId={userId} onWorkoutLogged={() => {}} />
+                    </TabsContent>
+                     <TabsContent value="history" className="mt-4">
+                        <WorkoutHistory userId={userId} />
+                    </TabsContent>
+                    <TabsContent value="ai-insights" className="mt-4">
+                        <AiInsights userId={userId} />
+                    </TabsContent>
+                    <TabsContent value="recommendations" className="mt-4">
+                        <PersonalizedRecommendations userId={userId} />
+                    </TabsContent>
+                    <TabsContent value="find-sport" className="mt-4">
+                        <SportMatch userId={userId} />
+                    </TabsContent>
+                    <TabsContent value="invites" className="mt-4">
+                        <PlayerInvites userId={userId} />
+                    </TabsContent>
+                </>
+            )}
           </Tabs>
       </main>
     </div>
@@ -269,3 +344,5 @@ export default function Dashboard() {
     </Suspense>
   );
 }
+
+    

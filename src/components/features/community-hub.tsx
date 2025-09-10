@@ -12,12 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { getPosts, createPost } from "@/app/actions";
+import { createPost, getUser } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { sampleUsers } from "@/lib/sample-data";
 import GroupChat from "./group-chat";
+import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 dayjs.extend(relativeTime);
 
@@ -65,42 +66,53 @@ export default function CommunityHub({ userId, role }: CommunityHubProps) {
     });
 
     useEffect(() => {
-        async function fetchData() {
+        const q = query(
+            collection(db, 'posts'),
+            where('role', '==', role),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
             setIsFetching(true);
-            try {
-                const postRes = await getPosts(role);
-                if (postRes.success) setPosts(postRes.posts as Post[]);
-            } catch (error) {
-                toast({ variant: 'destructive', title: "Error", description: "Failed to load community feed." });
-            } finally {
-                setIsFetching(false);
-            }
-        }
-        fetchData();
+            const postsData = await Promise.all(snapshot.docs.map(async (doc) => {
+                const data = doc.data();
+                const userRes = await getUser(data.authorId);
+                return {
+                    ...data,
+                    _id: doc.id,
+                    authorName: userRes.user?.name || 'Unknown',
+                    authorAvatar: `https://picsum.photos/seed/${data.authorId}/50/50`,
+                    createdAt: data.createdAt.toDate(),
+                } as Post;
+            }));
+            setPosts(postsData);
+            setIsFetching(false);
+        }, (error) => {
+            console.error("Error fetching posts:", error);
+            toast({ variant: 'destructive', title: "Error", description: "Failed to load community feed." });
+            setIsFetching(false);
+        });
+
+        return () => unsubscribe();
     }, [role, toast]);
 
     const handleCreatePost = async (values: z.infer<typeof postFormSchema>) => {
         setIsPosting(true);
         const result = await createPost({ authorId: userId, role, content: values.content });
-        if (result.success && result.post) {
-            const author = sampleUsers.find(u => u.id === result.post!.authorId);
-            const newPost = {
-                ...result.post,
-                authorName: author?.name || 'Unknown',
-                authorAvatar: `https://picsum.photos/seed/${result.post.authorId}/50/50`,
-            };
-            setPosts(prev => [newPost as Post, ...prev]);
+        if (result.success) {
             postForm.reset();
         } else {
-            toast({ variant: 'destructive', title: "Error", description: "Failed to create post." });
+            toast({ variant: 'destructive', title: "Error", description: result.message || "Failed to create post." });
         }
         setIsPosting(false);
     };
 
-    const handleUserClick = (authorId: string) => {
-        const user = sampleUsers.find(u => u.id === authorId);
-        if (user) {
-            setSelectedUser(user as User);
+    const handleUserClick = async (authorId: string) => {
+        const userRes = await getUser(authorId);
+        if (userRes.success && userRes.user) {
+            setSelectedUser(userRes.user as User);
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch user details.' });
         }
     };
 
@@ -236,3 +248,5 @@ export default function CommunityHub({ userId, role }: CommunityHubProps) {
         </Dialog>
     );
 }
+
+    
