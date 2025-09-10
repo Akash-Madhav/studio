@@ -34,7 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   fitnessGoals: z.string().min(1, "Fitness goals are required."),
-  performanceData: z.string().min(1, "Performance data is required."),
+  performanceData: z.string(),
 });
 
 async function getPerformanceSummary(userId: string) {
@@ -62,6 +62,7 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
   const [recommendations, setRecommendations] =
     useState<PersonalizedTrainingRecommendationsOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(true);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -73,6 +74,7 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
 
   useEffect(() => {
     async function loadData() {
+        setIsFetchingData(true);
         if (userId) {
             const userRes = await getUser(userId);
             if (userRes.success && userRes.user) {
@@ -81,6 +83,7 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
             const performanceSummary = await getPerformanceSummary(userId);
             form.setValue('performanceData', performanceSummary);
         }
+        setIsFetchingData(false);
     }
     loadData();
   }, [userId, form]);
@@ -135,26 +138,25 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="performanceData"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Recent Performance Data</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Summarize your recent workouts, including exercises, weights, reps, times, etc."
-                        className="min-h-[150px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              
+              <div className="space-y-2">
+                <FormLabel>Recent Performance Data (Auto-Loaded)</FormLabel>
+                <div className="p-3 rounded-md border bg-muted/50 min-h-[150px]">
+                    {isFetchingData ? (
+                        <div className="flex items-center justify-center h-full">
+                            <Loader2 className="animate-spin" />
+                        </div>
+                    ) : (
+                        <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-sans">
+                            {form.getValues('performanceData')}
+                        </pre>
+                    )}
+                </div>
+              </div>
+
             </CardContent>
             <CardFooter>
-              <Button type="submit" disabled={isLoading} className="w-full">
+              <Button type="submit" disabled={isLoading || isFetchingData} className="w-full">
                 {isLoading && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
