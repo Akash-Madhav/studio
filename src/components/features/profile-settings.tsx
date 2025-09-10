@@ -89,7 +89,7 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
       const result = await updateUserProfile({ 
           ...values, 
           userId,
-          dob: values.dob ? values.dob.toISOString() : null,
+          dob: values.dob ? values.dob.toISOString().split('T')[0] : null,
       });
       if (result.success) {
         toast({

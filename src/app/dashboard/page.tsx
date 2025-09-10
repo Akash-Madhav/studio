@@ -52,7 +52,7 @@ interface User {
     name: string;
     email: string;
     role: 'player' | 'coach';
-    dob?: Date;
+    dob?: string; // Should be a string now
     experience?: string;
     goals?: string;
     status?: string;

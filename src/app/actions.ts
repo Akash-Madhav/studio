@@ -23,7 +23,7 @@ export async function seedDatabase() {
                     dob: data.dob ? data.dob.toDate().toISOString().split('T')[0] : null
                 }
             });
-            return { success: false, message: "Database has already been seeded.", users: existingUsersData };
+            return { success: true, message: "Database has already been seeded.", users: existingUsersData };
         }
 
         const batch = writeBatch(db);
@@ -113,7 +113,7 @@ export async function getUser(userId: string) {
         const user = {
             ...userData,
             id: userSnap.id,
-            dob: userData.dob ? userData.dob.toDate() : null,
+            dob: userData.dob ? userData.dob.toDate().toISOString().split('T')[0] : null,
         };
 
         return { success: true, user };

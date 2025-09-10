@@ -36,7 +36,7 @@ export default function LoginPage() {
       // If no users, seed the database
       setStatusMessage("No sample data found. Seeding database...");
       const seedResult = await seedDatabase();
-      if (seedResult.success) {
+      if (seedResult.success && seedResult.users) {
         toast({
           title: "Database Seeded",
           description: "Sample users have been created.",
@@ -168,5 +168,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
