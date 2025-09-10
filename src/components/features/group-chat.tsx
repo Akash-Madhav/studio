@@ -8,10 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { sendGroupMessage } from "@/app/actions";
+import { sendGroupMessage, getUsersByIds } from "@/app/actions";
 import { onSnapshot, collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getUser } from "@/app/actions";
 
 interface GroupMessage {
     _id: string;
@@ -44,18 +43,30 @@ export default function GroupChat({ userId, role }: GroupChatProps) {
         );
 
         const unsubscribe = onSnapshot(q, async (snapshot) => {
-            const messagesData = await Promise.all(snapshot.docs.map(async (doc) => {
+            const senderIds = new Set<string>();
+            snapshot.docs.forEach(doc => senderIds.add(doc.data().senderId));
+            
+            const usersRes = await getUsersByIds(Array.from(senderIds));
+             if (!usersRes.success) {
+                toast({ variant: 'destructive', title: "Error", description: "Failed to load user details." });
+                setIsFetching(false);
+                return;
+            }
+            const usersMap = usersRes.users;
+
+            const messagesData = snapshot.docs.map(doc => {
                 const data = doc.data();
-                const userRes = await getUser(data.senderId);
+                const sender = usersMap[data.senderId];
                 const createdAt = data.createdAt as Timestamp;
                 return {
                     _id: doc.id,
                     ...data,
-                    authorName: userRes.user?.name || 'Unknown',
+                    authorName: sender?.name || 'Unknown',
                     authorAvatar: `https://picsum.photos/seed/${data.senderId}/50/50`,
                     createdAt: createdAt ? createdAt.toDate() : new Date(),
                 } as GroupMessage;
-            }));
+            });
+
             setMessages(messagesData);
             setIsFetching(false);
         }, (error) => {

@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { createPost, getUser } from "@/app/actions";
+import { createPost, getUser, getUsersByIds } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -74,18 +74,30 @@ export default function CommunityHub({ userId, role }: CommunityHubProps) {
 
         const unsubscribe = onSnapshot(q, async (snapshot) => {
             setIsFetching(true);
-            const postsData = await Promise.all(snapshot.docs.map(async (doc) => {
+            const authorIds = new Set<string>();
+            snapshot.docs.forEach(doc => authorIds.add(doc.data().authorId));
+
+            const usersRes = await getUsersByIds(Array.from(authorIds));
+            if (!usersRes.success) {
+                toast({ variant: 'destructive', title: "Error", description: "Failed to load author details." });
+                setIsFetching(false);
+                return;
+            }
+            const usersMap = usersRes.users;
+
+            const postsData = snapshot.docs.map(doc => {
                 const data = doc.data();
-                const userRes = await getUser(data.authorId);
+                const author = usersMap[data.authorId];
                 const createdAt = data.createdAt as Timestamp;
                 return {
                     ...data,
                     _id: doc.id,
-                    authorName: userRes.user?.name || 'Unknown',
+                    authorName: author?.name || 'Unknown',
                     authorAvatar: `https://picsum.photos/seed/${data.authorId}/50/50`,
                     createdAt: createdAt ? createdAt.toDate() : new Date(),
                 } as Post;
-            }));
+            });
+
             setPosts(postsData);
             setIsFetching(false);
         }, (error) => {

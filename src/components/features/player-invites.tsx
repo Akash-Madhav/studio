@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { respondToInvite } from "@/app/actions";
+import { respondToInvite, getUsersByIds } from "@/app/actions";
 import {
     Card,
     CardContent,
@@ -20,7 +20,6 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getUser } from "@/app/actions";
 
 dayjs.extend(relativeTime);
 
@@ -54,18 +53,29 @@ export default function PlayerInvites({ userId }: { userId: string }) {
 
         const unsubscribe = onSnapshot(q, async (snapshot) => {
             setIsLoading(true);
-            const invitesData = await Promise.all(snapshot.docs.map(async (doc) => {
+            const coachIds = new Set<string>();
+            snapshot.docs.forEach(doc => coachIds.add(doc.data().coachId));
+
+            const usersRes = await getUsersByIds(Array.from(coachIds));
+             if (!usersRes.success) {
+                toast({ variant: 'destructive', title: "Error", description: "Failed to load coach details." });
+                setIsLoading(false);
+                return;
+            }
+            const usersMap = usersRes.users;
+
+            const invitesData = snapshot.docs.map(doc => {
                 const data = doc.data();
-                const coachRes = await getUser(data.coachId);
+                const coach = usersMap[data.coachId];
                 const sentAt = data.sentAt as Timestamp;
                 return {
                     inviteId: doc.id,
                     coachId: data.coachId,
-                    coachName: coachRes.user?.name || 'Unknown Coach',
+                    coachName: coach?.name || 'Unknown Coach',
                     coachAvatar: `https://picsum.photos/seed/${data.coachId}/50/50`,
                     sentAt: sentAt ? sentAt.toDate() : new Date(),
                 } as Invite;
-            }));
+            });
             setInvites(invitesData);
             setIsLoading(false);
         }, (error) => {

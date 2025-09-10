@@ -112,6 +112,31 @@ export async function getUser(userId: string) {
     }
 }
 
+export async function getUsersByIds(userIds: string[]) {
+    if (!userIds || userIds.length === 0) {
+        return { success: true, users: {} };
+    }
+    try {
+        const usersCollection = collection(db, 'users');
+        const q = query(usersCollection, where(documentId(), 'in', userIds));
+        const snapshot = await getDocs(q);
+
+        const users: { [key: string]: any } = {};
+        snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            users[doc.id] = {
+                ...data,
+                id: doc.id,
+                dob: data.dob ? data.dob.toDate().toISOString().split('T')[0] : null,
+            };
+        });
+        return { success: true, users };
+    } catch (error) {
+        console.error("Error fetching users by IDs:", error);
+        return { success: false, users: {}, message: 'Failed to fetch user data.' };
+    }
+}
+
 const logWorkoutSchema = z.object({
   exercise: z.string().min(2, "Exercise name is required."),
   reps: z.coerce.number().int().min(0).optional(),
@@ -283,17 +308,26 @@ export async function getPendingInvitesForCoach(coachId: string) {
         const invitesCol = collection(db, 'invites');
         const q = query(invitesCol, where('coachId', '==', coachId), where('status', '==', 'pending'));
         const snapshot = await getDocs(q);
-        const invites = await Promise.all(snapshot.docs.map(async (d) => {
+        
+        const playerIds = snapshot.docs.map(doc => doc.data().playerId);
+        const usersRes = await getUsersByIds(playerIds);
+
+        if (!usersRes.success) {
+            return { success: false, invites: [] };
+        }
+
+        const invites = snapshot.docs.map(d => {
             const data = d.data();
-            const playerRes = await getUser(data.playerId);
+            const player = usersRes.users[data.playerId];
             return {
                 inviteId: d.id,
                 playerId: data.playerId,
-                playerName: playerRes.user?.name || 'Unknown',
+                playerName: player?.name || 'Unknown',
                 playerAvatar: `https://picsum.photos/seed/${data.playerId}/50/50`,
                 sentAt: data.sentAt ? data.sentAt.toDate().toISOString() : new Date().toISOString(), 
             };
-        }));
+        });
+
         return { success: true, invites };
     } catch (error) {
         console.error("Error fetching pending invites:", error);
@@ -370,13 +404,24 @@ export async function getConversations(userId: string): Promise<{ success: boole
         const q = query(convosCol, where('participantIds', 'array-contains', userId));
         const snapshot = await getDocs(q);
 
+        const participantIds = new Set<string>();
+        snapshot.docs.forEach(d => {
+            d.data().participantIds.forEach((id: string) => {
+                if (id !== userId) participantIds.add(id);
+            });
+        });
+
+        const usersRes = await getUsersByIds(Array.from(participantIds));
+        if (!usersRes.success) {
+            return { success: false, conversations: [], message: 'Failed to fetch user data for conversations.' };
+        }
+        const usersMap = usersRes.users;
+
         const conversations = await Promise.all(snapshot.docs.map(async (d) => {
             const data = d.data();
-            const participantIds = data.participantIds.filter((id: string) => id !== userId);
-            const participants = await Promise.all(participantIds.map(async (id: string) => {
-                const userRes = await getUser(id);
-                return { id, name: userRes.user?.name || 'Unknown' };
-            }));
+            const participants = data.participantIds
+                .filter((id: string) => id !== userId)
+                .map((id: string) => ({ id, name: usersMap[id]?.name || 'Unknown' }));
 
             const messagesCol = collection(db, 'conversations', d.id, 'messages');
             const lastMsgQuery = query(messagesCol, orderBy('createdAt', 'desc'), where('text', '!=', null));
@@ -447,17 +492,25 @@ export async function getGroupMessages(role: 'player' | 'coach') {
         const q = query(groupChatCol, where('role', '==', role), orderBy('createdAt', 'asc'));
         const snapshot = await getDocs(q);
 
-        const messages = await Promise.all(snapshot.docs.map(async (doc) => {
+        const senderIds = new Set<string>();
+        snapshot.docs.forEach(doc => senderIds.add(doc.data().senderId));
+        const usersRes = await getUsersByIds(Array.from(senderIds));
+        if (!usersRes.success) {
+            return { success: false, messages: [] };
+        }
+        const usersMap = usersRes.users;
+
+        const messages = snapshot.docs.map(doc => {
             const data = doc.data();
-            const userRes = await getUser(data.senderId);
+            const sender = usersMap[data.senderId];
             return {
                 _id: doc.id,
                 ...data,
-                authorName: userRes.user?.name || 'Unknown',
+                authorName: sender?.name || 'Unknown',
                 authorAvatar: `https://picsum.photos/seed/${data.senderId}/50/50`,
                 createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
             };
-        }));
+        });
         return { success: true, messages };
     } catch (error) {
         console.error("Error fetching group messages:", error);
@@ -493,5 +546,3 @@ export async function sendGroupMessage({ senderId, role, text }: { senderId: str
         return { success: false, message: 'Failed to send group message.' };
     }
 }
-
-    

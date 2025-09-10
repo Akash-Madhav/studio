@@ -15,7 +15,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import { ScrollArea } from "../ui/scroll-area";
 import { onSnapshot, collection, query, where, orderBy, Timestamp, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getUser, sendMessage } from '@/app/actions';
+import { getUsersByIds, sendMessage } from '@/app/actions';
 
 dayjs.extend(relativeTime);
 
@@ -46,13 +46,26 @@ export default function Messages({ userId }: { userId: string }) {
         const convosQuery = query(collection(db, 'conversations'), where('participantIds', 'array-contains', userId));
         
         const unsubscribe = onSnapshot(convosQuery, async (snapshot) => {
+            const participantIds = new Set<string>();
+            snapshot.docs.forEach(doc => {
+                doc.data().participantIds.forEach((id: string) => {
+                    if (id !== userId) participantIds.add(id);
+                });
+            });
+
+            const usersRes = await getUsersByIds(Array.from(participantIds));
+            if (!usersRes.success) {
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load conversation user data.' });
+                setIsLoadingConversations(false);
+                return;
+            }
+            const usersMap = usersRes.users;
+
             const convosData = await Promise.all(snapshot.docs.map(async (d) => {
                 const data = d.data();
-                const participantIds = data.participantIds.filter((id: string) => id !== userId);
-                const participants = await Promise.all(participantIds.map(async (id: string) => {
-                    const userRes = await getUser(id);
-                    return { id, name: userRes.user?.name || 'Unknown' };
-                }));
+                const participants = data.participantIds
+                    .filter((id: string) => id !== userId)
+                    .map((id: string) => ({ id, name: usersMap[id]?.name || 'Unknown' }));
 
                 const messagesCol = collection(db, 'conversations', d.id, 'messages');
                 const lastMsgQuery = query(messagesCol, orderBy('createdAt', 'desc'));
@@ -86,7 +99,8 @@ export default function Messages({ userId }: { userId: string }) {
         });
 
         return () => unsubscribe();
-    }, [userId, toast, searchParams, selectedConversation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId, toast]);
 
 
     useEffect(() => {
