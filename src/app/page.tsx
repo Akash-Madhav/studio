@@ -86,7 +86,7 @@ export default function LoginPage() {
             <CardTitle className="text-2xl">Login</CardTitle>
             <CardDescription>
               {showSeedButton
-                ? "First, seed the database with sample users."
+                ? "First, seed the database with sample users to begin."
                 : "Select a role and user to access your dashboard."
               }
             </CardDescription>
