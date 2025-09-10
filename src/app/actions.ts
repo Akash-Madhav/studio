@@ -35,8 +35,11 @@ export async function seedDatabase() {
         await batch.commit();
         
         return { success: true, message: "Database seeded successfully!" };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error seeding database: ", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, message: "Firestore permission denied. Please check your security rules or ensure the Firestore API is enabled." };
+        }
         return { success: false, message: "Failed to seed database." };
     }
 }
@@ -57,8 +60,11 @@ export async function getUsersForLogin() {
             };
         });
         return { success: true, users };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching users for login: ", error);
+        if (error.code === 'permission-denied') {
+            return { success: false, users: [], message: "Firestore permission denied. Please enable the Firestore API in your Google Cloud project." };
+        }
         return { success: false, users: [], message: "Could not fetch users." };
     }
 }
@@ -82,8 +88,11 @@ export async function getUser(userId: string) {
         };
 
         return { success: true, user };
-    } catch (error) {
+    } catch (error: any) {
         console.error(`Error fetching user ${userId}:`, error);
+         if (error.code === 'permission-denied') {
+            return { success: false, user: null, message: "Firestore permission denied. Please enable the Firestore API in your Google Cloud project and check your security rules." };
+        }
         return { success: false, user: null, message: "Failed to fetch user data." };
     }
 }
