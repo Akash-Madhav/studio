@@ -15,8 +15,15 @@ export async function seedDatabase() {
         // Check if users already exist to prevent re-seeding
         const existingUsersSnapshot = await getDocs(usersCollection);
         if (!existingUsersSnapshot.empty) {
-            const existingUsers = existingUsersSnapshot.docs.map(d => ({...d.data(), id: d.id, dob: d.data().dob ? d.data().dob.toDate() : null }));
-            return { success: false, message: "Database has already been seeded.", users: existingUsers };
+            const existingUsersData = existingUsersSnapshot.docs.map(d => {
+                const data = d.data();
+                return {
+                    ...data,
+                    id: d.id,
+                    dob: data.dob ? data.dob.toDate().toISOString().split('T')[0] : null
+                }
+            });
+            return { success: false, message: "Database has already been seeded.", users: existingUsersData };
         }
 
         const batch = writeBatch(db);
@@ -46,8 +53,12 @@ export async function seedDatabase() {
 
         await batch.commit();
         
-        // Return the newly created users to avoid a refetch
-        const seededUsers = usersToSeed.map(u => ({...u, id: u.id}));
+        // Return the newly created users to avoid a refetch, ensuring dob is a string
+        const seededUsers = usersToSeed.map(u => ({
+            ...u,
+            id: u.id,
+            dob: u.dob ? u.dob.toISOString().split('T')[0] : null
+        }));
         
         return { success: true, message: "Database seeded successfully!", users: seededUsers };
     } catch (error: any) {
@@ -71,7 +82,8 @@ export async function getUsersForLogin() {
             return {
                 ...data,
                 id: doc.id,
-                dob: data.dob ? data.dob.toDate() : null
+                // Ensure dob is a serializable string
+                dob: data.dob ? data.dob.toDate().toISOString().split('T')[0] : null
             };
         });
         return { success: true, users };
@@ -540,5 +552,3 @@ export async function sendGroupMessage({ senderId, role, text }: { senderId: str
         return { success: false, message: 'Failed to send group message.' };
     }
 }
-
-    
