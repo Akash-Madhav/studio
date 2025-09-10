@@ -37,10 +37,10 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
         return;
     }
     
+    // Query without orderBy to avoid composite index requirement
     const q = query(
         collection(db, 'workouts'), 
-        where("userId", "==", userId),
-        orderBy("createdAt", "desc")
+        where("userId", "==", userId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -53,6 +53,10 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
                 createdAt: createdAt ? createdAt.toDate() : new Date(),
             } as Workout;
         });
+
+        // Sort on the client-side
+        workoutsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        
         setWorkouts(workoutsData);
         setIsLoading(false);
     }, (error) => {
