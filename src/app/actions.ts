@@ -87,7 +87,7 @@ export async function getUser(userId: string) {
         }
 
         const userData = userSnap.data();
-        // Convert Firestore Timestamp to Date object
+        // Convert Firestore Timestamp to Date object for all relevant fields
         const user = {
             ...userData,
             id: userSnap.id,
@@ -526,3 +526,5 @@ export async function sendGroupMessage({ senderId, role, text }: { senderId: str
         return { success: false, message: 'Failed to send group message.' };
     }
 }
+
+    
