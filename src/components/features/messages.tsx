@@ -23,7 +23,7 @@ interface Message {
     _id: string;
     senderId: string;
     text: string;
-    createdAt: Date;
+    createdAt: string; // Changed to string
 }
 
 export default function Messages({ userId }: { userId: string }) {
@@ -60,7 +60,7 @@ export default function Messages({ userId }: { userId: string }) {
                 const lastMessageData = lastMsgSnapshot.docs[0]?.data();
                 const lastMessage = lastMessageData ? {
                     text: lastMessageData.text,
-                    sentAt: (lastMessageData.createdAt as Timestamp)?.toDate() || new Date(),
+                    sentAt: (lastMessageData.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                 } : undefined;
 
                 return { id: d.id, participants, lastMessage };
@@ -69,7 +69,7 @@ export default function Messages({ userId }: { userId: string }) {
             const sortedConversations = convosData.sort((a, b) => {
                 if (!a.lastMessage) return 1;
                 if (!b.lastMessage) return -1;
-                return b.lastMessage.sentAt.getTime() - a.lastMessage.sentAt.getTime();
+                return new Date(b.lastMessage.sentAt).getTime() - new Date(a.lastMessage.sentAt).getTime();
             });
 
             setConversations(sortedConversations);
@@ -102,7 +102,7 @@ export default function Messages({ userId }: { userId: string }) {
             const messagesData = snapshot.docs.map(doc => ({
                 _id: doc.id,
                 ...doc.data(),
-                createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
             })) as Message[];
             setMessages(messagesData);
             setIsLoadingMessages(false);

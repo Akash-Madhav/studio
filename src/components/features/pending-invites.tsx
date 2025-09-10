@@ -21,7 +21,7 @@ interface Invite {
   playerId: string;
   playerName: string;
   playerAvatar: string;
-  sentAt: Date;
+  sentAt: string; // Changed to string
 }
 
 interface PendingInvitesProps {

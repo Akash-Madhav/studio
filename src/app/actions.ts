@@ -291,7 +291,7 @@ export async function getPendingInvitesForCoach(coachId: string) {
                 playerId: data.playerId,
                 playerName: playerRes.user?.name || 'Unknown',
                 playerAvatar: `https://picsum.photos/seed/${data.playerId}/50/50`,
-                sentAt: data.sentAt ? data.sentAt.toDate() : new Date(), 
+                sentAt: data.sentAt ? data.sentAt.toDate().toISOString() : new Date().toISOString(), 
             };
         }));
         return { success: true, invites };
@@ -361,7 +361,7 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
 export interface Conversation {
     id: string;
     participants: { id: string; name: string }[];
-    lastMessage?: { text: string; sentAt: Date };
+    lastMessage?: { text: string; sentAt: string };
 }
 
 export async function getConversations(userId: string): Promise<{ success: boolean; conversations: Conversation[], message?: string }> {
@@ -383,7 +383,7 @@ export async function getConversations(userId: string): Promise<{ success: boole
             const lastMsgSnapshot = await getDocs(lastMsgQuery);
             const lastMessage = lastMsgSnapshot.docs[0] ? {
                 text: lastMsgSnapshot.docs[0].data().text,
-                sentAt: lastMsgSnapshot.docs[0].data().createdAt ? lastMsgSnapshot.docs[0].data().createdAt.toDate() : new Date(),
+                sentAt: lastMsgSnapshot.docs[0].data().createdAt ? lastMsgSnapshot.docs[0].data().createdAt.toDate().toISOString() : new Date().toISOString(),
             } : undefined;
 
             return {
@@ -407,7 +407,7 @@ export async function getMessages(conversationId: string) {
         const messages = snapshot.docs.map(doc => ({
             _id: doc.id,
             ...doc.data(),
-            createdAt: doc.data().createdAt ? doc.data().createdAt.toDate() : new Date(),
+            createdAt: doc.data().createdAt ? doc.data().createdAt.toDate().toISOString() : new Date().toISOString(),
         }));
         return { success: true, messages };
     } catch (error) {
@@ -429,8 +429,9 @@ export async function sendMessage({ conversationId, senderId, text }: { conversa
         const newMessageData = newMessageSnap.data();
         const newMessage = {
             _id: newMessageSnap.id,
-            ...newMessageData,
-            createdAt: newMessageData?.createdAt ? newMessageData.createdAt.toDate() : new Date(),
+            senderId: newMessageData?.senderId,
+            text: newMessageData?.text,
+            createdAt: newMessageData?.createdAt ? newMessageData.createdAt.toDate().toISOString() : new Date().toISOString(),
         }
         return { success: true, message: newMessage };
     } catch (error) {
@@ -454,7 +455,7 @@ export async function getGroupMessages(role: 'player' | 'coach') {
                 ...data,
                 authorName: userRes.user?.name || 'Unknown',
                 authorAvatar: `https://picsum.photos/seed/${data.senderId}/50/50`,
-                createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+                createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
             };
         }));
         return { success: true, messages };
@@ -483,7 +484,7 @@ export async function sendGroupMessage({ senderId, role, text }: { senderId: str
             ...data,
             authorName: userRes.user?.name || 'Unknown',
             authorAvatar: `https://picsum.photos/seed/${data?.senderId}/50/50`,
-            createdAt: data?.createdAt ? data.createdAt.toDate() : new Date(),
+            createdAt: data?.createdAt ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
         };
 
         return { success: true, message };
