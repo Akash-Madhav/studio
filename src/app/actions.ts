@@ -318,7 +318,7 @@ export async function getRecruitedPlayers(coachId: string) {
         const q = query(usersCol, where('coachId', '==', coachId), where('status', '==', 'recruited'));
         const snapshot = await getDocs(q);
         const players = await Promise.all(snapshot.docs.map(async (d) => {
-            const player = d.data();
+            const player: any = d.data();
             const workoutHistory = await getWorkoutHistory(d.id);
             const performanceData = workoutHistory.workouts
                 .slice(0, 3)
