@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import GroupChat from "./group-chat";
-import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 dayjs.extend(relativeTime);
@@ -77,12 +77,13 @@ export default function CommunityHub({ userId, role }: CommunityHubProps) {
             const postsData = await Promise.all(snapshot.docs.map(async (doc) => {
                 const data = doc.data();
                 const userRes = await getUser(data.authorId);
+                const createdAt = data.createdAt as Timestamp;
                 return {
                     ...data,
                     _id: doc.id,
                     authorName: userRes.user?.name || 'Unknown',
                     authorAvatar: `https://picsum.photos/seed/${data.authorId}/50/50`,
-                    createdAt: data.createdAt,
+                    createdAt: createdAt ? createdAt.toDate() : new Date(),
                 } as Post;
             }));
             setPosts(postsData);
@@ -116,7 +117,7 @@ export default function CommunityHub({ userId, role }: CommunityHubProps) {
         }
     };
 
-    if (isFetching) {
+    if (isFetching && posts.length === 0) {
         return <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin" /></div>;
     }
 

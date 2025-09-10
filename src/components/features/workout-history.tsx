@@ -12,7 +12,7 @@ import {
 import { Loader2, Dumbbell, Calendar, Info } from "lucide-react";
 import dayjs from 'dayjs';
 import { useToast } from '@/hooks/use-toast';
-import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface Workout {
@@ -44,11 +44,15 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        const workoutsData = snapshot.docs.map(doc => ({
-            ...doc.data(),
-            _id: doc.id,
-            createdAt: doc.data().createdAt,
-        })) as Workout[];
+        const workoutsData = snapshot.docs.map(doc => {
+            const data = doc.data();
+            const createdAt = data.createdAt as Timestamp;
+            return {
+                ...data,
+                _id: doc.id,
+                createdAt: createdAt ? createdAt.toDate() : new Date(),
+            } as Workout;
+        });
         setWorkouts(workoutsData);
         setIsLoading(false);
     }, (error) => {

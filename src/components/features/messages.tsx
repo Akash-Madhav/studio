@@ -8,11 +8,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { getConversations, getMessages, sendMessage, Conversation } from "@/app/actions";
+import { Conversation } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { ScrollArea } from "../ui/scroll-area";
+import { onSnapshot, collection, query, where, orderBy, Timestamp, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { getUser, sendMessage } from '@/app/actions';
 
 dayjs.extend(relativeTime);
 
@@ -38,52 +41,83 @@ export default function Messages({ userId }: { userId: string }) {
     const { toast } = useToast();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     
-    const handleSelectConversation = React.useCallback(async (convo: Conversation) => {
-        setSelectedConversation(convo);
-        setIsLoadingMessages(true);
-        setMessages([]);
-        try {
-            const result = await getMessages(convo.id);
-            if (result.success && result.messages) {
-                setMessages(result.messages as Message[]);
-            } else {
-                toast({ variant: 'destructive', title: "Error", description: "Failed to fetch messages." });
-            }
-        } finally {
-            setIsLoadingMessages(false);
-        }
-    }, [toast]);
-
     useEffect(() => {
         if (!userId) return;
-        async function fetchConversations() {
-            setIsLoadingConversations(true);
-            const result = await getConversations(userId);
-            if(result.success && result.conversations) {
-                const sortedConversations = result.conversations.sort((a, b) => {
-                    if (!a.lastMessage) return 1;
-                    if (!b.lastMessage) return -1;
-                    return new Date(b.lastMessage.sentAt).getTime() - new Date(a.lastMessage.sentAt).getTime();
-                });
-                setConversations(sortedConversations);
-                
+
+        const convosQuery = query(collection(db, 'conversations'), where('participantIds', 'array-contains', userId));
+        
+        const unsubscribe = onSnapshot(convosQuery, async (snapshot) => {
+            const convosData = await Promise.all(snapshot.docs.map(async (d) => {
+                const data = d.data();
+                const participantIds = data.participantIds.filter((id: string) => id !== userId);
+                const participants = await Promise.all(participantIds.map(async (id: string) => {
+                    const userRes = await getUser(id);
+                    return { id, name: userRes.user?.name || 'Unknown' };
+                }));
+
+                const messagesCol = collection(db, 'conversations', d.id, 'messages');
+                const lastMsgQuery = query(messagesCol, orderBy('createdAt', 'desc'));
+                const lastMsgSnapshot = await getDocs(lastMsgQuery);
+                const lastMessageData = lastMsgSnapshot.docs[0]?.data();
+                const lastMessage = lastMessageData ? {
+                    text: lastMessageData.text,
+                    sentAt: (lastMessageData.createdAt as Timestamp).toDate(),
+                } : undefined;
+
+                return { id: d.id, participants, lastMessage };
+            }));
+
+            const sortedConversations = convosData.sort((a, b) => {
+                if (!a.lastMessage) return 1;
+                if (!b.lastMessage) return -1;
+                return b.lastMessage.sentAt.getTime() - a.lastMessage.sentAt.getTime();
+            });
+
+            setConversations(sortedConversations);
+            
+            if (!selectedConversation) {
                 const preselectedConvoId = searchParams.get('conversationId');
                 if (preselectedConvoId) {
                     const convo = sortedConversations.find(c => c.id === preselectedConvoId);
-                    if (convo) {
-                        handleSelectConversation(convo);
-                    }
+                    if (convo) handleSelectConversation(convo);
                 } else if (sortedConversations.length > 0) {
                     handleSelectConversation(sortedConversations[0]);
                 }
-
-            } else {
-                toast({ variant: 'destructive', title: "Error", description: "Failed to fetch conversations." });
             }
+
             setIsLoadingConversations(false);
-        }
-        fetchConversations();
-    }, [toast, userId, searchParams, handleSelectConversation]);
+        });
+
+        return () => unsubscribe();
+    }, [userId, toast]);
+
+
+    useEffect(() => {
+        if (!selectedConversation) return;
+
+        setIsLoadingMessages(true);
+        const messagesQuery = query(
+            collection(db, 'conversations', selectedConversation.id, 'messages'),
+            orderBy('createdAt', 'asc')
+        );
+
+        const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+            const messagesData = snapshot.docs.map(doc => ({
+                _id: doc.id,
+                ...doc.data(),
+                createdAt: (doc.data().createdAt as Timestamp).toDate(),
+            })) as Message[];
+            setMessages(messagesData);
+            setIsLoadingMessages(false);
+        });
+
+        return () => unsubscribe();
+    }, [selectedConversation]);
+
+
+    const handleSelectConversation = (convo: Conversation) => {
+        setSelectedConversation(convo);
+    };
 
     useEffect(() => {
         if (messages.length > 0) {
@@ -103,25 +137,7 @@ export default function Messages({ userId }: { userId: string }) {
         });
 
         if (result.success && result.message) {
-            setMessages(prev => [...prev, result.message as Message]);
             setNewMessage("");
-            
-            // Update conversation in the list
-            startTransition(() => {
-                const updatedConversations = conversations.map(c => {
-                    if (c.id === selectedConversation.id) {
-                        return { ...c, lastMessage: { text: result.message!.text, sentAt: result.message!.createdAt } };
-                    }
-                    return c;
-                }).sort((a, b) => {
-                    if (!a.lastMessage) return 1;
-                    if (!b.lastMessage) return -1;
-                    return new Date(b.lastMessage.sentAt).getTime() - new Date(a.lastMessage.sentAt).getTime();
-                });
-                setConversations(updatedConversations);
-            });
-
-
         } else {
             toast({ variant: 'destructive', title: "Error", description: "Failed to send message." });
         }

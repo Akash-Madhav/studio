@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { onSnapshot, collection, query, where, doc } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getUser } from "@/app/actions";
 
@@ -58,12 +58,13 @@ export default function PlayerInvites({ userId }: { userId: string }) {
             const invitesData = await Promise.all(snapshot.docs.map(async (doc) => {
                 const data = doc.data();
                 const coachRes = await getUser(data.coachId);
+                const sentAt = data.sentAt as Timestamp;
                 return {
                     inviteId: doc.id,
                     coachId: data.coachId,
                     coachName: coachRes.user?.name || 'Unknown Coach',
                     coachAvatar: `https://picsum.photos/seed/${data.coachId}/50/50`,
-                    sentAt: data.sentAt,
+                    sentAt: sentAt ? sentAt.toDate() : new Date(),
                 } as Invite;
             }));
             setInvites(invitesData);

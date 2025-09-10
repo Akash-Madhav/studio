@@ -98,7 +98,6 @@ export async function getUser(userId: string) {
         }
 
         const userData = userSnap.data();
-        // The Firestore JS SDK already converts Timestamps to Date objects, so no .toDate() is needed
         const user = {
             ...userData,
             id: userSnap.id,

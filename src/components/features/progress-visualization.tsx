@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/chart";
 import { Info, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { onSnapshot, collection, query, where } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface Workout {
@@ -70,11 +70,15 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
         const q = query(collection(db, 'workouts'), where('userId', '==', userId));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const workoutsData = snapshot.docs.map(doc => ({
-                ...doc.data(),
-                _id: doc.id,
-                createdAt: doc.data().createdAt,
-            })) as Workout[];
+            const workoutsData = snapshot.docs.map(doc => {
+                const data = doc.data();
+                const createdAt = data.createdAt as Timestamp;
+                return {
+                    ...data,
+                    _id: doc.id,
+                    createdAt: createdAt ? createdAt.toDate() : new Date(),
+                } as Workout;
+            });
             setUserWorkouts(workoutsData);
             setIsLoading(false);
         }, (error) => {

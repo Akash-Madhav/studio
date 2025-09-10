@@ -6,10 +6,12 @@ import { Loader2, Send } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
-import { getGroupMessages, sendGroupMessage } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { sendGroupMessage } from "@/app/actions";
+import { onSnapshot, collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { getUser } from "@/app/actions";
 
 interface GroupMessage {
     _id: string;
@@ -35,18 +37,34 @@ export default function GroupChat({ userId, role }: GroupChatProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        async function fetchMessages() {
-            setIsFetching(true);
-            try {
-                const messageRes = await getGroupMessages(role);
-                if (messageRes.success) setMessages(messageRes.messages as GroupMessage[]);
-            } catch (error) {
-                toast({ variant: 'destructive', title: "Error", description: "Failed to load chat messages." });
-            } finally {
-                setIsFetching(false);
-            }
-        }
-        fetchMessages();
+        const q = query(
+            collection(db, 'groupChats'),
+            where('role', '==', role),
+            orderBy('createdAt', 'asc')
+        );
+
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
+            const messagesData = await Promise.all(snapshot.docs.map(async (doc) => {
+                const data = doc.data();
+                const userRes = await getUser(data.senderId);
+                const createdAt = data.createdAt as Timestamp;
+                return {
+                    _id: doc.id,
+                    ...data,
+                    authorName: userRes.user?.name || 'Unknown',
+                    authorAvatar: `https://picsum.photos/seed/${data.senderId}/50/50`,
+                    createdAt: createdAt ? createdAt.toDate() : new Date(),
+                } as GroupMessage;
+            }));
+            setMessages(messagesData);
+            setIsFetching(false);
+        }, (error) => {
+            console.error("Error fetching group messages:", error);
+            toast({ variant: 'destructive', title: "Error", description: "Failed to load group chat." });
+            setIsFetching(false);
+        });
+        
+        return () => unsubscribe();
     }, [role, toast]);
 
     useEffect(() => {
@@ -60,7 +78,7 @@ export default function GroupChat({ userId, role }: GroupChatProps) {
         setIsSending(true);
         const result = await sendGroupMessage({ senderId: userId, role, text: newMessage });
         if (result.success && result.message) {
-            setMessages(prev => [...prev, result.message as GroupMessage]);
+            // Firestore listener will auto-update the UI
             setNewMessage("");
         } else {
             toast({ variant: 'destructive', title: "Error", description: "Failed to send message." });
