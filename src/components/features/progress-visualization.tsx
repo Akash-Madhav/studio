@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis } from "recharts";
 import dayjs from "dayjs";
 
 import {
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/chart";
 import { Info, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface Workout {
@@ -67,7 +67,7 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
             return;
         }
 
-        const q = query(collection(db, 'workouts'), where('userId', '==', userId));
+        const q = query(collection(db, 'workouts'), where('userId', '==', userId), orderBy('createdAt', 'asc'));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const workoutsData = snapshot.docs.map(doc => {
@@ -98,7 +98,7 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
     const weightChartData = useMemo(() => {
         const monthlyData: {[key: string]: number} = {};
         userWorkouts.filter(w => w.weight).forEach(w => {
-            const month = dayjs(w.createdAt).format('MMMM');
+            const month = dayjs(w.createdAt).format('MMM');
             monthlyData[month] = (monthlyData[month] || 0) + (w.weight! * (w.reps || 1));
         });
         return Object.keys(monthlyData).map(month => ({ month, weight: monthlyData[month]}));
@@ -107,8 +107,10 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
     const cardioChartData = useMemo(() => {
         const monthlyData: {[key: string]: { totalMinutes: number, count: number }} = {};
         userWorkouts.filter(w => w.time).forEach(w => {
-            const month = dayjs(w.createdAt).format('MMMM');
-            const [minutes] = (w.time || "0:0").split(':').map(Number);
+            const month = dayjs(w.createdAt).format('MMM');
+            const timeParts = w.time?.split(':').map(Number) || [0, 0];
+            const minutes = timeParts.length > 1 ? timeParts[0] + timeParts[1] / 60 : timeParts[0];
+
             if (!monthlyData[month]) {
                 monthlyData[month] = { totalMinutes: 0, count: 0};
             }
@@ -156,7 +158,7 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
      {weightChartData.length > 0 && <Card>
         <CardHeader>
           <CardTitle>Weight Lifted Progress</CardTitle>
-          <CardDescription>Total weight lifted per month</CardDescription>
+          <CardDescription>Total volume (weight x reps) per month</CardDescription>
         </CardHeader>
         <CardContent>
           <ChartContainer config={weightChartConfig}>
@@ -228,15 +230,6 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
               margin={{ left: 10 }}
             >
               <CartesianGrid horizontal={false} />
-              <YAxis
-                dataKey="exercise"
-                type="category"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                className="w-20"
-                width={80}
-              />
               <XAxis dataKey="reps" type="number" hide />
               <ChartTooltip
                 cursor={false}

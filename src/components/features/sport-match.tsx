@@ -33,7 +33,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
-  performanceData: z.string(), // Kept for internal state, but not shown in UI
+  performanceData: z.string(),
   userPreferences: z.string().min(1, "User preferences are required."),
 });
 
@@ -44,7 +44,6 @@ async function getPerformanceSummary(userId: string) {
         return "No recent workouts to analyze.";
     }
 
-    // Get top 5
     const recentWorkouts = result.workouts.slice(0, 5);
 
     return recentWorkouts

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -68,7 +68,6 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     useState<PlayerScoutingOutput | null>(null);
   const [isScouting, setIsScouting] = useState(false);
   const [isSendingInvite, setIsSendingInvite] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -122,40 +121,36 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     }
   }
 
-  const handleSendInvite = (playerId: string) => {
-    startTransition(async () => {
-        setIsSendingInvite(playerId);
-        const result = await sendRecruitInvite(playerId, coachId);
-        if (result.success) {
-            toast({
-                title: "Invite Sent!",
-                description: result.message,
-            });
-            onInviteSent();
-            // Optimistically update UI
-            setRecommendations(prev => {
-              if (!prev) return null;
-              return {
-                ...prev,
-                recommendations: prev.recommendations.map(r => 
-                  r.playerId === playerId ? { ...r, status: 'pending_invite' } : r
-                )
-              };
-            });
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: result.message || 'Failed to send invite. Please try again.'
-            });
-        }
-        setIsSendingInvite(null);
-    });
+  const handleSendInvite = async (playerId: string) => {
+    setIsSendingInvite(playerId);
+    const result = await sendRecruitInvite(playerId, coachId);
+    if (result.success) {
+        toast({
+            title: "Invite Sent!",
+            description: result.message,
+        });
+        onInviteSent();
+        setRecommendations(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            recommendations: prev.recommendations.map(r => 
+              r.playerId === playerId ? { ...r, status: 'pending_invite' } : r
+            )
+          };
+        });
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: result.message || 'Failed to send invite. Please try again.'
+        });
+    }
+    setIsSendingInvite(null);
   }
 
   const getPlayerStatus = (playerId: string) => {
-    const player = players.find(p => p.id === playerId);
-    return player?.status;
+    return players.find(p => p.id === playerId)?.status;
   };
 
   const isLoading = isFetchingPlayers || isScouting;
@@ -258,9 +253,9 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                         size="sm" 
                         className="w-full"
                         onClick={() => handleSendInvite(rec.playerId)}
-                        disabled={isPending && isSendingInvite === rec.playerId || getPlayerStatus(rec.playerId) !== 'active'}
+                        disabled={isSendingInvite === rec.playerId || getPlayerStatus(rec.playerId) !== 'active'}
                       >
-                         {(isPending && isSendingInvite === rec.playerId) ? (
+                         {isSendingInvite === rec.playerId ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                          ) : (
                             <Send className="mr-2 h-4 w-4" />

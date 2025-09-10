@@ -16,7 +16,6 @@ import {
   MessageSquare,
   UserPlus,
   Mail,
-  UserCheck,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -52,7 +51,7 @@ interface User {
     name: string;
     email: string;
     role: 'player' | 'coach';
-    dob?: string; // Should be a string now
+    dob?: string;
     experience?: string;
     goals?: string;
     status?: string;
@@ -109,13 +108,13 @@ function DashboardContent() {
         ]);
 
         if (playersRes.success) setPlayers(playersRes.players);
-        else toast({ variant: 'destructive', title: 'Error', description: playersRes.message || 'Could not load players.'});
+        else toast({ variant: 'destructive', title: 'Error', description: 'Could not load players.'});
 
         if (invitesRes.success) setPendingInvites(invitesRes.invites);
-        else toast({ variant: 'destructive', title: 'Error', description: invitesRes.message || 'Could not load pending invites.'});
+        else toast({ variant: 'destructive', title: 'Error', description: 'Could not load pending invites.'});
 
         if (recruitedRes.success) setRecruitedPlayers(recruitedRes.players);
-        else toast({ variant: 'destructive', title: 'Error', description: recruitedRes.message || 'Could not load recruited players.'});
+        else toast({ variant: 'destructive', title: 'Error', description: 'Could not load recruited players.'});
 
     } catch (error) {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch coach dashboard data.' });

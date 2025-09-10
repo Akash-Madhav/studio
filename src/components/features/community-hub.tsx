@@ -37,7 +37,7 @@ interface User {
     name: string;
     email: string;
     role: 'player' | 'coach';
-    dob?: Date;
+    dob?: string;
     experience?: string;
     goals?: string;
     status?: string;

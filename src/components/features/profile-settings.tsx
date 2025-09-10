@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { CalendarIcon, Loader2 } from "lucide-react";
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
@@ -48,7 +48,7 @@ interface ProfileSettingsProps {
 
 export default function ProfileSettings({ userId, role }: ProfileSettingsProps) {
   const { toast } = useToast();
-  const [isSubmitting, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingUser, setIsFetchingUser] = useState(true);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -85,25 +85,25 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
   }, [userId, form, toast]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    startTransition(async () => {
-      const result = await updateUserProfile({ 
-          ...values, 
-          userId,
-          dob: values.dob ? values.dob.toISOString().split('T')[0] : null,
-      });
-      if (result.success) {
-        toast({
-          title: "Profile Updated",
-          description: "Your changes have been saved successfully.",
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Update Failed",
-          description: result.message,
-        });
-      }
+    setIsSubmitting(true);
+    const result = await updateUserProfile({ 
+        ...values, 
+        userId,
+        dob: values.dob ? values.dob.toISOString().split('T')[0] : null,
     });
+    if (result.success) {
+      toast({
+        title: "Profile Updated",
+        description: "Your changes have been saved successfully.",
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: result.message,
+      });
+    }
+    setIsSubmitting(false);
   }
 
   if (isFetchingUser) {

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from 'next/navigation';
 import { Loader2, Send } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { ScrollArea } from "../ui/scroll-area";
-import { onSnapshot, collection, query, where, orderBy, Timestamp, doc } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, orderBy, Timestamp, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getUser, sendMessage } from '@/app/actions';
 
@@ -28,7 +28,6 @@ interface Message {
 
 export default function Messages({ userId }: { userId: string }) {
     const searchParams = useSearchParams();
-    const [isPending, startTransition] = useTransition();
 
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -61,7 +60,7 @@ export default function Messages({ userId }: { userId: string }) {
                 const lastMessageData = lastMsgSnapshot.docs[0]?.data();
                 const lastMessage = lastMessageData ? {
                     text: lastMessageData.text,
-                    sentAt: (lastMessageData.createdAt as Timestamp).toDate(),
+                    sentAt: (lastMessageData.createdAt as Timestamp)?.toDate() || new Date(),
                 } : undefined;
 
                 return { id: d.id, participants, lastMessage };
@@ -75,21 +74,19 @@ export default function Messages({ userId }: { userId: string }) {
 
             setConversations(sortedConversations);
             
-            if (!selectedConversation) {
-                const preselectedConvoId = searchParams.get('conversationId');
-                if (preselectedConvoId) {
-                    const convo = sortedConversations.find(c => c.id === preselectedConvoId);
-                    if (convo) handleSelectConversation(convo);
-                } else if (sortedConversations.length > 0) {
-                    handleSelectConversation(sortedConversations[0]);
-                }
+            const preselectedConvoId = searchParams.get('conversationId');
+            if (preselectedConvoId) {
+                const convo = sortedConversations.find(c => c.id === preselectedConvoId);
+                if (convo) handleSelectConversation(convo);
+            } else if (!selectedConversation && sortedConversations.length > 0) {
+                handleSelectConversation(sortedConversations[0]);
             }
 
             setIsLoadingConversations(false);
         });
 
         return () => unsubscribe();
-    }, [userId, toast]);
+    }, [userId, toast, searchParams, selectedConversation]);
 
 
     useEffect(() => {
@@ -105,7 +102,7 @@ export default function Messages({ userId }: { userId: string }) {
             const messagesData = snapshot.docs.map(doc => ({
                 _id: doc.id,
                 ...doc.data(),
-                createdAt: (doc.data().createdAt as Timestamp).toDate(),
+                createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
             })) as Message[];
             setMessages(messagesData);
             setIsLoadingMessages(false);

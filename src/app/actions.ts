@@ -1,7 +1,7 @@
 
 'use server';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache } from 'firebase/firestore';
 
 import { z } from 'zod';
 import { sampleUsers, sampleWorkouts } from '@/lib/sample-data';
@@ -12,10 +12,9 @@ export async function seedDatabase() {
         const usersCollection = collection(db, 'users');
         const workoutsCollection = collection(db, 'workouts');
 
-        // Check if users already exist to prevent re-seeding
         const existingUsersSnapshot = await getDocs(usersCollection);
         if (!existingUsersSnapshot.empty) {
-            const existingUsersData = existingUsersSnapshot.docs.map(d => {
+            const users = existingUsersSnapshot.docs.map(d => {
                 const data = d.data();
                 return {
                     ...data,
@@ -23,12 +22,11 @@ export async function seedDatabase() {
                     dob: data.dob ? data.dob.toDate().toISOString().split('T')[0] : null
                 }
             });
-            return { success: true, message: "Database has already been seeded.", users: existingUsersData };
+            return { success: true, message: "Database has already been seeded.", users: users };
         }
 
         const batch = writeBatch(db);
 
-        // Prepare users with Date objects
         const usersToSeed = sampleUsers.map(user => ({
             ...user,
             dob: user.dob ? new Date(user.dob) : null,
@@ -40,7 +38,6 @@ export async function seedDatabase() {
             batch.set(userRef, user);
         });
 
-        // Prepare workouts with Date objects
         const workoutsToSeed = sampleWorkouts.map(workout => ({
             ...workout,
             createdAt: new Date(workout.createdAt)
@@ -53,7 +50,6 @@ export async function seedDatabase() {
 
         await batch.commit();
         
-        // Return the newly created users to avoid a refetch, ensuring dob is a string
         const seededUsers = usersToSeed.map(u => ({
             ...u,
             id: u.id,
@@ -63,10 +59,7 @@ export async function seedDatabase() {
         return { success: true, message: "Database seeded successfully!", users: seededUsers };
     } catch (error: any) {
         console.error("Error seeding database: ", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, message: "Firestore permission denied. Please check your security rules or ensure the Firestore API is enabled.", users: [] };
-        }
-        return { success: false, message: "Failed to seed database.", users: [] };
+        return { success: false, message: "Failed to seed database. Check Firestore rules and API status.", users: [] };
     }
 }
 
@@ -82,16 +75,12 @@ export async function getUsersForLogin() {
             return {
                 ...data,
                 id: doc.id,
-                // Ensure dob is a serializable string
                 dob: data.dob ? data.dob.toDate().toISOString().split('T')[0] : null
             };
         });
         return { success: true, users };
     } catch (error: any) {
         console.error("Error fetching users for login: ", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, users: [], message: "Firestore permission denied. Please enable the Firestore API in your Google Cloud project." };
-        }
         return { success: false, users: [], message: "Could not fetch users." };
     }
 }
@@ -119,9 +108,6 @@ export async function getUser(userId: string) {
         return { success: true, user };
     } catch (error: any) {
         console.error(`Error fetching user ${userId}:`, error);
-         if (error.code === 'permission-denied') {
-            return { success: false, user: null, message: "Firestore permission denied. Please enable the Firestore API in your Google Cloud project and check your security rules." };
-        }
         return { success: false, user: null, message: "Failed to fetch user data." };
     }
 }
@@ -150,13 +136,10 @@ export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
             message: `${validatedData.exercise} has been added to your history.`,
             userId: validatedData.userId,
         };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error logging workout: ", error);
         if (error instanceof z.ZodError) {
             return { success: false, message: "Invalid data provided." };
-        }
-        if (error.code === 'permission-denied') {
-            return { success: false, message: "Firestore permission denied. Could not log workout." };
         }
         return { success: false, message: "Failed to log workout." };
     }
@@ -185,13 +168,10 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
             goals: validatedData.goals,
         });
         return { success: true, message: "Profile updated successfully!" };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error updating profile: ", error);
         if (error instanceof z.ZodError) {
             return { success: false, message: "Invalid data provided." };
-        }
-        if (error.code === 'permission-denied') {
-            return { success: false, message: "Firestore permission denied. Could not update profile." };
         }
         return { success: false, message: "Failed to update profile." };
     }
@@ -214,11 +194,8 @@ export async function getWorkoutHistory(userId: string) {
             })
         
         return { success: true, workouts };
-    } catch (error: any) {
+    } catch (error) {
         console.error(`Error fetching workout history for user ${userId}:`, error);
-        if (error.code === 'permission-denied') {
-            return { success: false, workouts: [], message: "Firestore permission denied. Could not fetch workout history." };
-        }
         return { success: false, workouts: [], message: "Failed to fetch workout history." };
     }
 }
@@ -237,11 +214,8 @@ export async function createPost(values: z.infer<typeof createPostSchema>) {
             createdAt: serverTimestamp(),
         });
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error creating post: ", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, message: "Firestore permission denied. Could not create post." };
-        }
         return { success: false, message: "Failed to create post." };
     }
 }
@@ -272,11 +246,8 @@ export async function getAllPlayers() {
         }));
 
         return { success: true, players: playersWithWorkouts };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error getting all players:", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, players: [], message: "Firestore permission denied. Could not fetch players." };
-        }
         return { success: false, players: [] };
     }
 }
@@ -298,15 +269,11 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
             sentAt: serverTimestamp(),
         });
 
-        // Update player status
         await updateDoc(doc(db, 'users', playerId), { status: 'pending_invite', coachId: coachId });
 
         return { success: true, message: 'Recruitment invite sent successfully!' };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error sending invite:", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, message: "Firestore permission denied. Could not send invite." };
-        }
         return { success: false, message: 'Failed to send invite.' };
     }
 }
@@ -328,11 +295,8 @@ export async function getPendingInvitesForCoach(coachId: string) {
             };
         }));
         return { success: true, invites };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error fetching pending invites:", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, invites: [], message: "Firestore permission denied. Could not fetch invites." };
-        }
         return { success: false, invites: [] };
     }
 }
@@ -359,11 +323,8 @@ export async function getRecruitedPlayers(coachId: string) {
             };
         }));
         return { success: true, players };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error fetching recruited players:", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, players: [], message: "Firestore permission denied. Could not fetch players." };
-        }
         return { success: false, players: [] };
     }
 }
@@ -376,7 +337,6 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 const inviteRef = doc(db, 'invites', inviteId);
                 const playerRef = doc(db, 'users', playerId);
 
-                // Create a new conversation for them
                 const newConvoRef = doc(collection(db, 'conversations'));
                 transaction.set(newConvoRef, {
                     participantIds: [playerId, coachId],
@@ -388,16 +348,12 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 transaction.update(playerRef, { status: 'recruited', coachId: coachId });
             });
         } else {
-            // Declined
             await updateDoc(doc(db, 'invites', inviteId), { status: 'declined' });
             await updateDoc(doc(db, 'users', playerId), { status: 'active', coachId: null });
         }
         return { success: true, conversationId };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error responding to invite:", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, message: "Firestore permission denied. Could not respond to invite." };
-        }
         return { success: false, message: 'Failed to respond to invite.' };
     }
 }
@@ -422,7 +378,6 @@ export async function getConversations(userId: string): Promise<{ success: boole
                 return { id, name: userRes.user?.name || 'Unknown' };
             }));
 
-            // Get last message
             const messagesCol = collection(db, 'conversations', d.id, 'messages');
             const lastMsgQuery = query(messagesCol, orderBy('createdAt', 'desc'), where('text', '!=', null));
             const lastMsgSnapshot = await getDocs(lastMsgQuery);
@@ -438,11 +393,8 @@ export async function getConversations(userId: string): Promise<{ success: boole
             };
         }));
         return { success: true, conversations };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error getting conversations:", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, conversations: [], message: "Firestore permission denied. Could not fetch conversations." };
-        }
         return { success: false, conversations: [], message: 'Failed to fetch conversations.' };
     }
 }
@@ -458,11 +410,8 @@ export async function getMessages(conversationId: string) {
             createdAt: doc.data().createdAt ? doc.data().createdAt.toDate() : new Date(),
         }));
         return { success: true, messages };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error getting messages:", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, messages: [], message: "Firestore permission denied. Could not fetch messages." };
-        }
         return { success: false, messages: [], message: 'Failed to fetch messages.' };
     }
 }
@@ -484,11 +433,8 @@ export async function sendMessage({ conversationId, senderId, text }: { conversa
             createdAt: newMessageData?.createdAt ? newMessageData.createdAt.toDate() : new Date(),
         }
         return { success: true, message: newMessage };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error sending message:", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, message: 'Firestore permission denied. Could not send message.' };
-        }
         return { success: false, message: 'Failed to send message.' };
     }
 }
@@ -512,11 +458,8 @@ export async function getGroupMessages(role: 'player' | 'coach') {
             };
         }));
         return { success: true, messages };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error fetching group messages:", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, messages: [], message: "Firestore permission denied. Could not fetch messages." };
-        }
         return { success: false, messages: [] };
     }
 }
@@ -544,11 +487,8 @@ export async function sendGroupMessage({ senderId, role, text }: { senderId: str
         };
 
         return { success: true, message };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error sending group message:", error);
-        if (error.code === 'permission-denied') {
-            return { success: false, message: "Firestore permission denied. Could not send message." };
-        }
         return { success: false, message: 'Failed to send group message.' };
     }
 }

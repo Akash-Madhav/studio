@@ -39,7 +39,6 @@ export default function PlayerInvites({ userId }: { userId: string }) {
     const [invites, setInvites] = useState<Invite[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isResponding, setIsResponding] = useState<string | null>(null);
-    const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
         if (!userId) {
@@ -78,36 +77,34 @@ export default function PlayerInvites({ userId }: { userId: string }) {
         return () => unsubscribe();
     }, [userId, toast]);
 
-    const handleResponse = (inviteId: string, coachId: string, response: 'accepted' | 'declined') => {
-        startTransition(async () => {
-            setIsResponding(inviteId);
-            const result = await respondToInvite({
-                inviteId,
-                response,
-                playerId: userId,
-                coachId
-            });
-
-            if (result.success) {
-                toast({
-                    title: `Invite ${response}`,
-                    description: `You have ${response} the invitation.`,
-                });
-                
-                if (response === 'accepted' && result.conversationId) {
-                   const role = searchParams.get('role');
-                   const newUrl = `/dashboard?role=${role}&userId=${userId}&tab=messages&conversationId=${result.conversationId}`;
-                   router.push(newUrl);
-                }
-            } else {
-                toast({
-                    variant: 'destructive',
-                    title: 'Error',
-                    description: result.message || 'Failed to respond to invite.'
-                });
-            }
-            setIsResponding(null);
+    const handleResponse = async (inviteId: string, coachId: string, response: 'accepted' | 'declined') => {
+        setIsResponding(inviteId);
+        const result = await respondToInvite({
+            inviteId,
+            response,
+            playerId: userId,
+            coachId
         });
+
+        if (result.success) {
+            toast({
+                title: `Invite ${response}`,
+                description: `You have ${response} the invitation.`,
+            });
+            
+            if (response === 'accepted' && result.conversationId) {
+               const role = searchParams.get('role');
+               const newUrl = `/dashboard?role=${role}&userId=${userId}&tab=messages&conversationId=${result.conversationId}`;
+               router.push(newUrl);
+            }
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: result.message || 'Failed to respond to invite.'
+            });
+        }
+        setIsResponding(null);
     };
 
     return (
@@ -150,18 +147,18 @@ export default function PlayerInvites({ userId }: { userId: string }) {
                                         variant="outline" 
                                         className="w-full" 
                                         onClick={() => handleResponse(invite.inviteId, invite.coachId, 'declined')}
-                                        disabled={isResponding === invite.inviteId || isPending}
+                                        disabled={isResponding === invite.inviteId}
                                     >
-                                        {(isResponding === invite.inviteId && isPending) && <Loader2 className="animate-spin"/>}
+                                        {isResponding === invite.inviteId && <Loader2 className="animate-spin"/>}
                                         <X className="mr-2 h-4 w-4" />
                                         Decline
                                     </Button>
                                     <Button 
                                         className="w-full"
                                         onClick={() => handleResponse(invite.inviteId, invite.coachId, 'accepted')}
-                                        disabled={isResponding === invite.inviteId || isPending}
+                                        disabled={isResponding === invite.inviteId}
                                     >
-                                        {(isResponding === invite.inviteId && isPending) ? <Loader2 className="animate-spin"/> : <Check className="mr-2 h-4 w-4" />}
+                                        {isResponding === invite.inviteId ? <Loader2 className="animate-spin"/> : <Check className="mr-2 h-4 w-4" />}
                                         Accept
                                     </Button>
                                 </CardFooter>

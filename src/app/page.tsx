@@ -33,21 +33,19 @@ export default function LoginPage() {
     let result = await getUsersForLogin();
     
     if (result.success && result.users && result.users.length === 0) {
-      // If no users, seed the database
       setStatusMessage("No sample data found. Seeding database...");
       const seedResult = await seedDatabase();
       if (seedResult.success && seedResult.users) {
         toast({
-          title: "Database Seeded",
-          description: "Sample users have been created.",
+          title: "Welcome to OptiFit AI!",
+          description: "We've created some sample users for you.",
         });
-        // Use the users returned from the seeding function
         setAllUsers(seedResult.users as User[]);
       } else {
          toast({
           variant: 'destructive',
           title: "Seeding Failed",
-          description: seedResult.message || "Could not seed database",
+          description: seedResult.message || "Could not seed database. Please check your Firestore rules and ensure the API is enabled.",
         });
         setAllUsers([]);
       }
@@ -93,7 +91,7 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent className="grid gap-4">
              {isLoading ? (
-                <div className="flex flex-col items-center justify-center h-24">
+                <div className="flex flex-col items-center justify-center h-48">
                     <Loader2 className="mr-2 h-8 w-8 animate-spin" />
                 </div>
              ) : (

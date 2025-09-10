@@ -78,7 +78,6 @@ export default function GroupChat({ userId, role }: GroupChatProps) {
         setIsSending(true);
         const result = await sendGroupMessage({ senderId: userId, role, text: newMessage });
         if (result.success && result.message) {
-            // Firestore listener will auto-update the UI
             setNewMessage("");
         } else {
             toast({ variant: 'destructive', title: "Error", description: "Failed to send message." });

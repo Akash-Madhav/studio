@@ -43,7 +43,6 @@ async function getPerformanceSummary(userId: string) {
         return "No recent workouts to analyze.";
     }
 
-    // Get top 5
     const recentWorkouts = result.workouts.slice(0, 5);
   
     return recentWorkouts
