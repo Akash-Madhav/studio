@@ -4,25 +4,88 @@ import { db } from '@/lib/firebase';
 import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 import { z } from 'zod';
-import { sampleUsers, sampleWorkouts, sampleConversations, sampleInvites, samplePosts, sampleGroupMessages } from '@/lib/sample-data';
+import { sampleUsers, sampleWorkouts } from '@/lib/sample-data';
 
-const getAge = (dob?: Date) => {
-    if (!dob) return null;
-    const today = new Date();
-    let age = today.getFullYear() - dob.getFullYear();
-    const m = today.getMonth() - dob.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
-        age--;
+
+export async function seedDatabase() {
+    try {
+        const usersCollection = collection(db, 'users');
+        const workoutsCollection = collection(db, 'workouts');
+
+        // Check if users already exist to prevent re-seeding
+        const existingUsers = await getDocs(usersCollection);
+        if (!existingUsers.empty) {
+            return { success: false, message: "Database has already been seeded." };
+        }
+
+        const batch = writeBatch(db);
+
+        // Add users
+        sampleUsers.forEach(user => {
+            const userRef = doc(db, 'users', user.id);
+            batch.set(userRef, { ...user, dob: user.dob ? new Date(user.dob) : null });
+        });
+
+        // Add workouts
+        sampleWorkouts.forEach(workout => {
+            const workoutRef = doc(collection(db, 'workouts')); // Auto-generate ID
+            batch.set(workoutRef, { ...workout, createdAt: new Date(workout.createdAt) });
+        });
+        
+        await batch.commit();
+        
+        return { success: true, message: "Database seeded successfully!" };
+    } catch (error) {
+        console.error("Error seeding database: ", error);
+        return { success: false, message: "Failed to seed database." };
     }
-    return age;
 }
 
-export async function getUser(userId: string) {
-    const user = sampleUsers.find(u => u.id === userId);
-    if (!user) {
-        return { success: false, user: null };
+export async function getUsersForLogin() {
+    try {
+        const usersCollection = collection(db, 'users');
+        const userSnapshot = await getDocs(usersCollection);
+        if (userSnapshot.empty) {
+            return { success: true, users: [] };
+        }
+        const users = userSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                dob: data.dob?.toDate() // Convert Firestore Timestamp to Date
+            };
+        });
+        return { success: true, users };
+    } catch (error) {
+        console.error("Error fetching users for login: ", error);
+        return { success: false, users: [], message: "Could not fetch users." };
     }
-    return { success: true, user: { ...user } };
+}
+
+
+export async function getUser(userId: string) {
+    try {
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+            return { success: false, user: null, message: "User not found." };
+        }
+
+        const userData = userSnap.data();
+        // Convert Firestore Timestamp to Date object
+        const user = {
+            ...userData,
+            id: userSnap.id,
+            dob: userData.dob?.toDate(),
+        };
+
+        return { success: true, user };
+    } catch (error) {
+        console.error(`Error fetching user ${userId}:`, error);
+        return { success: false, user: null, message: "Failed to fetch user data." };
+    }
 }
 
 const logWorkoutSchema = z.object({
@@ -36,258 +99,24 @@ const logWorkoutSchema = z.object({
 
 
 export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
-  const validatedData = logWorkoutSchema.parse(values);
-  
-  const newWorkout = {
-    _id: `w${Date.now()}`,
-    userId: validatedData.userId,
-    exercise: validatedData.exercise,
-    reps: validatedData.reps,
-    weight: validatedData.weight,
-    time: validatedData.time,
-    distance: validatedData.distance,
-    createdAt: new Date(),
-  };
-  sampleWorkouts.unshift(newWorkout); 
+    const validatedData = logWorkoutSchema.parse(values);
 
-  return { 
-    success: true, 
-    message: `${validatedData.exercise} has been added to your history.`,
-    userId: validatedData.userId,
-  };
-}
+    try {
+        const workoutsCollection = collection(db, 'workouts');
+        await addDoc(workoutsCollection, {
+            ...validatedData,
+            createdAt: serverTimestamp(),
+        });
 
-export async function getPlayersForScouting(coachId: string) {
-    const coachConversationPlayerIds = new Set(
-        sampleConversations.filter(c => c.participantIds.includes(coachId))
-            .flatMap(c => c.participantIds.filter(pId => pId !== coachId))
-    );
-
-    const players = sampleUsers
-      .filter(u => u.role === 'player')
-      .map(user => {
-        const userWorkouts = sampleWorkouts
-          .filter(w => w.userId === user.id)
-          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-          .slice(0, 5);
-
-        const performanceData = userWorkouts.map(data => {
-          let record = `${data.exercise}:`;
-          if (data.reps) record += ` ${data.reps} reps`;
-          if (data.weight) record += ` at ${data.weight}kg`;
-          if (data.distance) record += ` for ${data.distance}km`;
-          if (data.time) record += ` in ${data.time}`;
-          return record;
-        }).join(', ');
-
-        const age = getAge(user.dob);
-
-        return {
-          id: user.id,
-          name: user.name || `Player ${user.id.substring(0, 4)}`,
-          performanceData: performanceData || "No workouts logged yet.",
-          userProfile: `Age: ${age || 'N/A'}, Experience: ${user.experience || 'N/A'}, Goals: ${user.goals || 'N/A'}`,
-          status: user.status
+        return { 
+            success: true, 
+            message: `${validatedData.exercise} has been added to your history.`,
+            userId: validatedData.userId,
         };
-      });
-
-      const recruitedPlayerIds = Array.from(coachConversationPlayerIds).filter(playerId => {
-        const player = players.find(p => p.id === playerId);
-        return player !== undefined;
-      });
-
-
-    return { success: true, players, recruitedPlayerIds };
-}
-
-export async function sendRecruitInvite(playerId: string, coachId: string) {
-    const player = sampleUsers.find(u => u.id === playerId);
-    if (!player) {
-      return { success: false, message: 'Player not found.' };
+    } catch (error) {
+        console.error("Error logging workout: ", error);
+        return { success: false, message: "Failed to log workout." };
     }
-
-    const existingConversation = sampleConversations.find(c => c.participantIds.includes(playerId) && c.participantIds.includes(coachId));
-    if (existingConversation) {
-        return { success: false, message: `You are already connected with ${player.name}.` };
-    }
-    
-    const existingInvite = sampleInvites.find(i => i.playerId === playerId && i.coachId === coachId && i.status === 'pending');
-    if (existingInvite) {
-        return { success: false, message: `${player.name} already has a pending invite.` };
-    }
-
-    const newInvite = {
-        _id: `inv${Date.now()}`,
-        coachId,
-        playerId,
-        status: 'pending' as const,
-        createdAt: new Date(),
-    };
-    sampleInvites.push(newInvite);
-    
-    const userIndex = sampleUsers.findIndex(u => u.id === playerId);
-    if (userIndex !== -1) {
-        sampleUsers[userIndex].status = 'pending_invite';
-    }
-
-    return { success: true, message: `Recruitment invite sent to ${player.name}!` };
-}
-
-export async function getPendingInvites(coachId: string) {
-    const pending = sampleInvites
-      .filter(invite => invite.coachId === coachId && invite.status === 'pending')
-      .map(invite => {
-        const player = sampleUsers.find(u => u.id === invite.playerId);
-        return {
-          inviteId: invite._id,
-          playerId: invite.playerId,
-          playerName: player?.name || 'Unknown Player',
-          playerAvatar: `https://picsum.photos/seed/${invite.playerId}/100/100`,
-          sentAt: invite.createdAt,
-        };
-      })
-      .sort((a,b) => b.sentAt.getTime() - a.sentAt.getTime());
-
-    return { success: true, invites: pending };
-}
-
-
-export async function getPendingInvitesForPlayer(playerId: string) {
-    const pending = sampleInvites
-        .filter(invite => invite.playerId === playerId && invite.status === 'pending')
-        .map(invite => {
-            const coach = sampleUsers.find(u => u.id === invite.coachId);
-            return {
-                inviteId: invite._id,
-                coachId: invite.coachId,
-                coachName: coach?.name || 'Unknown Coach',
-                coachAvatar: `https://picsum.photos/seed/${invite.coachId}/100/100`,
-                sentAt: invite.createdAt,
-            };
-        })
-        .sort((a,b) => b.sentAt.getTime() - a.sentAt.getTime());
-    
-    return { success: true, invites: pending };
-}
-  
-const respondToInviteSchema = z.object({
-    inviteId: z.string(),
-    response: z.enum(['accepted', 'declined']),
-    playerId: z.string(),
-    coachId: z.string(),
-});
-
-export async function respondToInvite(values: z.infer<typeof respondToInviteSchema>) {
-    const validatedData = respondToInviteSchema.parse(values);
-    const { inviteId, response, playerId, coachId } = validatedData;
-    
-    const inviteIndex = sampleInvites.findIndex(i => i._id === inviteId);
-    if (inviteIndex === -1) {
-        return { success: false, message: 'Invite not found.' };
-    }
-    
-    const playerIndex = sampleUsers.findIndex(u => u.id === playerId);
-
-    if (playerIndex === -1) {
-        return { success: false, message: 'Player not found.' };
-    }
-
-    sampleInvites.splice(inviteIndex, 1);
-    sampleUsers[playerIndex].status = response === 'accepted' ? 'recruited' : 'active';
-    
-    let conversationId: string | null = null;
-    if (response === 'accepted') {
-        const newConversation = {
-            _id: `conv_${Date.now()}`,
-            participantIds: [coachId, playerId],
-            messages: [],
-            createdAt: new Date(),
-        };
-        sampleConversations.push(newConversation);
-        conversationId = newConversation._id;
-    }
-    
-    return { success: true, message: `Invite ${response}.`, conversationId };
-}
-
-
-// CHAT ACTIONS
-
-export interface Conversation {
-    id: string;
-    participants: { id: string; name: string; }[];
-    lastMessage: { text: string; sentAt: Date } | null;
-}
-
-export async function getConversations(userId: string): Promise<{success: boolean, conversations: Conversation[]}> {
-    const userConversations = sampleConversations.filter(c => c.participantIds.includes(userId));
-
-    const conversations: Conversation[] = userConversations.map(convo => {
-        const lastMessage = convo.messages?.length > 0 ? convo.messages[convo.messages.length - 1] : null;
-        return {
-            id: convo._id,
-            participants: convo.participantIds.map(pId => {
-                const user = sampleUsers.find(u => u.id === pId);
-                return { id: pId, name: user?.name || "Unknown" };
-            }),
-            lastMessage: lastMessage ? {
-                text: lastMessage.text,
-                sentAt: lastMessage.createdAt
-            } : null
-        }
-    }).sort((a, b) => {
-        if (!a.lastMessage) return 1;
-        if (!b.lastMessage) return -1;
-        return b.lastMessage.sentAt.getTime() - a.lastMessage.sentAt.getTime();
-    });
-
-    return { success: true, conversations };
-}
-
-
-export async function getMessages(conversationId: string) {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const conversation = sampleConversations.find(c => c._id === conversationId);
-    if (!conversation) {
-        return { success: false, messages: [] };
-    }
-    const messages = conversation.messages?.map(msg => ({
-        ...msg,
-        id: msg._id,
-    })) || [];
-
-    return { success: true, messages };
-}
-
-const sendMessageSchema = z.object({
-    conversationId: z.string(),
-    senderId: z.string(),
-    text: z.string().min(1),
-});
-
-export async function sendMessage(values: z.infer<typeof sendMessageSchema>) {
-    const validatedData = sendMessageSchema.parse(values);
-    const conversationIndex = sampleConversations.findIndex(c => c._id === validatedData.conversationId);
-    if (conversationIndex === -1) {
-        return { success: false, message: 'Conversation not found' };
-    }
-
-    const message = {
-        _id: `m${Date.now()}`,
-        senderId: validatedData.senderId,
-        text: validatedData.text,
-        createdAt: new Date(),
-    };
-    
-    // Ensure messages array exists
-    if (!sampleConversations[conversationIndex].messages) {
-        sampleConversations[conversationIndex].messages = [];
-    }
-    
-    sampleConversations[conversationIndex].messages.push(message);
-
-    return { success: true, message: message };
 }
 
 
@@ -303,110 +132,43 @@ const updateUserProfileSchema = z.object({
 
 export async function updateUserProfile(values: z.infer<typeof updateUserProfileSchema>) {
     const validatedData = updateUserProfileSchema.parse(values);
-    const userIndex = sampleUsers.findIndex(u => u.id === validatedData.userId);
-
-    if (userIndex === -1) {
-        return { success: false, message: "User not found." };
+    
+    try {
+        const userRef = doc(db, 'users', validatedData.userId);
+        await updateDoc(userRef, {
+            name: validatedData.name,
+            email: validatedData.email,
+            dob: validatedData.dob ? new Date(validatedData.dob) : null,
+            experience: validatedData.experience,
+            goals: validatedData.goals,
+        });
+        return { success: true, message: "Profile updated successfully!" };
+    } catch (error) {
+        console.error("Error updating profile: ", error);
+        return { success: false, message: "Failed to update profile." };
     }
-
-    // Directly modify the object in the array
-    sampleUsers[userIndex] = {
-        ...sampleUsers[userIndex],
-        name: validatedData.name,
-        email: validatedData.email,
-        dob: validatedData.dob ? new Date(validatedData.dob) : undefined,
-        experience: validatedData.experience,
-        goals: validatedData.goals,
-    };
-
-    return { success: true, message: "Profile updated successfully!" };
 }
 
 export async function getWorkoutHistory(userId: string) {
-    const workouts = sampleWorkouts
-        .filter(w => w.userId === userId)
-        .sort((a,b) => b.createdAt.getTime() - a.createdAt.getTime());
-    return { success: true, workouts };
-}
+    try {
+        const workoutsCollection = collection(db, 'workouts');
+        const q = query(workoutsCollection, where("userId", "==", userId));
+        const querySnapshot = await getDocs(q);
 
-// COMMUNITY ACTIONS
-
-const createPostSchema = z.object({
-    authorId: z.string(),
-    role: z.enum(['player', 'coach']),
-    content: z.string().min(1, "Post cannot be empty."),
-});
-
-export async function createPost(values: z.infer<typeof createPostSchema>) {
-    const validatedData = createPostSchema.parse(values);
-    const newPost = {
-        _id: `post${Date.now()}`,
-        authorId: validatedData.authorId,
-        role: validatedData.role,
-        content: validatedData.content,
-        createdAt: new Date(),
-    };
-    samplePosts.unshift(newPost);
-    return { success: true, post: newPost };
-}
-
-export async function getPosts(role: 'player' | 'coach') {
-    const posts = samplePosts
-        .filter(p => p.role === role)
-        .map(post => {
-            const author = sampleUsers.find(u => u.id === post.authorId);
-            return {
-                ...post,
-                authorName: author?.name || 'Unknown',
-                authorAvatar: `https://picsum.photos/seed/${post.authorId}/50/50`,
-            }
-        })
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-    return { success: true, posts };
-}
-
-
-const sendGroupMessageSchema = z.object({
-    senderId: z.string(),
-    role: z.enum(['player', 'coach']),
-    text: z.string().min(1),
-});
-
-export async function sendGroupMessage(values: z.infer<typeof sendGroupMessageSchema>) {
-    const validatedData = sendGroupMessageSchema.parse(values);
-    const message = {
-        _id: `m${Date.now()}`,
-        senderId: validatedData.senderId,
-        role: validatedData.role,
-        text: validatedData.text,
-        createdAt: new Date(),
-    };
-    sampleGroupMessages.push(message);
-
-    const author = sampleUsers.find(u => u.id === message.senderId);
-    const messageWithAuthor = {
-        ...message,
-        authorName: author?.name || "Unknown",
-        authorAvatar: `https://picsum.photos/seed/${message.senderId}/50/50`,
+        const workouts = querySnapshot.docs
+            .map(doc => {
+                const data = doc.data();
+                return {
+                    ...data,
+                    _id: doc.id,
+                    createdAt: data.createdAt.toDate(), // Convert Firestore Timestamp to Date
+                };
+            })
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        
+        return { success: true, workouts };
+    } catch (error) {
+        console.error(`Error fetching workout history for user ${userId}:`, error);
+        return { success: false, workouts: [], message: "Failed to fetch workout history." };
     }
-
-    return { success: true, message: messageWithAuthor };
-}
-
-
-export async function getGroupMessages(role: 'player' | 'coach') {
-    const messages = sampleGroupMessages
-        .filter(m => m.role === role)
-        .map(message => {
-            const author = sampleUsers.find(u => u.id === message.senderId);
-            return {
-                ...message,
-                authorName: author?.name || 'Unknown',
-                authorAvatar: `https://picsum.photos/seed/${message.senderId}/50/50`,
-            }
-        })
-        .sort((a,b) => a.createdAt.getTime() - b.createdAt.getTime());
-
-    return { success: true, messages };
 }

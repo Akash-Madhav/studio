@@ -10,7 +10,6 @@ import {
   getFitnessInsights,
   FitnessInsightsOutput,
 } from "@/ai/flows/ai-driven-fitness-insights";
-import { sampleWorkouts } from "@/lib/sample-data";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -32,34 +31,13 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { getWorkoutHistory } from "@/app/actions";
 
 const formSchema = z.object({
   exerciseType: z.string().min(1, "Exercise type is required."),
   metrics: z.string().min(1, "Metrics are required."),
   userProfile: z.string().optional(),
 });
-
-function getPerformanceSummary(userId: string) {
-    const userWorkouts = sampleWorkouts
-      .filter((w) => w.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, 5);
-
-    if (userWorkouts.length === 0) {
-      return "No recent workouts to analyze.";
-    }
-
-    return userWorkouts
-      .map((data) => {
-        let record = `${data.exercise}:`;
-        if (data.reps) record += ` ${data.reps} reps`;
-        if (data.weight) record += ` at ${data.weight}kg`;
-        if (data.distance) record += ` for ${data.distance}km`;
-        if (data.time) record += ` in ${data.time}`;
-        return record;
-      })
-      .join(", ");
-  }
 
 export default function AiInsights({ userId }: { userId: string }) {
   const { toast } = useToast();
@@ -76,22 +54,24 @@ export default function AiInsights({ userId }: { userId: string }) {
   });
 
   useEffect(() => {
-    if (userId) {
-        const lastWorkout = sampleWorkouts
-            .filter(w => w.userId === userId)
-            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-            [0];
-
-        if (lastWorkout) {
-            form.setValue('exerciseType', lastWorkout.exercise);
-            let metricString = '';
-            if(lastWorkout.reps) metricString += `reps: ${lastWorkout.reps}\n`;
-            if(lastWorkout.weight) metricString += `weight: ${lastWorkout.weight}\n`;
-            if(lastWorkout.distance) metricString += `distance: ${lastWorkout.distance}\n`;
-            if(lastWorkout.time) metricString += `time: ${lastWorkout.time}\n`;
-            form.setValue('metrics', metricString.trim());
+    async function loadLastWorkout() {
+        if (userId) {
+            const history = await getWorkoutHistory(userId);
+            if (history.success && history.workouts.length > 0) {
+                const lastWorkout = history.workouts[0];
+                 if (lastWorkout) {
+                    form.setValue('exerciseType', lastWorkout.exercise);
+                    let metricString = '';
+                    if(lastWorkout.reps) metricString += `reps: ${lastWorkout.reps}\n`;
+                    if(lastWorkout.weight) metricString += `weight: ${lastWorkout.weight}kg\n`;
+                    if(lastWorkout.distance) metricString += `distance: ${lastWorkout.distance}km\n`;
+                    if(lastWorkout.time) metricString += `time: ${lastWorkout.time}\n`;
+                    form.setValue('metrics', metricString.trim());
+                }
+            }
         }
     }
+    loadLastWorkout();
   }, [userId, form]);
 
 

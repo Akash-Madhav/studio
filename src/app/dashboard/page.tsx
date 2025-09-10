@@ -9,18 +9,10 @@ import {
   BrainCircuit,
   Dumbbell,
   LogIn,
-  Mail,
-  MessageSquare,
   Search,
   Target,
-  Users,
-  Rss,
-  User as UserIcon,
   History,
-  Info,
 } from "lucide-react";
-import Image from "next/image";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,35 +28,12 @@ import AiInsights from "@/components/features/ai-insights";
 import PerformanceLogging from "@/components/features/performance-logging";
 import PersonalizedRecommendations from "@/components/features/personalized-recommendations";
 import ProgressVisualization from "@/components/features/progress-visualization";
-import PlayerInvites from "@/components/features/player-invites";
-import PlayerScouting from "@/components/features/player-scouting";
-import PlayerStats from '@/components/features/player-stats';
-import Messages from '@/components/features/messages';
-import CommunityHub from '@/components/features/community-hub';
-import PendingInvites from '@/components/features/pending-invites';
 import WorkoutHistory from '@/components/features/workout-history';
-import { getPlayersForScouting, getPendingInvites, getUser } from '@/app/actions';
+import { getUser } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import SportMatch from '@/components/features/sport-match';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-
-interface PlayerData {
-  id: string;
-  name: string;
-  performanceData: string;
-  userProfile: string;
-  status: string;
-}
-
-interface Invite {
-  inviteId: string;
-  playerId: string;
-  playerName: string;
-  playerAvatar: string;
-  sentAt: Date;
-}
 
 interface User {
     id: string;
@@ -82,81 +51,49 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const role = searchParams.get('role') || 'player';
-  const initialUserId = searchParams.get('userId') || (role === 'coach' ? 'coach1' : 'player1');
+  const initialUserId = searchParams.get('userId');
   const isCoach = role === 'coach';
-  const initialTab = searchParams.get('tab') || (isCoach ? 'player-stats' : 'dashboard');
+  const initialTab = searchParams.get('tab') || 'dashboard';
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [activeTab, setActiveTab] = useState(initialTab);
-
-  const [players, setPlayers] = useState<PlayerData[]>([]);
-  const [recruitedPlayerIds, setRecruitedPlayerIds] = useState<string[]>([]);
-  const [invites, setInvites] = useState<Invite[]>([]);
-  const [isLoadingData, setIsLoadingData] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const fetchAllData = useCallback(async () => {
+  const fetchUserData = useCallback(async () => {
     if (!initialUserId) {
       setIsLoadingUser(false);
       return;
     };
     
     setIsLoadingUser(true);
-    setIsLoadingData(true);
 
     startTransition(async () => {
         try {
             const userResult = await getUser(initialUserId);
             if (userResult.success && userResult.user) {
-                setCurrentUser(userResult.user);
+                setCurrentUser(userResult.user as User);
             } else {
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
+                toast({ variant: 'destructive', title: 'Error', description: userResult.message || 'Could not load user data.' });
                 setCurrentUser(null);
-            }
-
-            if (role === 'coach') {
-                const playersResult = await getPlayersForScouting(initialUserId);
-                if (playersResult.success && playersResult.players) {
-                    setPlayers(playersResult.players.map(p => ({...p, name: p.name || `Player ${p.id.substring(0,4)}`})));
-                    setRecruitedPlayerIds(playersResult.recruitedPlayerIds || []);
-                } else {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Error fetching players',
-                        description: 'Could not load player data. Please try refreshing.',
-                    });
-                }
-            
-                const invitesResult = await getPendingInvites(initialUserId);
-                if (invitesResult.success && invitesResult.invites) {
-                    setInvites(invitesResult.invites);
-                } else {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Error fetching invites',
-                        description: 'Could not load invites. Please try refreshing.',
-                    });
-                }
             }
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch dashboard data.' });
         } finally {
             setIsLoadingUser(false);
-            setIsLoadingData(false);
         }
     });
-  }, [initialUserId, role, toast]);
+  }, [initialUserId, toast]);
   
   useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+    fetchUserData();
+  }, [fetchUserData]);
 
 
   useEffect(() => {
-    const tab = searchParams.get('tab') || (isCoach ? 'player-stats' : 'dashboard');
+    const tab = searchParams.get('tab') || 'dashboard';
     setActiveTab(tab);
-  }, [searchParams, isCoach]);
+  }, [searchParams]);
 
 
   if (isLoadingUser) {
@@ -196,19 +133,16 @@ function DashboardContent() {
     )
   }
 
-  const userId = initialUserId;
+  const userId = initialUserId || '';
   const dashboardIsCoachView = isCoach;
-  const dashboardIsPlayerView = !isCoach;
   
   const userName = currentUser?.name || '';
   const displayName = isCoach ? `Coach ${userName}` : userName;
   
-  const recruitedPlayers = players.filter(p => recruitedPlayerIds.includes(p.id));
-
   const updateUrl = (tab: string) => {
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.set('tab', tab);
-    newUrl.searchParams.set('userId', initialUserId);
+    newUrl.searchParams.set('userId', initialUserId || '');
     newUrl.searchParams.set('role', role);
     router.push(newUrl.href);
     setActiveTab(tab);
@@ -272,122 +206,57 @@ function DashboardContent() {
           </h1>
           <p className="text-muted-foreground">
              {dashboardIsCoachView
-              ? 'Your central hub for scouting and analyzing player performance.'
+              ? 'Your central hub for tracking your personal progress.'
               : 'Your central hub for tracking, analyzing, and optimizing your fitness journey.'}
           </p>
         </div>
         
-        {dashboardIsCoachView && (
-           <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-              <TabsList className="grid w-full grid-cols-5">
-                  <TabsTrigger value="player-stats">
-                    <BrainCircuit className="mr-2" />
-                    Player Stats
-                  </TabsTrigger>
-                  <TabsTrigger value="player-scouting">
-                    <Users className="mr-2" />
-                    Scouting
-                  </TabsTrigger>
-                  <TabsTrigger value="pending-invites">
-                    <Mail className="mr-2" />
-                    Invites
-                  </TabsTrigger>
-                  <TabsTrigger value="messages">
-                    <MessageSquare className="mr-2" />
-                    Messages
-                  </TabsTrigger>
-                  <TabsTrigger value="community">
-                    <Rss className="mr-2" />
-                    Community
-                  </TabsTrigger>
-              </TabsList>
-              <TabsContent value="player-stats" className="mt-4">
-                  <PlayerStats players={recruitedPlayers} isLoading={isPending || isLoadingData} />
-              </TabsContent>
-               <TabsContent value="player-scouting" className="mt-4">
-                  <PlayerScouting players={players} isLoading={isPending || isLoadingData} onInviteSent={fetchAllData} />
-              </TabsContent>
-              <TabsContent value="pending-invites" className="mt-4">
-                  <PendingInvites invites={invites} isLoading={isPending || isLoadingData}/>
-              </TabsContent>
-              <TabsContent value="messages" className="mt-4">
-                  <Messages userId={userId} />
-              </TabsContent>
-               <TabsContent value="community" className="mt-4">
-                  <CommunityHub userId={userId} role="coach" />
-              </TabsContent>
-           </Tabs>
-        )}
-
-        {dashboardIsPlayerView && (
-           <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 md:grid-cols-9 h-auto">
-                <TabsTrigger value="dashboard">
-                  <BarChart3 className="mr-2" />
-                  Dashboard
-                </TabsTrigger>
-                <TabsTrigger value="ai-insights">
-                  <BrainCircuit className="mr-2" />
-                  Insights
-                </TabsTrigger>
-                <TabsTrigger value="log-performance">
-                  <LogIn className="mr-2" />
-                  Log
-                </TabsTrigger>
-                <TabsTrigger value="recommendations">
-                  <Target className="mr-2" />
-                  Recs
-                </TabsTrigger>
-                <TabsTrigger value="find-sport">
-                  <Search className="mr-2" />
-                  Find Sport
-                </TabsTrigger>
-                 <TabsTrigger value="history">
-                    <History className="mr-2" />
-                    History
-                </TabsTrigger>
-                <TabsTrigger value="invites">
-                  <Mail className="mr-2" />
-                  Invites
-                </TabsTrigger>
-                 <TabsTrigger value="messages">
-                    <MessageSquare className="mr-2" />
-                    Messages
-                </TabsTrigger>
-                <TabsTrigger value="community">
-                    <Rss className="mr-2" />
-                    Community
-                  </TabsTrigger>
-              </TabsList>
-              <TabsContent value="dashboard" className="mt-4">
-                <ProgressVisualization userId={userId} />
-              </TabsContent>
-              <TabsContent value="ai-insights" className="mt-4">
-                  <AiInsights userId={userId} />
-              </TabsContent>
-              <TabsContent value="log-performance" className="mt-4">
-                  <PerformanceLogging userId={userId} onWorkoutLogged={fetchAllData} />
-              </TabsContent>
-              <TabsContent value="recommendations" className="mt-4">
-                  <PersonalizedRecommendations userId={userId} />
-              </TabsContent>
-              <TabsContent value="find-sport" className="mt-4">
-                  <SportMatch userId={userId} />
-              </TabsContent>
-               <TabsContent value="history" className="mt-4">
-                  <WorkoutHistory userId={userId} />
-              </TabsContent>
-              <TabsContent value="invites" className="mt-4">
-                  <PlayerInvites userId={userId} />
-              </TabsContent>
-              <TabsContent value="messages" className="mt-4">
-                  <Messages userId={userId} />
-              </TabsContent>
-              <TabsContent value="community" className="mt-4">
-                  <CommunityHub userId={userId} role="player" />
-              </TabsContent>
-           </Tabs>
-        )}
+        <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 md:grid-cols-6 h-auto">
+              <TabsTrigger value="dashboard">
+                <BarChart3 className="mr-2" />
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="log-performance">
+                <LogIn className="mr-2" />
+                Log
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                  <History className="mr-2" />
+                  History
+              </TabsTrigger>
+              <TabsTrigger value="ai-insights">
+                <BrainCircuit className="mr-2" />
+                Insights
+              </TabsTrigger>
+              <TabsTrigger value="recommendations">
+                <Target className="mr-2" />
+                Recs
+              </TabsTrigger>
+              <TabsTrigger value="find-sport">
+                <Search className="mr-2" />
+                Find Sport
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="dashboard" className="mt-4">
+              <ProgressVisualization userId={userId} />
+            </TabsContent>
+             <TabsContent value="log-performance" className="mt-4">
+                <PerformanceLogging userId={userId} onWorkoutLogged={fetchUserData} />
+            </TabsContent>
+             <TabsContent value="history" className="mt-4">
+                <WorkoutHistory userId={userId} />
+            </TabsContent>
+            <TabsContent value="ai-insights" className="mt-4">
+                <AiInsights userId={userId} />
+            </TabsContent>
+            <TabsContent value="recommendations" className="mt-4">
+                <PersonalizedRecommendations userId={userId} />
+            </TabsContent>
+            <TabsContent value="find-sport" className="mt-4">
+                <SportMatch userId={userId} />
+            </TabsContent>
+          </Tabs>
       </main>
     </div>
   );
@@ -400,7 +269,3 @@ export default function Dashboard() {
     </Suspense>
   );
 }
-
-    
-
-    

@@ -1,21 +1,74 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dumbbell } from "lucide-react";
+import { Dumbbell, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { sampleUsers } from "@/lib/sample-data";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { seedDatabase, getUsersForLogin } from "@/app/actions";
+import { useToast } from "@/hooks/use-toast";
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'player' | 'coach';
+}
 
 export default function LoginPage() {
+  const { toast } = useToast();
   const [userRole, setUserRole] = useState("player");
   const [selectedUser, setSelectedUser] = useState("");
-  const usersForRole = sampleUsers.filter(u => u.role === userRole);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  const fetchUsers = async () => {
+    setIsLoadingUsers(true);
+    const result = await getUsersForLogin();
+    if (result.success && result.users) {
+      setAllUsers(result.users as User[]);
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: result.message || 'Could not load users. You may need to seed the database.',
+      });
+      setAllUsers([]);
+    }
+    setIsLoadingUsers(false);
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, [toast]);
+
+  const handleSeedDatabase = async () => {
+    setIsSeeding(true);
+    const result = await seedDatabase();
+    if (result.success) {
+      toast({
+        title: "Success",
+        description: result.message,
+      });
+      await fetchUsers(); // Refresh the user list
+    } else {
+      toast({
+        variant: 'destructive',
+        title: "Error",
+        description: result.message,
+      });
+    }
+    setIsSeeding(false);
+  };
+
+  const usersForRole = allUsers.filter(u => u.role === userRole);
+  const showSeedButton = !isLoadingUsers && allUsers.length === 0;
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -32,59 +85,75 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-2xl">Login</CardTitle>
             <CardDescription>
-              Select a role and user to access your dashboard.
+              {showSeedButton
+                ? "First, seed the database with sample users."
+                : "Select a role and user to access your dashboard."
+              }
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-2">
-              <Label>I am a...</Label>
-              <RadioGroup 
-                defaultValue="player" 
-                className="grid grid-cols-2 gap-4"
-                onValueChange={(value) => {
-                  setUserRole(value);
-                  setSelectedUser("");
-                }}
-              >
-                <div>
-                  <RadioGroupItem value="player" id="player" className="peer sr-only" />
-                  <Label
-                    htmlFor="player"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+          {showSeedButton ? (
+             <CardContent>
+                <Button onClick={handleSeedDatabase} disabled={isSeeding} className="w-full">
+                    {isSeeding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Seed Sample Data
+                </Button>
+             </CardContent>
+          ) : (
+            <>
+              <CardContent className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label>I am a...</Label>
+                  <RadioGroup 
+                    defaultValue="player" 
+                    className="grid grid-cols-2 gap-4"
+                    onValueChange={(value) => {
+                      setUserRole(value);
+                      setSelectedUser("");
+                    }}
                   >
-                    Player
-                  </Label>
+                    <div>
+                      <RadioGroupItem value="player" id="player" className="peer sr-only" />
+                      <Label
+                        htmlFor="player"
+                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                      >
+                        Player
+                      </Label>
+                    </div>
+                    <div>
+                      <RadioGroupItem value="coach" id="coach" className="peer sr-only" />
+                      <Label
+                        htmlFor="coach"
+                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                      >
+                        Coach
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-                <div>
-                  <RadioGroupItem value="coach" id="coach" className="peer sr-only" />
-                  <Label
-                    htmlFor="coach"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-                  >
-                    Coach
-                  </Label>
+                <div className="grid gap-2">
+                  <Label htmlFor="user-select">User</Label>
+                   <Select onValueChange={setSelectedUser} value={selectedUser} disabled={isLoadingUsers}>
+                    <SelectTrigger id="user-select">
+                      <SelectValue placeholder={isLoadingUsers ? "Loading users..." : "Select a user"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {usersForRole.map(user => (
+                        <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </RadioGroup>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="user-select">User</Label>
-               <Select onValueChange={setSelectedUser} value={selectedUser}>
-                <SelectTrigger id="user-select">
-                  <SelectValue placeholder="Select a user" />
-                </SelectTrigger>
-                <SelectContent>
-                  {usersForRole.map(user => (
-                    <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <Link href={`/dashboard?role=${userRole}&userId=${selectedUser}`} passHref className="w-full">
-              <Button className="w-full" disabled={!selectedUser}>Sign in</Button>
-            </Link>
-          </CardFooter>
+              </CardContent>
+              <CardFooter className="flex flex-col gap-4">
+                <Link href={`/dashboard?role=${userRole}&userId=${selectedUser}`} passHref className="w-full">
+                  <Button className="w-full" disabled={!selectedUser || isLoadingUsers}>
+                    {isLoadingUsers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign in"}
+                  </Button>
+                </Link>
+              </CardFooter>
+            </>
+          )}
         </Card>
       </main>
 

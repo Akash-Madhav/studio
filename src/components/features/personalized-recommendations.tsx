@@ -10,7 +10,7 @@ import {
   generatePersonalizedRecommendations,
   PersonalizedTrainingRecommendationsOutput,
 } from "@/ai/flows/personalized-training-recommendations";
-import { sampleWorkouts, sampleUsers } from "@/lib/sample-data";
+import { getUser, getWorkoutHistory } from "@/app/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,17 +37,16 @@ const formSchema = z.object({
   performanceData: z.string().min(1, "Performance data is required."),
 });
 
-function getPerformanceSummary(userId: string) {
-    const userWorkouts = sampleWorkouts
-      .filter((w) => w.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, 5);
-  
-    if (userWorkouts.length === 0) {
-      return "No recent workouts to analyze.";
+async function getPerformanceSummary(userId: string) {
+    const result = await getWorkoutHistory(userId);
+    if (!result.success || result.workouts.length === 0) {
+        return "No recent workouts to analyze.";
     }
+
+    // Get top 5
+    const recentWorkouts = result.workouts.slice(0, 5);
   
-    return userWorkouts
+    return recentWorkouts
       .map((data) => {
         let record = `${data.exercise}:`;
         if (data.reps) record += ` ${data.reps} reps`;
@@ -57,7 +56,7 @@ function getPerformanceSummary(userId: string) {
         return record;
       })
       .join("\n");
-  }
+}
 
 export default function PersonalizedRecommendations({ userId }: { userId: string }) {
   const { toast } = useToast();
@@ -74,11 +73,17 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
   });
 
   useEffect(() => {
-    if (userId) {
-        const user = sampleUsers.find(u => u.id === userId);
-        form.setValue('fitnessGoals', user?.goals || '');
-        form.setValue('performanceData', getPerformanceSummary(userId));
+    async function loadData() {
+        if (userId) {
+            const userRes = await getUser(userId);
+            if (userRes.success && userRes.user) {
+                 form.setValue('fitnessGoals', userRes.user.goals || '');
+            }
+            const performanceSummary = await getPerformanceSummary(userId);
+            form.setValue('performanceData', performanceSummary);
+        }
     }
+    loadData();
   }, [userId, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {

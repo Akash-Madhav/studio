@@ -10,7 +10,7 @@ import {
   suggestSports,
   SportSuggestionOutput,
 } from "@/ai/flows/ai-sport-match-suggestion";
-import { sampleWorkouts } from "@/lib/sample-data";
+import { getWorkoutHistory } from "@/app/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -38,17 +38,16 @@ const formSchema = z.object({
 });
 
 
-function getPerformanceSummary(userId: string) {
-    const userWorkouts = sampleWorkouts
-      .filter((w) => w.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, 5);
-  
-    if (userWorkouts.length === 0) {
-      return "No recent workouts to analyze.";
+async function getPerformanceSummary(userId: string) {
+    const result = await getWorkoutHistory(userId);
+    if (!result.success || result.workouts.length === 0) {
+        return "No recent workouts to analyze.";
     }
-  
-    return userWorkouts
+
+    // Get top 5
+    const recentWorkouts = result.workouts.slice(0, 5);
+
+    return recentWorkouts
       .map((data) => {
         let record = `${data.exercise}:`;
         if (data.reps) record += ` ${data.reps} reps`;
@@ -58,7 +57,7 @@ function getPerformanceSummary(userId: string) {
         return record;
       })
       .join(", ");
-  }
+}
 
 export default function SportMatch({ userId }: { userId: string }) {
   const { toast } = useToast();
@@ -77,9 +76,13 @@ export default function SportMatch({ userId }: { userId: string }) {
   });
 
   useEffect(() => {
-    if (userId) {
-        form.setValue('performanceData', getPerformanceSummary(userId));
+    async function loadPerformanceData() {
+        if (userId) {
+            const summary = await getPerformanceSummary(userId);
+            form.setValue('performanceData', summary);
+        }
     }
+    loadPerformanceData();
   }, [userId, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {

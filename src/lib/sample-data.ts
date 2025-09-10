@@ -2,20 +2,20 @@
 
 export let sampleUsers = [
     // Players
-    { id: 'player1', name: 'Alex Johnson', email: 'alex.j@example.com', role: 'player', dob: new Date('1999-08-15'), experience: 'Intermediate', goals: 'Increase bench press by 20kg and improve overall muscle definition.', status: 'active' },
-    { id: 'player2', name: 'Maria Garcia', email: 'maria.g@example.com', role: 'player', dob: new Date('1995-05-20'), experience: 'Advanced', goals: 'Complete a full marathon in under 4 hours.', status: 'recruited' }, // Recruited by Coach2
-    { id: 'player3', name: 'Sam Chen', email: 'sam.c@example.com', role: 'player', dob: new Date('2001-11-10'), experience: 'Beginner', goals: 'Build a consistent workout routine, focusing on bodyweight exercises and light cardio.', status: 'active' },
-    { id: 'player4', name: 'Emily Rodriguez', email: 'emily.r@example.com', role: 'player', dob: new Date('1992-03-25'), experience: 'Intermediate', goals: 'Improve cardiovascular health and tone up for summer.', status: 'recruited' }, // Recruited by Coach1
-    { id: 'player5', name: 'David Lee', email: 'david.l@example.com', role: 'player', dob: new Date('1997-07-30'), experience: 'Advanced', goals: 'Compete in a local CrossFit competition.', status: 'pending_invite' }, // Invite from Coach1
-    { id: 'player6', name: 'Priya Sharma', email: 'priya.s@example.com', role: 'player', dob: new Date('2000-01-22'), experience: 'Beginner', goals: 'Learn proper form for major lifts like squat, deadlift, and bench press.', status: 'active' },
-    { id: 'player7', name: 'Kenji Tanaka', email: 'kenji.t@example.com', role: 'player', dob: new Date('1998-06-06'), experience: 'Intermediate', goals: 'Improve 5k time and increase flexibility through yoga.', status: 'active' },
-    { id: 'player8', name: 'Fatima Al-Sayed', email: 'fatima.a@example.com', role: 'player', dob: new Date('1994-09-01'), experience: 'Advanced', goals: 'Master advanced calisthenics moves like the human flag.', status: 'pending_invite' }, // Invite from Coach2
-    { id: 'player9', name: 'Leo Martinez', email: 'leo.m@example.com', role: 'player', dob: new Date('2002-04-12'), experience: 'Beginner', goals: 'Gain 5kg of muscle mass in the next 6 months.', status: 'active'},
+    { id: 'player1', name: 'Alex Johnson', email: 'alex.j@example.com', role: 'player' as const, dob: new Date('1999-08-15'), experience: 'Intermediate', goals: 'Increase bench press by 20kg and improve overall muscle definition.', status: 'active' },
+    { id: 'player2', name: 'Maria Garcia', email: 'maria.g@example.com', role: 'player' as const, dob: new Date('1995-05-20'), experience: 'Advanced', goals: 'Complete a full marathon in under 4 hours.', status: 'recruited' },
+    { id: 'player3', name: 'Sam Chen', email: 'sam.c@example.com', role: 'player' as const, dob: new Date('2001-11-10'), experience: 'Beginner', goals: 'Build a consistent workout routine, focusing on bodyweight exercises and light cardio.', status: 'active' },
+    { id: 'player4', name: 'Emily Rodriguez', email: 'emily.r@example.com', role: 'player' as const, dob: new Date('1992-03-25'), experience: 'Intermediate', goals: 'Improve cardiovascular health and tone up for summer.', status: 'recruited' },
+    { id: 'player5', name: 'David Lee', email: 'david.l@example.com', role: 'player' as const, dob: new Date('1997-07-30'), experience: 'Advanced', goals: 'Compete in a local CrossFit competition.', status: 'pending_invite' },
+    { id: 'player6', name: 'Priya Sharma', email: 'priya.s@example.com', role: 'player' as const, dob: new Date('2000-01-22'), experience: 'Beginner', goals: 'Learn proper form for major lifts like squat, deadlift, and bench press.', status: 'active' },
+    { id: 'player7', name: 'Kenji Tanaka', email: 'kenji.t@example.com', role: 'player' as const, dob: new Date('1998-06-06'), experience: 'Intermediate', goals: 'Improve 5k time and increase flexibility through yoga.', status: 'active' },
+    { id: 'player8', name: 'Fatima Al-Sayed', email: 'fatima.a@example.com', role: 'player' as const, dob: new Date('1994-09-01'), experience: 'Advanced', goals: 'Master advanced calisthenics moves like the human flag.', status: 'pending_invite' },
+    { id: 'player9', name: 'Leo Martinez', email: 'leo.m@example.com', role: 'player' as const, dob: new Date('2002-04-12'), experience: 'Beginner', goals: 'Gain 5kg of muscle mass in the next 6 months.', status: 'active'},
     
     // Coaches
-    { id: 'coach1', name: 'Coach Davis', email: 'davis.c@example.com', role: 'coach', dob: new Date('1985-02-20') },
-    { id: 'coach2', name: 'Coach Miller', email: 'miller.c@example.com', role: 'coach', dob: new Date('1988-09-05') },
-    { id: 'coach3', name: 'Coach Taylor', email: 'taylor.c@example.com', role: 'coach', dob: new Date('1990-12-12') },
+    { id: 'coach1', name: 'Coach Davis', email: 'davis.c@example.com', role: 'coach' as const, dob: new Date('1985-02-20'), experience: '10+ years', goals: 'Train national-level athletes.', status: 'active' },
+    { id: 'coach2', name: 'Coach Miller', email: 'miller.c@example.com', role: 'coach' as const, dob: new Date('1988-09-05'), experience: '8 years', goals: 'Focus on youth athletic development.', status: 'active' },
+    { id: 'coach3', name: 'Coach Taylor', email: 'taylor.c@example.com', role: 'coach' as const, dob: new Date('1990-12-12'), experience: '5 years', goals: 'Specialize in endurance sports coaching.', status: 'active' },
 ];
 
 export let sampleWorkouts: { _id: string; userId: string; exercise: string; reps?: number; weight?: number; distance?: number; time?: string; createdAt: Date; }[] = [
@@ -79,76 +79,4 @@ export let sampleWorkouts: { _id: string; userId: string; exercise: string; reps
     { _id: 'w41', userId: 'player9', exercise: 'Tricep Extensions', reps: 12, weight: 25, createdAt: new Date('2024-07-27T15:30:00Z') },
     { _id: 'w42', userId: 'player9', exercise: 'Leg Press', reps: 10, weight: 150, createdAt: new Date('2024-07-28T16:00:00Z') },
 
-];
-
-export let sampleConversations: {
-    _id: string;
-    participantIds: string[];
-    messages: {
-        _id: string;
-        senderId: string;
-        text: string;
-        createdAt: Date;
-    }[];
-    createdAt: Date;
-}[] = [
-    {
-        _id: 'conv_coach1_player4',
-        participantIds: ['coach1', 'player4'],
-        messages: [
-            { _id: 'm1', senderId: 'coach1', text: 'Welcome to the team, Emily! Great to have you. Let me know what your goals are.', createdAt: new Date('2024-07-25T11:00:00Z') },
-            { _id: 'm2', senderId: 'player4', text: 'Thanks, Coach! Ready to get started.', createdAt: new Date('2024-07-25T11:05:00Z') },
-        ],
-        createdAt: new Date('2024-07-25T11:00:00Z')
-    },
-    {
-        _id: 'conv_coach2_player2',
-        participantIds: ['coach2', 'player2'],
-        messages: [
-            { _id: 'm4', senderId: 'coach2', text: 'Maria, your 15k run was impressive. Your pacing is getting much more consistent. Remember to incorporate a recovery day this week.', createdAt: new Date('2024-07-22T14:00:00Z') },
-            { _id: 'm5', senderId: 'player2', text: 'Will do, thanks Coach. The new running shoes made a huge difference.', createdAt: new Date('2024-07-22T14:05:00Z') },
-        ],
-        createdAt: new Date('2024-07-22T14:00:00Z')
-    },
-];
-
-export let sampleInvites: { _id: string; coachId: string; playerId: string; status: 'pending' | 'accepted' | 'declined'; createdAt: Date; }[] = [
-    { _id: 'inv1', coachId: 'coach1', playerId: 'player5', status: 'pending', createdAt: new Date('2024-07-28T10:00:00Z') },
-    { _id: 'inv2', coachId: 'coach2', playerId: 'player8', status: 'pending', createdAt: new Date('2024-07-27T16:00:00Z') },
-    { _id: 'inv3', coachId: 'coach3', playerId: 'player1', status: 'pending', createdAt: new Date('2024-07-29T11:00:00Z') },
-];
-
-export let samplePosts: {
-    _id: string;
-    authorId: string;
-    role: 'player' | 'coach';
-    content: string;
-    createdAt: Date;
-}[] = [
-    // Player Posts
-    { _id: 'post1', authorId: 'player1', role: 'player', content: 'Just hit a new PR on my bench press! Feeling strong. 💪', createdAt: new Date('2024-07-28T11:00:00Z') },
-    { _id: 'post2', authorId: 'player2', role: 'player', content: 'Long run today. The weather was perfect. #running', createdAt: new Date('2024-07-28T09:00:00Z') },
-    { _id: 'post3', authorId: 'player3', role: 'player', content: 'First week of consistent workouts done. It was tough but worth it!', createdAt: new Date('2024-07-27T18:00:00Z') },
-
-    // Coach Posts
-    { _id: 'post4', authorId: 'coach1', role: 'coach', content: 'Remember to focus on form over weight. Quality reps build real strength.', createdAt: new Date('2024-07-28T14:00:00Z') },
-    { _id: 'post5', authorId: 'coach2', role: 'coach', content: 'Hydration is key, especially in this heat. Make sure you\'re drinking enough water.', createdAt: new Date('2024-07-27T10:00:00Z') },
-];
-
-
-export let sampleGroupMessages: {
-    _id: string;
-    senderId: string;
-    role: 'player' | 'coach';
-    text: string;
-    createdAt: Date;
-}[] = [
-    // Player Group Chat
-    { _id: 'gc1', senderId: 'player1', role: 'player', text: 'Hey everyone, how\'s training going?', createdAt: new Date('2024-07-29T10:00:00Z') },
-    { _id: 'gc2', senderId: 'player7', role: 'player', text: 'Good! Just finished a 5k.', createdAt: new Date('2024-07-29T10:01:00Z') },
-    { _id: 'gc3', senderId: 'player3', role: 'player', text: 'Feeling sore but motivated!', createdAt: new Date('2024-07-29T10:02:00Z') },
-
-    // Coach Group Chat
-    { _id: 'gc4', senderId: 'coach1', role: 'coach', text: 'Any new scouting techniques you guys are trying?', createdAt: new Date('2024-07-29T11:00:00Z') },
-    { _id: 'gc5', senderId: 'coach2', role: 'coach', text: 'I\'m focusing a lot on video analysis this season. The AI tools are surprisingly helpful.', createdAt: new Date('2for await (const chunk of stream) { } // CORRECT 1.x syntax-07-29T11:05:00Z') },
 ];

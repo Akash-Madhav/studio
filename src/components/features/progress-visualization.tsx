@@ -1,9 +1,8 @@
 
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
-import { sampleWorkouts } from "@/lib/sample-data";
 import dayjs from "dayjs";
 
 import {
@@ -19,7 +18,20 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Info } from "lucide-react";
+import { getWorkoutHistory } from "@/app/actions";
+import { Info, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+interface Workout {
+    _id: string;
+    userId: string;
+    exercise: string;
+    reps?: number;
+    weight?: number;
+    time?: string;
+    distance?: number;
+    createdAt: Date;
+}
 
 const weightChartConfig = {
   weight: {
@@ -44,10 +56,38 @@ const repsChartConfig = {
 } satisfies ChartConfig;
 
 export default function ProgressVisualization({ userId }: { userId: string}) {
+    const { toast } = useToast();
+    const [userWorkouts, setUserWorkouts] = useState<Workout[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const userWorkouts = useMemo(() => {
-        return sampleWorkouts.filter(w => w.userId === userId);
-    }, [userId]);
+    useEffect(() => {
+        async function fetchHistory() {
+          if (!userId) return;
+          setIsLoading(true);
+          try {
+            const result = await getWorkoutHistory(userId);
+            if (result.success && result.workouts) {
+              setUserWorkouts(result.workouts as Workout[]);
+            } else {
+              toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Could not load workout history for charts.",
+              });
+            }
+          } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "An unexpected error occurred while fetching chart data.",
+            });
+          } finally {
+            setIsLoading(false);
+          }
+        }
+        fetchHistory();
+    }, [userId, toast]);
+
 
     const weightChartData = useMemo(() => {
         const monthlyData: {[key: string]: number} = {};
@@ -81,6 +121,16 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
         return Object.keys(maxReps).map(exercise => ({ exercise, reps: maxReps[exercise]}));
     }, [userWorkouts]);
     
+    if (isLoading) {
+        return (
+             <Card className="md:col-span-2 lg:col-span-3">
+                <CardContent className="flex flex-col items-center justify-center h-96">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                </CardContent>
+            </Card>
+        )
+    }
+
     if (userWorkouts.length === 0) {
         return (
             <Card className="md:col-span-2 lg:col-span-3">
