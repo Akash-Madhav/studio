@@ -6,6 +6,13 @@ import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimes
 import { z } from 'zod';
 import { sampleUsers, sampleWorkouts } from '@/lib/sample-data';
 
+// Helper to convert Firestore Timestamp to YYYY-MM-DD string
+const formatDate = (timestamp: any) => {
+    if (timestamp && typeof timestamp.toDate === 'function') {
+        return timestamp.toDate().toISOString().split('T')[0];
+    }
+    return null;
+}
 
 export async function seedDatabase() {
     try {
@@ -19,7 +26,7 @@ export async function seedDatabase() {
                 return {
                     ...data,
                     id: d.id,
-                    dob: data.dob ? data.dob.toDate().toISOString().split('T')[0] : null
+                    dob: formatDate(data.dob),
                 }
             });
             return { success: true, message: "Database has already been seeded.", users: users };
@@ -75,7 +82,7 @@ export async function getUsersForLogin() {
             return {
                 ...data,
                 id: doc.id,
-                dob: data.dob ? data.dob.toDate().toISOString().split('T')[0] : null
+                dob: formatDate(data.dob),
             };
         });
         return { success: true, users };
@@ -102,7 +109,7 @@ export async function getUser(userId: string) {
         const user = {
             ...userData,
             id: userSnap.id,
-            dob: userData.dob ? userData.dob.toDate().toISOString().split('T')[0] : null,
+            dob: formatDate(userData.dob),
         };
 
         return { success: true, user };
@@ -127,7 +134,7 @@ export async function getUsersByIds(userIds: string[]) {
             users[doc.id] = {
                 ...data,
                 id: doc.id,
-                dob: data.dob ? data.dob.toDate().toISOString().split('T')[0] : null,
+                dob: formatDate(data.dob),
             };
         });
         return { success: true, users };
@@ -250,7 +257,14 @@ export async function getAllPlayers() {
         const usersCollection = collection(db, 'users');
         const q = query(usersCollection, where("role", "==", "player"));
         const querySnapshot = await getDocs(q);
-        const players = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const players = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return { 
+                id: doc.id, 
+                ...data,
+                dob: formatDate(data.dob) 
+            };
+        });
 
         const playersWithWorkouts = await Promise.all(players.map(async (player: any) => {
             const workoutHistory = await getWorkoutHistory(player.id);
@@ -341,7 +355,7 @@ export async function getRecruitedPlayers(coachId: string) {
         const q = query(usersCol, where('coachId', '==', coachId), where('status', '==', 'recruited'));
         const snapshot = await getDocs(q);
         const players = await Promise.all(snapshot.docs.map(async (d) => {
-            const player: any = d.data();
+            const player: any = { id: d.id, ...d.data(), dob: formatDate(d.data().dob) };
             const workoutHistory = await getWorkoutHistory(d.id);
             const performanceData = workoutHistory.workouts
                 .slice(0, 3)
@@ -546,3 +560,5 @@ export async function sendGroupMessage({ senderId, role, text }: { senderId: str
         return { success: false, message: 'Failed to send group message.' };
     }
 }
+
+    
