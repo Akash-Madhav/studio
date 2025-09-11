@@ -63,11 +63,24 @@ export async function signInWithEmailAndPasswordAction(values: z.infer<typeof si
         const userCredential = await signInWithEmailAndPassword(auth, validatedData.email, validatedData.password);
         const user = userCredential.user;
 
-        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const userRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userRef);
+        
+        let userRole = 'player'; // Default role
+
         if (!userDoc.exists()) {
-             return { success: false, message: 'User profile not found.' };
+             // Profile doesn't exist, create one
+            await setDoc(userRef, {
+                id: user.uid,
+                name: user.displayName || validatedData.email.split('@')[0], // Use display name or part of email
+                email: validatedData.email,
+                role: userRole,
+                status: 'active',
+                createdAt: serverTimestamp(),
+            });
+        } else {
+            userRole = userDoc.data()?.role || 'player';
         }
-        const userRole = userDoc.data()?.role || 'player';
 
         return { success: true, userId: user.uid, role: userRole };
     } catch (error: any) {
