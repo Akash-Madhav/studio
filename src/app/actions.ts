@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { sampleUsers, sampleWorkouts } from '@/lib/sample-data';
 
 // Helper to convert Firestore Timestamp to YYYY-MM-DD string
-const formatDate = (timestamp: any) => {
+const formatDate = (timestamp: any): string | null => {
     if (timestamp && typeof timestamp.toDate === 'function') {
         return timestamp.toDate().toISOString().split('T')[0];
     }
@@ -232,26 +232,6 @@ export async function getWorkoutHistory(userId: string) {
     }
 }
 
-const createPostSchema = z.object({
-    authorId: z.string(),
-    role: z.enum(['player', 'coach']),
-    content: z.string().min(1).max(280),
-});
-
-export async function createPost(values: z.infer<typeof createPostSchema>) {
-    try {
-        const validatedData = createPostSchema.parse(values);
-        await addDoc(collection(db, 'posts'), {
-            ...validatedData,
-            createdAt: serverTimestamp(),
-        });
-        return { success: true };
-    } catch (error) {
-        console.error("Error creating post: ", error);
-        return { success: false, message: "Failed to create post." };
-    }
-}
-
 export async function getAllPlayers() {
     try {
         const usersCollection = collection(db, 'users');
@@ -338,7 +318,7 @@ export async function getPendingInvitesForCoach(coachId: string) {
                 playerId: data.playerId,
                 playerName: player?.name || 'Unknown',
                 playerAvatar: `https://picsum.photos/seed/${data.playerId}/50/50`,
-                sentAt: data.sentAt ? data.sentAt.toDate().toISOString() : new Date().toISOString(), 
+                sentAt: data.sentAt ? formatDate(data.sentAt) : new Date().toISOString(), 
             };
         });
 
@@ -442,7 +422,7 @@ export async function getConversations(userId: string): Promise<{ success: boole
             const lastMsgSnapshot = await getDocs(lastMsgQuery);
             const lastMessage = lastMsgSnapshot.docs[0] ? {
                 text: lastMsgSnapshot.docs[0].data().text,
-                sentAt: lastMsgSnapshot.docs[0].data().createdAt ? lastMsgSnapshot.docs[0].data().createdAt.toDate().toISOString() : new Date().toISOString(),
+                sentAt: formatDate(lastMsgSnapshot.docs[0].data().createdAt) || new Date().toISOString(),
             } : undefined;
 
             return {
@@ -466,7 +446,7 @@ export async function getMessages(conversationId: string) {
         const messages = snapshot.docs.map(doc => ({
             _id: doc.id,
             ...doc.data(),
-            createdAt: doc.data().createdAt ? doc.data().createdAt.toDate().toISOString() : new Date().toISOString(),
+            createdAt: formatDate(doc.data().createdAt) || new Date().toISOString(),
         }));
         return { success: true, messages };
     } catch (error) {
@@ -490,7 +470,7 @@ export async function sendMessage({ conversationId, senderId, text }: { conversa
             _id: newMessageSnap.id,
             senderId: newMessageData?.senderId,
             text: newMessageData?.text,
-            createdAt: newMessageData?.createdAt ? newMessageData.createdAt.toDate().toISOString() : new Date().toISOString(),
+            createdAt: formatDate(newMessageData?.createdAt) || new Date().toISOString(),
         }
         return { success: true, message: newMessage };
     } catch (error) {
@@ -498,67 +478,3 @@ export async function sendMessage({ conversationId, senderId, text }: { conversa
         return { success: false, message: 'Failed to send message.' };
     }
 }
-
-
-export async function getGroupMessages(role: 'player' | 'coach') {
-    try {
-        const groupChatCol = collection(db, 'groupChats');
-        const q = query(groupChatCol, where('role', '==', role), orderBy('createdAt', 'asc'));
-        const snapshot = await getDocs(q);
-
-        const senderIds = new Set<string>();
-        snapshot.docs.forEach(doc => senderIds.add(doc.data().senderId));
-        const usersRes = await getUsersByIds(Array.from(senderIds));
-        if (!usersRes.success) {
-            return { success: false, messages: [] };
-        }
-        const usersMap = usersRes.users;
-
-        const messages = snapshot.docs.map(doc => {
-            const data = doc.data();
-            const sender = usersMap[data.senderId];
-            return {
-                _id: doc.id,
-                ...data,
-                authorName: sender?.name || 'Unknown',
-                authorAvatar: `https://picsum.photos/seed/${data.senderId}/50/50`,
-                createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
-            };
-        });
-        return { success: true, messages };
-    } catch (error) {
-        console.error("Error fetching group messages:", error);
-        return { success: false, messages: [] };
-    }
-}
-
-export async function sendGroupMessage({ senderId, role, text }: { senderId: string, role: 'player' | 'coach', text: string }) {
-    try {
-        const groupChatCol = collection(db, 'groupChats');
-        const newMessageRef = await addDoc(groupChatCol, {
-            senderId,
-            role,
-            text,
-            createdAt: serverTimestamp(),
-        });
-
-        const newMessageSnap = await getDoc(newMessageRef);
-        const data = newMessageSnap.data();
-        const userRes = await getUser(data?.senderId);
-        
-        const message = {
-             _id: newMessageSnap.id,
-            ...data,
-            authorName: userRes.user?.name || 'Unknown',
-            authorAvatar: `https://picsum.photos/seed/${data?.senderId}/50/50`,
-            createdAt: data?.createdAt ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
-        };
-
-        return { success: true, message };
-    } catch (error) {
-        console.error("Error sending group message:", error);
-        return { success: false, message: 'Failed to send group message.' };
-    }
-}
-
-    

@@ -38,7 +38,6 @@ import PlayerStats from '@/components/features/player-stats';
 import PendingInvites from '@/components/features/pending-invites';
 import PlayerInvites from '@/components/features/player-invites';
 import Messages from '@/components/features/messages';
-import CommunityHub from '@/components/features/community-hub';
 import SportMatch from '@/components/features/sport-match';
 import { getUser, getAllPlayers, getPendingInvitesForCoach, getRecruitedPlayers } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -246,13 +245,12 @@ function DashboardContent() {
         </div>
         
         <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-            <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-7'}`}>
+            <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-3 sm:grid-cols-7'}`}>
               {isCoach ? (
                   <>
                       <TabsTrigger value="team"><Users className="mr-2"/>Team</TabsTrigger>
                       <TabsTrigger value="scouting"><UserPlus className="mr-2"/>Scouting</TabsTrigger>
                       <TabsTrigger value="messages"><MessageSquare className="mr-2"/>Messages</TabsTrigger>
-                      <TabsTrigger value="community"><Users className="mr-2"/>Community</TabsTrigger>
                       <TabsTrigger value="log-performance"><LogIn className="mr-2" />My Log</TabsTrigger>
                   </>
               ) : (
@@ -279,9 +277,6 @@ function DashboardContent() {
                     </TabsContent>
                     <TabsContent value="messages" className="mt-4">
                         <Messages userId={userId} />
-                    </TabsContent>
-                    <TabsContent value="community" className="mt-4">
-                        <CommunityHub userId={userId} role="coach" />
                     </TabsContent>
                     <TabsContent value="log-performance" className="mt-4">
                         <PerformanceLogging userId={userId} onWorkoutLogged={() => {}} />

@@ -1,263 +1,479 @@
-
-"use client";
-
-import React, { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Loader2, Newspaper, MessageCircle, Rss } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { createPost, getUser, getUsersByIds } from "@/app/actions";
-import { useToast } from "@/hooks/use-toast";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
-import GroupChat from "./group-chat";
-import { onSnapshot, collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
+'use server';
 import { db } from '@/lib/firebase';
+import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache } from 'firebase/firestore';
 
-dayjs.extend(relativeTime);
+import { z } from 'zod';
+import { sampleUsers, sampleWorkouts } from '@/lib/sample-data';
 
-interface Post {
-    _id: string;
-    authorId: string;
-    authorName: string;
-    authorAvatar: string;
-    role: 'player' | 'coach';
-    content: string;
-    createdAt: Date;
+// Helper to convert Firestore Timestamp to YYYY-MM-DD string
+const formatDate = (timestamp: any): string | null => {
+    if (timestamp && typeof timestamp.toDate === 'function') {
+        return timestamp.toDate().toISOString().split('T')[0];
+    }
+    return null;
 }
 
-interface User {
-    id: string;
-    name: string;
-    email: string;
-    role: 'player' | 'coach';
-    dob?: string;
-    experience?: string;
-    goals?: string;
-    status?: string;
+export async function seedDatabase() {
+    try {
+        const usersCollection = collection(db, 'users');
+        const workoutsCollection = collection(db, 'workouts');
+
+        const existingUsersSnapshot = await getDocs(usersCollection);
+        if (!existingUsersSnapshot.empty) {
+            const users = existingUsersSnapshot.docs.map(d => {
+                const data = d.data();
+                return {
+                    ...data,
+                    id: d.id,
+                    dob: formatDate(data.dob),
+                }
+            });
+            return { success: true, message: "Database has already been seeded.", users: users };
+        }
+
+        const batch = writeBatch(db);
+
+        const usersToSeed = sampleUsers.map(user => ({
+            ...user,
+            dob: user.dob ? new Date(user.dob) : null,
+            coachId: user.status === 'recruited' ? 'coach1' : (user.status === 'pending_invite' ? 'coach2' : null)
+        }));
+
+        usersToSeed.forEach(user => {
+            const userRef = doc(db, 'users', user.id);
+            batch.set(userRef, user);
+        });
+
+        const workoutsToSeed = sampleWorkouts.map(workout => ({
+            ...workout,
+            createdAt: new Date(workout.createdAt)
+        }));
+
+        workoutsToSeed.forEach(workout => {
+            const workoutRef = doc(collection(db, 'workouts')); // Auto-generate ID
+            batch.set(workoutRef, workout);
+        });
+
+        await batch.commit();
+        
+        const seededUsers = usersToSeed.map(u => ({
+            ...u,
+            id: u.id,
+            dob: u.dob ? u.dob.toISOString().split('T')[0] : null
+        }));
+        
+        return { success: true, message: "Database seeded successfully!", users: seededUsers };
+    } catch (error: any) {
+        console.error("Error seeding database: ", error);
+        return { success: false, message: "Failed to seed database. Check Firestore rules and API status.", users: [] };
+    }
 }
 
-interface CommunityHubProps {
-    userId: string;
-    role: 'player' | 'coach';
+export async function getUsersForLogin() {
+    try {
+        const usersCollection = collection(db, 'users');
+        const userSnapshot = await getDocs(usersCollection);
+        if (userSnapshot.empty) {
+            return { success: true, users: [] };
+        }
+        const users = userSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                dob: formatDate(data.dob),
+            };
+        });
+        return { success: true, users };
+    } catch (error: any) {
+        console.error("Error fetching users for login: ", error);
+        return { success: false, users: [], message: "Could not fetch users." };
+    }
 }
 
-const postFormSchema = z.object({
-    content: z.string().min(1, "Post content cannot be empty.").max(280, "Post cannot exceed 280 characters."),
+
+export async function getUser(userId: string) {
+    if (!userId) {
+        return { success: false, user: null, message: "User ID is required." };
+    }
+    try {
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+            return { success: false, user: null, message: "User not found." };
+        }
+
+        const userData = userSnap.data();
+        const user = {
+            ...userData,
+            id: userSnap.id,
+            dob: formatDate(userData.dob),
+        };
+
+        return { success: true, user };
+    } catch (error: any) {
+        console.error(`Error fetching user ${userId}:`, error);
+        return { success: false, user: null, message: "Failed to fetch user data." };
+    }
+}
+
+export async function getUsersByIds(userIds: string[]) {
+    if (!userIds || userIds.length === 0) {
+        return { success: true, users: {} };
+    }
+    try {
+        const usersCollection = collection(db, 'users');
+        const q = query(usersCollection, where(documentId(), 'in', userIds));
+        const snapshot = await getDocs(q);
+
+        const users: { [key: string]: any } = {};
+        snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            users[doc.id] = {
+                ...data,
+                id: doc.id,
+                dob: formatDate(data.dob),
+            };
+        });
+        return { success: true, users };
+    } catch (error) {
+        console.error("Error fetching users by IDs:", error);
+        return { success: false, users: {}, message: 'Failed to fetch user data.' };
+    }
+}
+
+const logWorkoutSchema = z.object({
+  exercise: z.string().min(2, "Exercise name is required."),
+  reps: z.coerce.number().int().min(0).optional(),
+  weight: z.coerce.number().min(0).optional(),
+  time: z.string().optional(),
+  distance: z.coerce.number().min(0).optional(),
+  userId: z.string(), 
 });
 
-export default function CommunityHub({ userId, role }: CommunityHubProps) {
-    const { toast } = useToast();
-    const [posts, setPosts] = useState<Post[]>([]);
-    
-    const [isFetching, setIsFetching] = useState(true);
-    const [isPosting, setIsPosting] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
-    
-    const postForm = useForm<z.infer<typeof postFormSchema>>({
-        resolver: zodResolver(postFormSchema),
-        defaultValues: { content: "" },
-    });
 
-    useEffect(() => {
-        const q = query(
-            collection(db, 'posts'),
-            where('role', '==', role),
-            orderBy('createdAt', 'desc')
-        );
+export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
+    try {
+        const validatedData = logWorkoutSchema.parse(values);
+        const workoutsCollection = collection(db, 'workouts');
+        await addDoc(workoutsCollection, {
+            ...validatedData,
+            createdAt: serverTimestamp(),
+        });
 
-        const unsubscribe = onSnapshot(q, async (snapshot) => {
-            setIsFetching(true);
-            const authorIds = new Set<string>();
-            snapshot.docs.forEach(doc => authorIds.add(doc.data().authorId));
+        return { 
+            success: true, 
+            message: `${validatedData.exercise} has been added to your history.`,
+            userId: validatedData.userId,
+        };
+    } catch (error) {
+        console.error("Error logging workout: ", error);
+        if (error instanceof z.ZodError) {
+            return { success: false, message: "Invalid data provided." };
+        }
+        return { success: false, message: "Failed to log workout." };
+    }
+}
 
-            const usersRes = await getUsersByIds(Array.from(authorIds));
-            if (!usersRes.success) {
-                toast({ variant: 'destructive', title: "Error", description: "Failed to load author details." });
-                setIsFetching(false);
-                return;
-            }
-            const usersMap = usersRes.users;
 
-            const postsData = snapshot.docs.map(doc => {
+const updateUserProfileSchema = z.object({
+    userId: z.string(),
+    name: z.string().min(2, "Name is required."),
+    email: z.string().email("Invalid email address."),
+    dob: z.string().optional().nullable(),
+    experience: z.string().optional(),
+    goals: z.string().optional(),
+});
+
+
+export async function updateUserProfile(values: z.infer<typeof updateUserProfileSchema>) {
+    try {
+        const validatedData = updateUserProfileSchema.parse(values);
+        const userRef = doc(db, 'users', validatedData.userId);
+        await updateDoc(userRef, {
+            name: validatedData.name,
+            email: validatedData.email,
+            dob: validatedData.dob ? new Date(validatedData.dob) : null,
+            experience: validatedData.experience,
+            goals: validatedData.goals,
+        });
+        return { success: true, message: "Profile updated successfully!" };
+    } catch (error) {
+        console.error("Error updating profile: ", error);
+        if (error instanceof z.ZodError) {
+            return { success: false, message: "Invalid data provided." };
+        }
+        return { success: false, message: "Failed to update profile." };
+    }
+}
+
+export async function getWorkoutHistory(userId: string) {
+    try {
+        const workoutsCollection = collection(db, 'workouts');
+        const q = query(workoutsCollection, where("userId", "==", userId), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+
+        const workouts = querySnapshot.docs
+            .map(doc => {
                 const data = doc.data();
-                const author = usersMap[data.authorId];
-                const createdAt = data.createdAt as Timestamp;
                 return {
                     ...data,
                     _id: doc.id,
-                    authorName: author?.name || 'Unknown',
-                    authorAvatar: `https://picsum.photos/seed/${data.authorId}/50/50`,
-                    createdAt: createdAt ? createdAt.toDate() : new Date(),
-                } as Post;
-            });
+                    createdAt: data.createdAt ? data.createdAt.toDate() : new Date(), 
+                };
+            })
+        
+        return { success: true, workouts };
+    } catch (error: any) {
+        console.error(`Error fetching workout history for user ${userId}:`, error);
+        return { success: false, workouts: [], message: "Failed to fetch workout history." };
+    }
+}
 
-            setPosts(postsData);
-            setIsFetching(false);
-        }, (error) => {
-            console.error("Error fetching posts:", error);
-            toast({ variant: 'destructive', title: "Error", description: "Failed to load community feed." });
-            setIsFetching(false);
+export async function getAllPlayers() {
+    try {
+        const usersCollection = collection(db, 'users');
+        const q = query(usersCollection, where("role", "==", "player"));
+        const querySnapshot = await getDocs(q);
+        const players = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return { 
+                id: doc.id, 
+                ...data,
+                dob: formatDate(data.dob) 
+            };
         });
 
-        return () => unsubscribe();
-    }, [role, toast]);
+        const playersWithWorkouts = await Promise.all(players.map(async (player: any) => {
+            const workoutHistory = await getWorkoutHistory(player.id);
+            let performanceData = 'No recent workouts.';
+            if (workoutHistory.success && workoutHistory.workouts.length > 0) {
+                performanceData = workoutHistory.workouts
+                    .slice(0, 3) // get latest 3
+                    .map(w => {
+                        const parts = [w.exercise];
+                        if (w.reps) parts.push(`${w.reps} reps`);
+                        if (w.weight) parts.push(`@ ${w.weight}kg`);
+                        if (w.distance) parts.push(`${w.distance}km`);
+                        if (w.time) parts.push(`in ${w.time}`);
+                        return parts.join(' ');
+                    }).join('; ');
+            }
+            return { ...player, performanceData };
+        }));
 
-    const handleCreatePost = async (values: z.infer<typeof postFormSchema>) => {
-        setIsPosting(true);
-        const result = await createPost({ authorId: userId, role, content: values.content });
-        if (result.success) {
-            postForm.reset();
-        } else {
-            toast({ variant: 'destructive', title: "Error", description: result.message || "Failed to create post." });
-        }
-        setIsPosting(false);
-    };
-
-    const handleUserClick = async (authorId: string) => {
-        const userRes = await getUser(authorId);
-        if (userRes.success && userRes.user) {
-            setSelectedUser(userRes.user as User);
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch user details.' });
-        }
-    };
-
-    if (isFetching && posts.length === 0) {
-        return <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin" /></div>;
+        return { success: true, players: playersWithWorkouts };
+    } catch (error) {
+        console.error("Error getting all players:", error);
+        return { success: false, players: [] };
     }
+}
 
-    const groupChatName = role === 'player' ? "Player's Lounge" : "Coaches' Corner";
-    const groupChatDescription = role === 'player' ? "Chat with all other players." : "Discuss strategies with your fellow coaches.";
+export async function sendRecruitInvite(playerId: string, coachId: string) {
+    try {
+        const inviteRef = collection(db, 'invites');
+        // Check if an invite already exists
+        const q = query(inviteRef, where('playerId', '==', playerId), where('coachId', '==', coachId), where('status', '==', 'pending'));
+        const existingInvites = await getDocs(q);
+        if (!existingInvites.empty) {
+            return { success: false, message: 'Invite already sent.' };
+        }
 
-    return (
-        <Dialog onOpenChange={(isOpen) => !isOpen && setSelectedUser(null)}>
-            <Tabs defaultValue="feed" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
-                    <TabsTrigger value="feed">
-                        <Newspaper className="mr-2"/>
-                        Feed
-                    </TabsTrigger>
-                    <TabsTrigger value="chat">
-                        <MessageCircle className="mr-2"/>
-                        Group Chat
-                    </TabsTrigger>
-                </TabsList>
-                <TabsContent value="feed" className="mt-6">
-                    <div className="max-w-2xl mx-auto space-y-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Create a Post</CardTitle>
-                            </CardHeader>
-                            <form onSubmit={postForm.handleSubmit(handleCreatePost)}>
-                                <CardContent>
-                                    <Textarea
-                                        {...postForm.register("content")}
-                                        placeholder={`Share what's on your mind...`}
-                                        className="min-h-[100px]"
-                                        disabled={isPosting}
-                                    />
-                                    {postForm.formState.errors.content && (
-                                        <p className="text-sm text-destructive mt-2">{postForm.formState.errors.content.message}</p>
-                                    )}
-                                </CardContent>
-                                <CardFooter className="flex justify-end">
-                                    <Button type="submit" disabled={isPosting}>
-                                        {isPosting && <Loader2 className="animate-spin mr-2" />}
-                                        Post
-                                    </Button>
-                                </CardFooter>
-                            </form>
-                        </Card>
+        await addDoc(inviteRef, {
+            playerId,
+            coachId,
+            status: 'pending',
+            sentAt: serverTimestamp(),
+        });
 
-                        <div className="space-y-4">
-                            <h2 className="text-2xl font-bold flex items-center gap-2"><Rss /> {role === 'player' ? "Player" : "Coach"} Feed</h2>
-                            {posts.map(post => (
-                                <Card key={post._id}>
-                                    <CardHeader className="flex flex-row items-center gap-4">
-                                        <DialogTrigger asChild>
-                                            <button onClick={() => handleUserClick(post.authorId)} className="flex items-center gap-4 text-left">
-                                                <Avatar>
-                                                    <AvatarImage src={post.authorAvatar} data-ai-hint="person face" />
-                                                    <AvatarFallback>{post.authorName.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <p className="font-semibold hover:underline">{post.authorName}</p>
-                                                    <p className="text-sm text-muted-foreground">{dayjs(post.createdAt).fromNow()}</p>
-                                                </div>
-                                            </button>
-                                        </DialogTrigger>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="whitespace-pre-wrap">{post.content}</p>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    </div>
-                </TabsContent>
-                <TabsContent value="chat" className="mt-6">
-                    <div className="max-w-2xl mx-auto">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Group Chats</CardTitle>
-                                <CardDescription>Join the conversation with your peers.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                            <Dialog>
-                                <DialogTrigger asChild>
-                                        <div className="p-4 rounded-lg border flex items-center gap-4 cursor-pointer hover:bg-muted">
-                                            <div className="bg-primary/10 text-primary p-3 rounded-full">
-                                                <MessageCircle className="h-6 w-6" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="font-semibold text-lg">{groupChatName}</p>
-                                                <p className="text-muted-foreground">{groupChatDescription}</p>
-                                            </div>
-                                        </div>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl w-full h-[80vh] flex flex-col p-0">
-                                    <DialogHeader className="p-6 pb-0">
-                                        <DialogTitle>{groupChatName}</DialogTitle>
-                                    </DialogHeader>
-                                    <GroupChat userId={userId} role={role} />
-                                </DialogContent>
-                            </Dialog>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </TabsContent>
-            </Tabs>
+        await updateDoc(doc(db, 'users', playerId), { status: 'pending_invite', coachId: coachId });
 
-            <DialogContent>
-                {selectedUser && (
-                    <>
-                        <DialogHeader>
-                            <div className="flex items-center gap-4">
-                                <Avatar className="h-16 w-16">
-                                    <AvatarImage src={`https://picsum.photos/seed/${selectedUser.id}/100/100`} data-ai-hint="person face" />
-                                    <AvatarFallback>{selectedUser.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <DialogTitle className="text-2xl">{selectedUser.name}</DialogTitle>
-                                    <DialogDescription className="capitalize">{selectedUser.role} &middot; {selectedUser.experience}</DialogDescription>
-                                </div>
-                            </div>
-                        </DialogHeader>
-                        <div className="py-4">
-                            <h4 className="font-semibold text-primary mb-2">Fitness Goals</h4>
-                            <p className="text-muted-foreground text-sm">{selectedUser.goals || "No goals set yet."}</p>
-                        </div>
-                    </>
-                )}
-            </DialogContent>
+        return { success: true, message: 'Recruitment invite sent successfully!' };
+    } catch (error) {
+        console.error("Error sending invite:", error);
+        return { success: false, message: 'Failed to send invite.' };
+    }
+}
 
-        </Dialog>
-    );
+export async function getPendingInvitesForCoach(coachId: string) {
+    try {
+        const invitesCol = collection(db, 'invites');
+        const q = query(invitesCol, where('coachId', '==', coachId), where('status', '==', 'pending'));
+        const snapshot = await getDocs(q);
+        
+        const playerIds = snapshot.docs.map(doc => doc.data().playerId);
+        const usersRes = await getUsersByIds(playerIds);
+
+        if (!usersRes.success) {
+            return { success: false, invites: [] };
+        }
+
+        const invites = snapshot.docs.map(d => {
+            const data = d.data();
+            const player = usersRes.users[data.playerId];
+            return {
+                inviteId: d.id,
+                playerId: data.playerId,
+                playerName: player?.name || 'Unknown',
+                playerAvatar: `https://picsum.photos/seed/${data.playerId}/50/50`,
+                sentAt: data.sentAt ? formatDate(data.sentAt) : new Date().toISOString(), 
+            };
+        });
+
+        return { success: true, invites };
+    } catch (error) {
+        console.error("Error fetching pending invites:", error);
+        return { success: false, invites: [] };
+    }
+}
+
+export async function getRecruitedPlayers(coachId: string) {
+    try {
+        const usersCol = collection(db, 'users');
+        const q = query(usersCol, where('coachId', '==', coachId), where('status', '==', 'recruited'));
+        const snapshot = await getDocs(q);
+        const players = await Promise.all(snapshot.docs.map(async (d) => {
+            const player: any = { id: d.id, ...d.data(), dob: formatDate(d.data().dob) };
+            const workoutHistory = await getWorkoutHistory(d.id);
+            const performanceData = workoutHistory.workouts
+                .slice(0, 3)
+                .map(w => `${w.exercise}: ${w.reps || '-'} reps, ${w.weight || '-'} kg`)
+                .join(' | ');
+            const userProfile = (player.experience && player.goals) ? `${player.experience}, ${player.goals}` : 'N/A';
+            return {
+                id: d.id,
+                name: player.name,
+                userProfile: userProfile,
+                performanceData: performanceData || 'No recent workouts logged.',
+                status: player.status
+            };
+        }));
+        return { success: true, players };
+    } catch (error) {
+        console.error("Error fetching recruited players:", error);
+        return { success: false, players: [] };
+    }
+}
+
+export async function respondToInvite({ inviteId, response, playerId, coachId }: { inviteId: string, response: 'accepted' | 'declined', playerId: string, coachId: string }) {
+    try {
+        let conversationId: string | null = null;
+        if (response === 'accepted') {
+            await runTransaction(db, async (transaction) => {
+                const inviteRef = doc(db, 'invites', inviteId);
+                const playerRef = doc(db, 'users', playerId);
+
+                const newConvoRef = doc(collection(db, 'conversations'));
+                transaction.set(newConvoRef, {
+                    participantIds: [playerId, coachId],
+                    createdAt: serverTimestamp(),
+                });
+                conversationId = newConvoRef.id;
+
+                transaction.update(inviteRef, { status: 'accepted' });
+                transaction.update(playerRef, { status: 'recruited', coachId: coachId });
+            });
+        } else {
+            await updateDoc(doc(db, 'invites', inviteId), { status: 'declined' });
+            await updateDoc(doc(db, 'users', playerId), { status: 'active', coachId: null });
+        }
+        return { success: true, conversationId };
+    } catch (error) {
+        console.error("Error responding to invite:", error);
+        return { success: false, message: 'Failed to respond to invite.' };
+    }
+}
+
+export interface Conversation {
+    id: string;
+    participants: { id: string; name: string }[];
+    lastMessage?: { text: string; sentAt: string };
+}
+
+export async function getConversations(userId: string): Promise<{ success: boolean; conversations: Conversation[], message?: string }> {
+    try {
+        const convosCol = collection(db, 'conversations');
+        const q = query(convosCol, where('participantIds', 'array-contains', userId));
+        const snapshot = await getDocs(q);
+
+        const participantIds = new Set<string>();
+        snapshot.docs.forEach(d => {
+            d.data().participantIds.forEach((id: string) => {
+                if (id !== userId) participantIds.add(id);
+            });
+        });
+
+        const usersRes = await getUsersByIds(Array.from(participantIds));
+        if (!usersRes.success) {
+            return { success: false, conversations: [], message: 'Failed to fetch user data for conversations.' };
+        }
+        const usersMap = usersRes.users;
+
+        const conversations = await Promise.all(snapshot.docs.map(async (d) => {
+            const data = d.data();
+            const participants = data.participantIds
+                .filter((id: string) => id !== userId)
+                .map((id: string) => ({ id, name: usersMap[id]?.name || 'Unknown' }));
+
+            const messagesCol = collection(db, 'conversations', d.id, 'messages');
+            const lastMsgQuery = query(messagesCol, orderBy('createdAt', 'desc'), where('text', '!=', null));
+            const lastMsgSnapshot = await getDocs(lastMsgQuery);
+            const lastMessage = lastMsgSnapshot.docs[0] ? {
+                text: lastMsgSnapshot.docs[0].data().text,
+                sentAt: formatDate(lastMsgSnapshot.docs[0].data().createdAt) || new Date().toISOString(),
+            } : undefined;
+
+            return {
+                id: d.id,
+                participants,
+                lastMessage
+            };
+        }));
+        return { success: true, conversations };
+    } catch (error) {
+        console.error("Error getting conversations:", error);
+        return { success: false, conversations: [], message: 'Failed to fetch conversations.' };
+    }
+}
+
+export async function getMessages(conversationId: string) {
+    try {
+        const messagesCol = collection(db, 'conversations', conversationId, 'messages');
+        const q = query(messagesCol, orderBy('createdAt', 'asc'));
+        const snapshot = await getDocs(q);
+        const messages = snapshot.docs.map(doc => ({
+            _id: doc.id,
+            ...doc.data(),
+            createdAt: formatDate(doc.data().createdAt) || new Date().toISOString(),
+        }));
+        return { success: true, messages };
+    } catch (error) {
+        console.error("Error getting messages:", error);
+        return { success: false, messages: [], message: 'Failed to fetch messages.' };
+    }
+}
+
+
+export async function sendMessage({ conversationId, senderId, text }: { conversationId: string, senderId: string, text: string }) {
+    try {
+        const messagesCol = collection(db, 'conversations', conversationId, 'messages');
+        const newMessageRef = await addDoc(messagesCol, {
+            senderId,
+            text,
+            createdAt: serverTimestamp()
+        });
+        const newMessageSnap = await getDoc(newMessageRef);
+        const newMessageData = newMessageSnap.data();
+        const newMessage = {
+            _id: newMessageSnap.id,
+            senderId: newMessageData?.senderId,
+            text: newMessageData?.text,
+            createdAt: formatDate(newMessageData?.createdAt) || new Date().toISOString(),
+        }
+        return { success: true, message: newMessage };
+    } catch (error) {
+        console.error("Error sending message:", error);
+        return { success: false, message: 'Failed to send message.' };
+    }
 }
