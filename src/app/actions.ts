@@ -1,7 +1,7 @@
 
 'use server';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit } from 'firebase/firestore';
 
 import { z } from 'zod';
 import { sampleUsers, sampleWorkouts } from '@/lib/sample-data';
@@ -212,10 +212,19 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
     }
 }
 
-export async function getWorkoutHistory(userId: string) {
+export async function getWorkoutHistory(userId: string, recordLimit?: number) {
     try {
         const workoutsCollection = collection(db, 'workouts');
-        const q = query(workoutsCollection, where("userId", "==", userId));
+        
+        let q;
+        if (recordLimit) {
+            // NOTE: This query requires a composite index in Firestore.
+            // You can create it here: https://console.firebase.google.com/v1/r/project/optifitaicopy-87674237-d47c0/firestore/indexes?create_composite=Cl1wcm9qZWN0cy9vcHRpZml0YWljb3B5LTg3Njc0MjM3LWQ0N2MwL2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy93b3Jrb3V0cy9pbmRleGVzL18QARoKCgZ1c2VySWQQARoNCgljcmVhdGVkQXQQAhoMCghfX25hbWVfXxAC
+            q = query(workoutsCollection, where("userId", "==", userId), orderBy("createdAt", "desc"), limit(recordLimit));
+        } else {
+            q = query(workoutsCollection, where("userId", "==", userId));
+        }
+        
         const querySnapshot = await getDocs(q);
 
         const workouts = querySnapshot.docs
@@ -226,8 +235,11 @@ export async function getWorkoutHistory(userId: string) {
                     _id: doc.id,
                     createdAt: data.createdAt ? data.createdAt.toDate() : new Date(), 
                 };
-            })
-            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+            });
+
+        if (!recordLimit) {
+            workouts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        }
         
         return { success: true, workouts };
     } catch (error: any) {
@@ -251,11 +263,10 @@ export async function getAllPlayers() {
         });
 
         const playersWithWorkouts = await Promise.all(players.map(async (player: any) => {
-            const workoutHistory = await getWorkoutHistory(player.id);
+            const workoutHistory = await getWorkoutHistory(player.id, 3);
             let performanceData = 'No recent workouts.';
             if (workoutHistory.success && workoutHistory.workouts.length > 0) {
                 performanceData = workoutHistory.workouts
-                    .slice(0, 3) // get latest 3
                     .map(w => {
                         const parts = [w.exercise];
                         if (w.reps) parts.push(`${w.reps} reps`);

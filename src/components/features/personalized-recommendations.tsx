@@ -37,14 +37,12 @@ const formSchema = z.object({
 });
 
 async function getPerformanceSummary(userId: string) {
-    const result = await getWorkoutHistory(userId);
+    const result = await getWorkoutHistory(userId, 5);
     if (!result.success || result.workouts.length === 0) {
         return "No recent workouts to analyze.";
     }
-
-    const recentWorkouts = result.workouts.slice(0, 5);
   
-    return recentWorkouts
+    return result.workouts
       .map((data) => {
         let record = `${data.exercise}:`;
         if (data.reps) record += ` ${data.reps} reps`;
@@ -75,21 +73,41 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
     async function loadData() {
         setIsFetchingData(true);
         if (userId) {
-            const userRes = await getUser(userId);
-            if (userRes.success && userRes.user) {
-                 form.setValue('fitnessGoals', userRes.user.goals || '');
+            try {
+                const userRes = await getUser(userId);
+                if (userRes.success && userRes.user) {
+                     form.setValue('fitnessGoals', userRes.user.goals || '');
+                }
+                const performanceSummary = await getPerformanceSummary(userId);
+                setPerformanceData(performanceSummary);
+            } catch (error) {
+                 console.error("Error loading recommendation data:", error);
+                 toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Could not load your data. You may need to create a Firestore index for workout history.",
+                 });
+                 setPerformanceData("Error loading workout data.");
             }
-            const performanceSummary = await getPerformanceSummary(userId);
-            setPerformanceData(performanceSummary);
         }
         setIsFetchingData(false);
     }
     loadData();
-  }, [userId, form]);
+  }, [userId, form, toast]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     setRecommendations(null);
+
+    if (performanceData.startsWith("Error")) {
+         toast({
+            variant: "destructive",
+            title: "Cannot Generate Recommendations",
+            description: "Please resolve the data loading issue first.",
+        });
+        setIsLoading(false);
+        return;
+    }
 
     try {
       const result = await generatePersonalizedRecommendations({
@@ -102,6 +120,8 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
         let errorDescription = "Failed to generate AI recommendations. Please try again.";
         if (error.message?.includes("503") || error.message?.includes("overloaded")) {
             errorDescription = "The AI model is currently busy. Please wait a moment and try again.";
+        } else if (error.message?.includes("index")) {
+            errorDescription = "A database index is required. Please check the server logs for an index creation link."
         }
         toast({
             variant: "destructive",

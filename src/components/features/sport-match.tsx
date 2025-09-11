@@ -39,14 +39,12 @@ const formSchema = z.object({
 
 
 async function getPerformanceSummary(userId: string) {
-    const result = await getWorkoutHistory(userId);
+    const result = await getWorkoutHistory(userId, 5);
     if (!result.success || result.workouts.length === 0) {
         return "No recent workouts to analyze.";
     }
 
-    const recentWorkouts = result.workouts.slice(0, 5);
-
-    return recentWorkouts
+    return result.workouts
       .map((data) => {
         let record = `${data.exercise}:`;
         if (data.reps) record += ` ${data.reps} reps`;
@@ -64,6 +62,7 @@ export default function SportMatch({ userId }: { userId: string }) {
     null
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(true);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -76,17 +75,39 @@ export default function SportMatch({ userId }: { userId: string }) {
 
   useEffect(() => {
     async function loadPerformanceData() {
+        setIsFetchingData(true);
         if (userId) {
-            const summary = await getPerformanceSummary(userId);
-            form.setValue('performanceData', summary);
+            try {
+                const summary = await getPerformanceSummary(userId);
+                form.setValue('performanceData', summary);
+            } catch (error) {
+                console.error("Error loading sport match data:", error);
+                toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Could not load your workout data. You may need to create a Firestore index.",
+                });
+                form.setValue('performanceData', "Error loading workout data.");
+            }
         }
+        setIsFetchingData(false);
     }
     loadPerformanceData();
-  }, [userId, form]);
+  }, [userId, form, toast]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     setSuggestions(null);
+    
+    if (values.performanceData.startsWith("Error")) {
+         toast({
+            variant: "destructive",
+            title: "Cannot Generate Matches",
+            description: "Please resolve the data loading issue first.",
+        });
+        setIsLoading(false);
+        return;
+    }
 
     try {
       const result = await suggestSports({
@@ -117,7 +138,7 @@ export default function SportMatch({ userId }: { userId: string }) {
           <CardTitle>Find Your Sport</CardTitle>
           <CardDescription>
             Discover sports you might excel at based on your current fitness
-            profile and preferences. Your workout history is automatically analyzed.
+            profile and preferences. Your recent workout history is automatically analyzed.
           </CardDescription>
         </CardHeader>
         <Form {...form}>
@@ -142,11 +163,11 @@ export default function SportMatch({ userId }: { userId: string }) {
               />
             </CardContent>
             <CardFooter>
-              <Button type="submit" disabled={isLoading || !form.getValues('performanceData')} className="w-full">
-                {isLoading && (
+              <Button type="submit" disabled={isLoading || isFetchingData} className="w-full">
+                {(isLoading || isFetchingData) && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Match Me
+                {isFetchingData ? 'Loading Data...' : 'Match Me'}
               </Button>
             </CardFooter>
           </form>

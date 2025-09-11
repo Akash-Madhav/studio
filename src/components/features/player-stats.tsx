@@ -102,7 +102,7 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
             toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: 'Failed to fetch workout history.',
+                description: result.message || 'Failed to fetch workout history.',
             });
         }
         setIsLoadingHistory(false);
