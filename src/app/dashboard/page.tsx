@@ -245,7 +245,7 @@ function DashboardContent() {
         </div>
         
         <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-            <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-3' : 'grid-cols-3 sm:grid-cols-7'}`}>
+            <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-3' : 'grid-cols-4 sm:grid-cols-8'}`}>
               {isCoach ? (
                   <>
                       <TabsTrigger value="team"><Users className="mr-2"/>Team</TabsTrigger>
@@ -257,6 +257,7 @@ function DashboardContent() {
                       {commonTabs}
                       <TabsTrigger value="find-sport"><Search className="mr-2" />Find Sport</TabsTrigger>
                       <TabsTrigger value="invites"><Mail className="mr-2" />Invites</TabsTrigger>
+                      <TabsTrigger value="messages"><MessageSquare className="mr-2"/>Messages</TabsTrigger>
                   </>
               )}
             </TabsList>
@@ -300,6 +301,9 @@ function DashboardContent() {
                     </TabsContent>
                     <TabsContent value="invites" className="mt-4">
                         <PlayerInvites userId={userId} />
+                    </TabsContent>
+                    <TabsContent value="messages" className="mt-4">
+                        <Messages userId={userId} />
                     </TabsContent>
                 </>
             )}
