@@ -77,4 +77,3 @@ const videoWorkoutAnalysisFlow = ai.defineFlow(
     return output!;
   }
 );
-
