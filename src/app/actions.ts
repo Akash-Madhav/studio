@@ -66,24 +66,17 @@ export async function signInWithEmailAndPasswordAction(values: z.infer<typeof si
         const userRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userRef);
         
-        let userRole = 'player'; // Default role
-
         if (!userDoc.exists()) {
-             // Profile doesn't exist, create one
-            await setDoc(userRef, {
-                id: user.uid,
-                name: user.displayName || validatedData.email.split('@')[0], // Use display name or part of email
-                email: validatedData.email,
-                role: userRole,
-                status: 'active',
-                createdAt: serverTimestamp(),
-            });
-        } else {
-            userRole = userDoc.data()?.role || 'player';
+             // This case should ideally not happen if signup is working correctly,
+             // but we handle it defensively.
+             return { success: false, message: "User profile not found. Please sign up." };
         }
 
+        const userRole = userDoc.data()?.role || 'player'; // Default to player if role is missing
+
         return { success: true, userId: user.uid, role: userRole };
-    } catch (error: any) {
+    } catch (error: any)
+     {
         console.error("Error signing in:", error);
         let message = 'Failed to sign in. Please check your credentials.';
         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
@@ -563,3 +556,5 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
+
+    
