@@ -1,7 +1,8 @@
 
 'use server';
-import { db } from '@/lib/firebase';
-import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit, setDoc } from 'firebase/firestore';
 
 import { z } from 'zod';
 import { sampleUsers, sampleWorkouts } from '@/lib/sample-data';
@@ -16,6 +17,69 @@ const formatDate = (timestamp: any): string | null => {
     }
     return null;
 }
+
+const signUpSchema = z.object({
+  name: z.string().min(2, "Name is required."),
+  email: z.string().email("Invalid email address."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
+  role: z.enum(['player', 'coach']),
+});
+
+export async function signUpWithEmailAndPassword(values: z.infer<typeof signUpSchema>) {
+    try {
+        const validatedData = signUpSchema.parse(values);
+        const userCredential = await createUserWithEmailAndPassword(auth, validatedData.email, validatedData.password);
+        const user = userCredential.user;
+
+        await setDoc(doc(db, "users", user.uid), {
+            id: user.uid,
+            name: validatedData.name,
+            email: validatedData.email,
+            role: validatedData.role,
+            status: 'active',
+            createdAt: serverTimestamp(),
+        });
+        
+        return { success: true, userId: user.uid, role: validatedData.role };
+    } catch (error: any) {
+        console.error("Error signing up:", error);
+        let message = 'Failed to sign up.';
+        if (error.code === 'auth/email-already-in-use') {
+            message = 'This email is already in use.';
+        }
+        return { success: false, message };
+    }
+}
+
+const signInSchema = z.object({
+  email: z.string().email("Invalid email address."),
+  password: z.string().min(1, "Password is required."),
+});
+
+
+export async function signInWithEmailAndPasswordAction(values: z.infer<typeof signInSchema>) {
+    try {
+        const validatedData = signInSchema.parse(values);
+        const userCredential = await signInWithEmailAndPassword(auth, validatedData.email, validatedData.password);
+        const user = userCredential.user;
+
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (!userDoc.exists()) {
+             return { success: false, message: 'User profile not found.' };
+        }
+        const userRole = userDoc.data()?.role || 'player';
+
+        return { success: true, userId: user.uid, role: userRole };
+    } catch (error: any) {
+        console.error("Error signing in:", error);
+        let message = 'Failed to sign in. Please check your credentials.';
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            message = 'Invalid email or password.';
+        }
+        return { success: false, message };
+    }
+}
+
 
 export async function seedDatabase() {
     try {
@@ -383,7 +447,7 @@ export async function getConversations(userId: string): Promise<{ success: boole
                 .map((id: string) => ({ id, name: usersMap[id]?.name || 'Unknown' }));
 
             const messagesCol = collection(db, 'conversations', d.id, 'messages');
-            const lastMsgQuery = query(messagesCol, orderBy('createdAt', 'desc'), where('text', '!=', null));
+            const lastMsgQuery = query(messagesCol, orderBy('createdAt', 'desc'), where('text', '!=', null), limit(1));
             const lastMsgSnapshot = await getDocs(lastMsgQuery);
             const lastMessage = lastMsgSnapshot.docs[0] ? {
                 text: lastMsgSnapshot.docs[0].data().text,
@@ -492,3 +556,5 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
+
+    

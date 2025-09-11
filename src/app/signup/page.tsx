@@ -10,18 +10,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dumbbell, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { signInWithEmailAndPasswordAction } from "@/app/actions";
+import { signUpWithEmailAndPassword } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
 
 const formSchema = z.object({
+  name: z.string().min(2, "Name is required."),
   email: z.string().email("Invalid email address."),
-  password: z.string().min(1, "Password is required."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
+  role: z.enum(["player", "coach"], {
+    required_error: "You need to select a role.",
+  }),
 });
 
-export default function LoginPage() {
+export default function SignUpPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -29,26 +35,28 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: "",
       email: "",
       password: "",
+      role: "player",
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    const result = await signInWithEmailAndPasswordAction(values);
+    const result = await signUpWithEmailAndPassword(values);
     setIsLoading(false);
 
     if (result.success) {
       toast({
-        title: "Login Successful",
-        description: "Welcome back!",
+        title: "Account Created",
+        description: "Welcome to OptiFit AI! Please log in.",
       });
       router.push(`/dashboard?role=${result.role}&userId=${result.userId}`);
     } else {
       toast({
         variant: "destructive",
-        title: "Login Failed",
+        title: "Sign Up Failed",
         description: result.message,
       });
     }
@@ -69,12 +77,25 @@ export default function LoginPage() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <CardHeader>
-                <CardTitle className="text-2xl">Login</CardTitle>
+                <CardTitle className="text-2xl">Sign Up</CardTitle>
                 <CardDescription>
-                  Enter your email below to login to your account.
+                  Create your OptiFit AI account to get started.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Alex Johnson" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="email"
@@ -101,16 +122,52 @@ export default function LoginPage() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel>I am a...</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="grid grid-cols-2 gap-4"
+                        >
+                          <FormItem>
+                             <RadioGroupItem value="player" id="player" className="peer sr-only" />
+                              <Label
+                                htmlFor="player"
+                                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                              >
+                                Player
+                              </Label>
+                          </FormItem>
+                          <FormItem>
+                            <RadioGroupItem value="coach" id="coach" className="peer sr-only" />
+                              <Label
+                                htmlFor="coach"
+                                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                              >
+                                Coach
+                              </Label>
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </CardContent>
               <CardFooter className="flex flex-col gap-4">
                 <Button className="w-full" type="submit" disabled={isLoading}>
-                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign in
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create Account
                 </Button>
                 <div className="mt-4 text-center text-sm">
-                  Don&apos;t have an account?{" "}
-                  <Link href="/signup" className="underline">
-                    Sign up
+                  Already have an account?{" "}
+                  <Link href="/" className="underline">
+                    Sign in
                   </Link>
                 </div>
               </CardFooter>
@@ -118,18 +175,6 @@ export default function LoginPage() {
           </Form>
         </Card>
       </main>
-
-      <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
-        <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} OptiFit AI. All rights reserved.</p>
-        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
-          <Link href="#" className="text-xs hover:underline underline-offset-4" prefetch={false}>
-            Terms of Service
-          </Link>
-          <Link href="#" className="text-xs hover:underline underline-offset-4" prefetch={false}>
-            Privacy
-          </Link>
-        </nav>
-      </footer>
     </div>
   );
 }
