@@ -547,3 +547,21 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
+
+export async function deleteAllData() {
+    try {
+        const collectionsToDelete = ['users', 'workouts', 'invites', 'conversations', 'posts'];
+        for (const col of collectionsToDelete) {
+            const snapshot = await getDocs(collection(db, col));
+            const batch = writeBatch(db);
+            snapshot.docs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+        }
+        return { success: true, message: "All data has been cleared." };
+    } catch (error) {
+        console.error("Error deleting all data:", error);
+        return { success: false, message: "Failed to clear database." };
+    }
+}
