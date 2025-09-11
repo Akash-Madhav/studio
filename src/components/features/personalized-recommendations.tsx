@@ -95,14 +95,17 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
     try {
       const result = await generatePersonalizedRecommendations(values);
       setRecommendations(result);
-    } catch (error) {
-      console.error("Failed to get AI recommendations:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description:
-          "Failed to generate AI recommendations. Please try again.",
-      });
+    } catch (error: any) {
+        console.error("Failed to get AI recommendations:", error);
+        let errorDescription = "Failed to generate AI recommendations. Please try again.";
+        if (error.message?.includes("503") || error.message?.includes("overloaded")) {
+            errorDescription = "The AI model is currently busy. Please wait a moment and try again.";
+        }
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: errorDescription,
+        });
     } finally {
       setIsLoading(false);
     }
