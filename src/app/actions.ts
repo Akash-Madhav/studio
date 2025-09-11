@@ -7,12 +7,12 @@ import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimes
 import { z } from 'zod';
 import { generateTeamName } from '@/ai/flows/generate-team-name';
 
-// Helper to convert Firestore Timestamp to YYYY-MM-DD string
-const formatDate = (timestamp: any): string | null => {
+// Helper to convert Firestore Timestamp to a serializable format
+const formatTimestamp = (timestamp: any): Date | null => {
     if (timestamp && typeof timestamp.toDate === 'function') {
         const d = timestamp.toDate();
         if (d instanceof Date && !isNaN(d.getTime())) {
-            return d.toISOString().split('T')[0];
+            return d;
         }
     }
     return null;
@@ -143,10 +143,11 @@ export async function getUser(userId: string) {
         const user = {
             ...userData,
             id: userSnap.id,
-            dob: formatDate(userData.dob),
+            dob: formatTimestamp(userData.dob),
+            createdAt: formatTimestamp(userData.createdAt),
         };
 
-        return { success: true, user };
+        return { success: true, user: JSON.parse(JSON.stringify(user)) };
     } catch (error: any) {
         console.error(`Error fetching user ${userId}:`, error);
         return { success: false, user: null, message: "Failed to fetch user data." };
@@ -168,10 +169,11 @@ export async function getUsersByIds(userIds: string[]) {
             users[doc.id] = {
                 ...data,
                 id: doc.id,
-                dob: formatDate(data.dob),
+                dob: formatTimestamp(data.dob),
+                createdAt: formatTimestamp(data.createdAt),
             };
         });
-        return { success: true, users };
+        return { success: true, users: JSON.parse(JSON.stringify(users)) };
     } catch (error) {
         console.error("Error fetching users by IDs:", error);
         return { success: false, users: {}, message: 'Failed to fetch user data.' };
@@ -262,16 +264,16 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
                 return {
                     ...data,
                     _id: doc.id,
-                    createdAt: data.createdAt ? data.createdAt.toDate() : new Date(), 
+                    createdAt: formatTimestamp(data.createdAt), 
                 };
             });
 
         // Sort in memory to avoid index requirement
-        workouts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        workouts.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
         
         const limitedWorkouts = recordLimit ? workouts.slice(0, recordLimit) : workouts;
         
-        return { success: true, workouts: limitedWorkouts };
+        return { success: true, workouts: JSON.parse(JSON.stringify(limitedWorkouts)) };
     } catch (error: any) {
         console.error(`Error fetching workout history for user ${userId}:`, error);
         return { success: false, workouts: [], message: "Failed to fetch workout history." };
@@ -288,7 +290,8 @@ export async function getAllPlayers() {
             return { 
                 id: doc.id, 
                 ...data,
-                dob: formatDate(data.dob) 
+                dob: formatTimestamp(data.dob),
+                createdAt: formatTimestamp(data.createdAt),
             };
         });
 
@@ -314,7 +317,7 @@ export async function getAllPlayers() {
             return { ...player, performanceData, userProfile };
         }));
 
-        return { success: true, players: playersWithWorkouts };
+        return { success: true, players: JSON.parse(JSON.stringify(playersWithWorkouts)) };
     } catch (error) {
         console.error("Error getting all players:", error);
         return { success: false, players: [] };
@@ -453,7 +456,7 @@ export async function getConversations(userId: string): Promise<{ success: boole
             const lastMsgSnapshot = await getDocs(lastMsgQuery);
             const lastMessage = lastMsgSnapshot.docs[0] ? {
                 text: lastMsgSnapshot.docs[0].data().text,
-                sentAt: formatDate(lastMsgSnapshot.docs[0].data().createdAt) || new Date().toISOString(),
+                sentAt: formatTimestamp(lastMsgSnapshot.docs[0].data().createdAt)?.toISOString() || new Date().toISOString(),
             } : undefined;
 
             return {
@@ -464,7 +467,7 @@ export async function getConversations(userId: string): Promise<{ success: boole
                 type: data.type || 'direct',
             };
         }));
-        return { success: true, conversations };
+        return { success: true, conversations: JSON.parse(JSON.stringify(conversations)) };
     } catch (error) {
         console.error("Error getting conversations:", error);
         return { success: false, conversations: [], message: 'Failed to fetch conversations.' };
@@ -479,9 +482,9 @@ export async function getMessages(conversationId: string) {
         const messages = snapshot.docs.map(doc => ({
             _id: doc.id,
             ...doc.data(),
-            createdAt: formatDate(doc.data().createdAt) || new Date().toISOString(),
+            createdAt: formatTimestamp(doc.data().createdAt)?.toISOString() || new Date().toISOString(),
         }));
-        return { success: true, messages };
+        return { success: true, messages: JSON.parse(JSON.stringify(messages)) };
     } catch (error) {
         console.error("Error getting messages:", error);
         return { success: false, messages: [], message: 'Failed to fetch messages.' };
@@ -503,9 +506,9 @@ export async function sendMessage({ conversationId, senderId, text }: { conversa
             _id: newMessageSnap.id,
             senderId: newMessageData?.senderId,
             text: newMessageData?.text,
-            createdAt: formatDate(newMessageData?.createdAt) || new Date().toISOString(),
+            createdAt: formatTimestamp(newMessageData?.createdAt)?.toISOString() || new Date().toISOString(),
         }
-        return { success: true, message: newMessage };
+        return { success: true, message: JSON.parse(JSON.stringify(newMessage)) };
     } catch (error) {
         console.error("Error sending message:", error);
         return { success: false, message: 'Failed to send message.' };

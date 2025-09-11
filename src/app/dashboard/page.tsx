@@ -60,14 +60,13 @@ interface User {
     status?: string;
 }
 
-const formatDate = (timestamp: any): string | null => {
-    if (timestamp && typeof timestamp.toDate === 'function') {
-        const d = timestamp.toDate();
-        if (d instanceof Date && !isNaN(d.getTime())) {
-            return d.toISOString().split('T')[0];
-        }
+const formatDate = (date: string | Date | undefined): string | null => {
+    if (!date) return null;
+    try {
+        return new Date(date).toISOString().split('T')[0];
+    } catch (e) {
+        return null;
     }
-    return null;
 }
 
 function DashboardContent() {
@@ -103,7 +102,7 @@ function DashboardContent() {
             setCurrentUser({
                 ...userData,
                 id: docSnap.id,
-                dob: formatDate(userData.dob),
+                dob: formatDate(userData.dob?.toDate()),
             } as User);
         } else {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
