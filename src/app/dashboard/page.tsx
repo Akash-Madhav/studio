@@ -39,7 +39,7 @@ import PendingInvites from '@/components/features/pending-invites';
 import PlayerInvites from '@/components/features/player-invites';
 import Messages from '@/components/features/messages';
 import SportMatch from '@/components/features/sport-match';
-import { getUser, getAllPlayers, getUsersByIds } from '@/app/actions';
+import { getUser, getAllPlayers, getUsersByIds, getWorkoutHistory } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
