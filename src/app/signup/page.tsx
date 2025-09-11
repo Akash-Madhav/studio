@@ -11,14 +11,25 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Dumbbell, Loader2 } from "lucide-react";
+import { Dumbbell, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { signUpWithEmailAndPassword, signInWithGoogle } from "@/app/actions";
+import { signUpWithEmailAndPassword, signInWithGoogle, clearAllData } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { auth } from "@/lib/firebase";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required."),
@@ -42,6 +53,7 @@ export default function SignUpPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -107,6 +119,24 @@ export default function SignUpPage() {
     } finally {
         setIsLoading(false);
     }
+  }
+
+  async function handleClearData() {
+    setIsDeleting(true);
+    const result = await clearAllData();
+    if (result.success) {
+        toast({
+            title: "Database Cleared",
+            description: "All Firestore data has been removed.",
+        });
+    } else {
+         toast({
+            variant: "destructive",
+            title: "Error",
+            description: result.message || "Failed to clear data.",
+        });
+    }
+    setIsDeleting(false);
   }
 
   return (
@@ -227,11 +257,36 @@ export default function SignUpPage() {
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create Account with Email
                 </Button>
-                <div className="mt-4 text-center text-sm">
+                <div className="text-center text-sm">
                   Already have an account?{" "}
                   <Link href="/" className="underline">
                     Sign in
                   </Link>
+                </div>
+                 <div className="w-full border-t pt-4 mt-2">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="w-full">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Clear All Data
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete all users, workouts, messages, and other data from the database.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleClearData} disabled={isDeleting}>
+                            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Yes, delete everything
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                 </div>
               </CardFooter>
             </form>

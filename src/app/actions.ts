@@ -548,4 +548,28 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
     }
 }
 
-    
+export async function clearAllData() {
+    try {
+        console.log("Clearing Firestore database via server action...");
+        const collectionsToDelete = ['users', 'workouts', 'invites', 'conversations', 'posts'];
+        for (const collectionPath of collectionsToDelete) {
+            const collectionRef = collection(db, collectionPath);
+            const snapshot = await getDocs(collectionRef);
+            if (snapshot.empty) {
+                continue;
+            }
+            const batch = writeBatch(db);
+            snapshot.docs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+        }
+        // Note: This function CANNOT delete Firebase Auth users due to security restrictions.
+        // They must be deleted manually from the Firebase Console.
+        console.log("Firestore database cleared successfully.");
+        return { success: true, message: "Firestore data has been cleared. Auth users must be deleted manually." };
+    } catch (error) {
+        console.error("Error clearing database:", error);
+        return { success: false, message: "Failed to clear database." };
+    }
+}
