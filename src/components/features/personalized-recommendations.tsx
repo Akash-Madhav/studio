@@ -34,7 +34,6 @@ import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   fitnessGoals: z.string().min(1, "Fitness goals are required."),
-  performanceData: z.string(),
 });
 
 async function getPerformanceSummary(userId: string) {
@@ -63,12 +62,12 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
     useState<PersonalizedTrainingRecommendationsOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
+  const [performanceData, setPerformanceData] = useState("");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       fitnessGoals: "",
-      performanceData: "",
     },
   });
 
@@ -81,7 +80,7 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
                  form.setValue('fitnessGoals', userRes.user.goals || '');
             }
             const performanceSummary = await getPerformanceSummary(userId);
-            form.setValue('performanceData', performanceSummary);
+            setPerformanceData(performanceSummary);
         }
         setIsFetchingData(false);
     }
@@ -93,7 +92,10 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
     setRecommendations(null);
 
     try {
-      const result = await generatePersonalizedRecommendations(values);
+      const result = await generatePersonalizedRecommendations({
+        ...values,
+        performanceData,
+      });
       setRecommendations(result);
     } catch (error: any) {
         console.error("Failed to get AI recommendations:", error);
@@ -151,7 +153,7 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
                         </div>
                     ) : (
                         <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-sans">
-                            {form.getValues('performanceData')}
+                            {performanceData}
                         </pre>
                     )}
                 </div>
