@@ -306,66 +306,6 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
     }
 }
 
-export async function getPendingInvitesForCoach(coachId: string) {
-    try {
-        const invitesCol = collection(db, 'invites');
-        const q = query(invitesCol, where('coachId', '==', coachId), where('status', '==', 'pending'));
-        const snapshot = await getDocs(q);
-        
-        const playerIds = snapshot.docs.map(doc => doc.data().playerId);
-        const usersRes = await getUsersByIds(playerIds);
-
-        if (!usersRes.success) {
-            return { success: false, invites: [] };
-        }
-
-        const invites = snapshot.docs.map(d => {
-            const data = d.data();
-            const player = usersRes.users[data.playerId];
-            return {
-                inviteId: d.id,
-                playerId: data.playerId,
-                playerName: player?.name || 'Unknown',
-                playerAvatar: `https://picsum.photos/seed/${data.playerId}/50/50`,
-                sentAt: data.sentAt ? formatDate(data.sentAt) : new Date().toISOString(), 
-            };
-        });
-
-        return { success: true, invites };
-    } catch (error) {
-        console.error("Error fetching pending invites:", error);
-        return { success: false, invites: [] };
-    }
-}
-
-export async function getRecruitedPlayers(coachId: string) {
-    try {
-        const usersCol = collection(db, 'users');
-        const q = query(usersCol, where('coachId', '==', coachId), where('status', '==', 'recruited'));
-        const snapshot = await getDocs(q);
-        const players = await Promise.all(snapshot.docs.map(async (d) => {
-            const player: any = { id: d.id, ...d.data(), dob: formatDate(d.data().dob) };
-            const workoutHistory = await getWorkoutHistory(d.id);
-            const performanceData = workoutHistory.workouts
-                .slice(0, 3)
-                .map(w => `${w.exercise}: ${w.reps || '-'} reps, ${w.weight || '-'} kg`)
-                .join(' | ');
-            const userProfile = (player.experience && player.goals) ? `${player.experience}, ${player.goals}` : 'No profile information available.';
-            return {
-                id: d.id,
-                name: player.name,
-                userProfile: userProfile,
-                performanceData: performanceData || 'No recent workouts logged.',
-                status: player.status
-            };
-        }));
-        return { success: true, players };
-    } catch (error) {
-        console.error("Error fetching recruited players:", error);
-        return { success: false, players: [] };
-    }
-}
-
 export async function respondToInvite({ inviteId, response, playerId, coachId }: { inviteId: string, response: 'accepted' | 'declined', playerId: string, coachId: string }) {
     try {
         let conversationId: string | null = null;
@@ -385,8 +325,14 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 transaction.update(playerRef, { status: 'recruited', coachId: coachId });
             });
         } else {
-            await updateDoc(doc(db, 'invites', inviteId), { status: 'declined' });
-            await updateDoc(doc(db, 'users', playerId), { status: 'active', coachId: null });
+            await runTransaction(db, async (transaction) => {
+                const inviteRef = doc(db, 'invites', inviteId);
+                const playerRef = doc(db, 'users', playerId);
+
+                // Use a transaction to ensure both updates succeed or fail together.
+                transaction.update(inviteRef, { status: 'declined' });
+                transaction.update(playerRef, { status: 'active', coachId: null });
+            });
         }
         return { success: true, conversationId };
     } catch (error) {

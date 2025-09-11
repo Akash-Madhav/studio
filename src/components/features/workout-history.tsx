@@ -37,10 +37,10 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
         return;
     }
     
-    // Query without orderBy to avoid composite index requirement
     const q = query(
         collection(db, 'workouts'), 
-        where("userId", "==", userId)
+        where("userId", "==", userId),
+        orderBy("createdAt", "desc")
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -53,9 +53,6 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
                 createdAt: createdAt ? createdAt.toDate() : new Date(),
             } as Workout;
         });
-
-        // Sort on the client-side
-        workoutsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         
         setWorkouts(workoutsData);
         setIsLoading(false);
@@ -64,7 +61,7 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
         toast({
             variant: "destructive",
             title: "Error",
-            description: "Could not load workout history.",
+            description: "Could not load workout history. You may need to create a Firestore index.",
         });
         setIsLoading(false);
     });

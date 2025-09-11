@@ -39,10 +39,12 @@ import PendingInvites from '@/components/features/pending-invites';
 import PlayerInvites from '@/components/features/player-invites';
 import Messages from '@/components/features/messages';
 import SportMatch from '@/components/features/sport-match';
-import { getUser, getAllPlayers, getPendingInvitesForCoach, getRecruitedPlayers } from '@/app/actions';
+import { getUser, getAllPlayers, getUsersByIds } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
+import { onSnapshot, collection, query, where, doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 
 interface User {
@@ -73,7 +75,7 @@ function DashboardContent() {
   const [recruitedPlayers, setRecruitedPlayers] = useState<any[]>([]);
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
   const [isLoadingCoachData, setIsLoadingCoachData] = useState(isCoach);
-
+  
   const fetchUserData = useCallback(async () => {
     if (!initialUserId) {
       setIsLoadingUser(false);
@@ -96,38 +98,89 @@ function DashboardContent() {
     }
   }, [initialUserId, toast]);
 
-  const fetchCoachData = useCallback(async () => {
-    if (!isCoach || !initialUserId) return;
-    setIsLoadingCoachData(true);
-    try {
-        const [playersRes, invitesRes, recruitedRes] = await Promise.all([
-            getAllPlayers(),
-            getPendingInvitesForCoach(initialUserId),
-            getRecruitedPlayers(initialUserId),
-        ]);
-
-        if (playersRes.success) setPlayers(playersRes.players);
-        else toast({ variant: 'destructive', title: 'Error', description: 'Could not load players.'});
-
-        if (invitesRes.success) setPendingInvites(invitesRes.invites);
-        else toast({ variant: 'destructive', title: 'Error', description: 'Could not load pending invites.'});
-
-        if (recruitedRes.success) setRecruitedPlayers(recruitedRes.players);
-        else toast({ variant: 'destructive', title: 'Error', description: 'Could not load recruited players.'});
-
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch coach dashboard data.' });
-    } finally {
-        setIsLoadingCoachData(false);
-    }
-  }, [isCoach, initialUserId, toast]);
+  const fetchAllPlayersForScouting = useCallback(async () => {
+     if (!isCoach) return;
+     try {
+        const playersRes = await getAllPlayers();
+        if (playersRes.success) {
+            setPlayers(playersRes.players);
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load players for scouting.'});
+        }
+     } catch(e) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch player data for scouting.' });
+     }
+  }, [isCoach, toast]);
   
   useEffect(() => {
     fetchUserData();
     if (isCoach) {
-      fetchCoachData();
+      fetchAllPlayersForScouting();
     }
-  }, [fetchUserData, fetchCoachData, isCoach]);
+  }, [fetchUserData, fetchAllPlayersForScouting, isCoach]);
+
+  useEffect(() => {
+    if (!isCoach || !initialUserId) {
+        setIsLoadingCoachData(false);
+        return;
+    }
+    setIsLoadingCoachData(true);
+
+    // Listener for Recruited Players
+    const recruitedQuery = query(collection(db, 'users'), where('coachId', '==', initialUserId), where('status', '==', 'recruited'));
+    const recruitedUnsubscribe = onSnapshot(recruitedQuery, async (snapshot) => {
+        const recruitedData = await Promise.all(snapshot.docs.map(async (d) => {
+            const player: any = { id: d.id, ...d.data() };
+            const workoutHistory = await getWorkoutHistory(d.id);
+            const performanceData = workoutHistory.workouts
+                .slice(0, 3)
+                .map(w => `${w.exercise}: ${w.reps || '-'} reps, ${w.weight || '-'} kg`)
+                .join(' | ');
+            const userProfile = (player.experience && player.goals) ? `${player.experience}, ${player.goals}` : 'No profile information available.';
+            return {
+                id: d.id,
+                name: player.name,
+                userProfile: userProfile,
+                performanceData: performanceData || 'No recent workouts logged.',
+                status: player.status
+            };
+        }));
+        setRecruitedPlayers(recruitedData);
+        setIsLoadingCoachData(false);
+    });
+
+    // Listener for Pending Invites
+    const invitesQuery = query(collection(db, 'invites'), where('coachId', '==', initialUserId), where('status', '==', 'pending'));
+    const invitesUnsubscribe = onSnapshot(invitesQuery, async (snapshot) => {
+        const playerIds = snapshot.docs.map(doc => doc.data().playerId);
+        
+        if (playerIds.length === 0) {
+            setPendingInvites([]);
+            return;
+        }
+
+        const usersRes = await getUsersByIds(playerIds);
+        if (usersRes.success) {
+            const invitesData = snapshot.docs.map(d => {
+                const data = d.data();
+                const player = usersRes.users[data.playerId];
+                return {
+                    inviteId: d.id,
+                    playerId: data.playerId,
+                    playerName: player?.name || 'Unknown',
+                    playerAvatar: `https://picsum.photos/seed/${data.playerId}/50/50`,
+                    sentAt: data.sentAt ? data.sentAt.toDate().toISOString() : new Date().toISOString(),
+                };
+            });
+            setPendingInvites(invitesData);
+        }
+    });
+
+    return () => {
+        recruitedUnsubscribe();
+        invitesUnsubscribe();
+    }
+  }, [isCoach, initialUserId]);
 
 
   useEffect(() => {
@@ -272,7 +325,7 @@ function DashboardContent() {
                         <PlayerScouting 
                             players={players} 
                             isLoading={isLoadingCoachData} 
-                            onInviteSent={fetchCoachData} 
+                            onInviteSent={fetchAllPlayersForScouting} 
                         />
                     </TabsContent>
                     <TabsContent value="messages" className="mt-4">
