@@ -43,7 +43,7 @@ import { getUser, getAllPlayers, getUsersByIds, getWorkoutHistory } from '@/app/
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
-import { onSnapshot, collection, query, where, doc, getDoc } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 
@@ -129,23 +129,35 @@ function DashboardContent() {
     // Listener for Recruited Players
     const recruitedQuery = query(collection(db, 'users'), where('coachId', '==', initialUserId), where('status', '==', 'recruited'));
     const recruitedUnsubscribe = onSnapshot(recruitedQuery, async (snapshot) => {
-        const recruitedData = await Promise.all(snapshot.docs.map(async (d) => {
+        const recruitedDataPromises = snapshot.docs.map(async (d) => {
             const player: any = { id: d.id, ...d.data() };
-            const workoutHistory = await getWorkoutHistory(d.id);
-            const performanceData = workoutHistory.workouts
-                .slice(0, 3)
-                .map(w => `${w.exercise}: ${w.reps || '-'} reps, ${w.weight || '-'} kg`)
-                .join(' | ');
-            const userProfile = (player.experience && player.goals) ? `${player.experience}, ${player.goals}` : 'No profile information available.';
+            const workoutHistoryResult = await getWorkoutHistory(d.id, 3);
+            let performanceData = 'No recent workouts logged.';
+            if (workoutHistoryResult.success && workoutHistoryResult.workouts.length > 0) {
+                 performanceData = workoutHistoryResult.workouts
+                    .map(w => `${w.exercise}: ${w.reps || '-'} reps, ${w.weight || '-'} kg`)
+                    .join(' | ');
+            }
+            
+            const profileParts = [];
+            if (player.experience) profileParts.push(player.experience);
+            if (player.goals) profileParts.push(player.goals);
+            const userProfile = profileParts.length > 0 ? profileParts.join(', ') : 'No profile information available.';
+
             return {
                 id: d.id,
                 name: player.name,
                 userProfile: userProfile,
-                performanceData: performanceData || 'No recent workouts logged.',
+                performanceData: performanceData,
                 status: player.status
             };
-        }));
+        });
+        const recruitedData = await Promise.all(recruitedDataPromises);
         setRecruitedPlayers(recruitedData);
+        setIsLoadingCoachData(false);
+    }, (error) => {
+        console.error("Error fetching recruited players:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load team data.' });
         setIsLoadingCoachData(false);
     });
 
@@ -164,23 +176,27 @@ function DashboardContent() {
             const invitesData = snapshot.docs.map(d => {
                 const data = d.data();
                 const player = usersRes.users[data.playerId];
+                const sentAt = data.sentAt as Timestamp;
                 return {
                     inviteId: d.id,
                     playerId: data.playerId,
                     playerName: player?.name || 'Unknown',
                     playerAvatar: `https://picsum.photos/seed/${data.playerId}/50/50`,
-                    sentAt: data.sentAt ? data.sentAt.toDate().toISOString() : new Date().toISOString(),
+                    sentAt: sentAt ? sentAt.toDate().toISOString() : new Date().toISOString(),
                 };
             });
             setPendingInvites(invitesData);
         }
+    }, (error) => {
+        console.error("Error fetching pending invites:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load pending invites.' });
     });
 
     return () => {
         recruitedUnsubscribe();
         invitesUnsubscribe();
     }
-  }, [isCoach, initialUserId]);
+  }, [isCoach, initialUserId, toast]);
 
 
   useEffect(() => {
@@ -373,3 +389,5 @@ export default function Dashboard() {
     </Suspense>
   );
 }
+
+    

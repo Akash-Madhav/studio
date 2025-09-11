@@ -123,3 +123,5 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
     </Card>
   );
 }
+
+    

@@ -245,3 +245,5 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
     </div>
   );
 }
+
+    
