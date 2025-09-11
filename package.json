@@ -10,8 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
-    "db:clear": "tsx scripts/clear-db.ts"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@faker-js/faker": "^8.4.1",
