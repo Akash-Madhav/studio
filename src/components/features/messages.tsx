@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from 'next/navigation';
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, Users } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ interface Message {
     _id: string;
     senderId: string;
     text: string;
-    createdAt: string; // Changed to string
+    createdAt: string;
 }
 
 export default function Messages({ userId }: { userId: string }) {
@@ -36,6 +36,7 @@ export default function Messages({ userId }: { userId: string }) {
     const [isLoadingConversations, setIsLoadingConversations] = useState(true);
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
     const [isSending, setIsSending] = useState(false);
+    const [participantsMap, setParticipantsMap] = useState<Record<string, {name: string}>>({});
 
     const { toast } = useToast();
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -49,7 +50,7 @@ export default function Messages({ userId }: { userId: string }) {
             const participantIds = new Set<string>();
             snapshot.docs.forEach(doc => {
                 doc.data().participantIds.forEach((id: string) => {
-                    if (id !== userId) participantIds.add(id);
+                    participantIds.add(id);
                 });
             });
 
@@ -60,12 +61,11 @@ export default function Messages({ userId }: { userId: string }) {
                 return;
             }
             const usersMap = usersRes.users;
+            setParticipantsMap(usersMap);
 
             const convosData = await Promise.all(snapshot.docs.map(async (d) => {
                 const data = d.data();
-                const participants = data.participantIds
-                    .filter((id: string) => id !== userId)
-                    .map((id: string) => ({ id, name: usersMap[id]?.name || 'Unknown' }));
+                const participants = data.participantIds.map((id: string) => ({ id, name: usersMap[id]?.name || 'Unknown' }));
 
                 const messagesCol = collection(db, 'conversations', d.id, 'messages');
                 const lastMsgQuery = query(messagesCol, orderBy('createdAt', 'desc'));
@@ -76,7 +76,13 @@ export default function Messages({ userId }: { userId: string }) {
                     sentAt: (lastMessageData.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                 } : undefined;
 
-                return { id: d.id, participants, lastMessage };
+                return { 
+                    id: d.id, 
+                    participants, 
+                    lastMessage, 
+                    name: data.name, 
+                    type: data.type || 'direct' 
+                };
             }));
 
             const sortedConversations = convosData.sort((a, b) => {
@@ -183,7 +189,13 @@ export default function Messages({ userId }: { userId: string }) {
                             </div>
                         ) : conversations.length > 0 ? (
                             <div className="space-y-2">
-                            {conversations.map(convo => (
+                            {conversations.map(convo => {
+                                const otherParticipant = getOtherParticipant(convo);
+                                const isGroup = convo.type === 'group';
+                                const displayName = isGroup ? convo.name : otherParticipant?.name;
+                                const avatarId = isGroup ? convo.id : otherParticipant?.id;
+                                
+                                return (
                                     <div 
                                         key={convo.id}
                                         onClick={() => handleSelectConversation(convo)}
@@ -191,17 +203,18 @@ export default function Messages({ userId }: { userId: string }) {
                                     >
                                         <div className="flex items-center gap-3">
                                             <Avatar>
-                                                <AvatarImage src={`https://picsum.photos/seed/${getOtherParticipant(convo)?.id}/50/50`} data-ai-hint="person face" />
-                                                <AvatarFallback>{getOtherParticipant(convo)?.name.charAt(0)}</AvatarFallback>
+                                                {isGroup ? <Users/> : <AvatarImage src={`https://picsum.photos/seed/${avatarId}/50/50`} data-ai-hint="person face" />}
+                                                <AvatarFallback>{displayName?.charAt(0)}</AvatarFallback>
                                             </Avatar>
                                             <div className="flex-1 min-w-0">
-                                                <p className="font-semibold truncate">{getOtherParticipant(convo)?.name}</p>
+                                                <p className="font-semibold truncate">{displayName}</p>
                                                 <p className="text-sm text-muted-foreground truncate">{convo.lastMessage?.text}</p>
                                             </div>
                                             {convo.lastMessage && <p className="text-xs text-muted-foreground self-start shrink-0">{dayjs(convo.lastMessage.sentAt).fromNow(true)}</p>}
                                         </div>
                                     </div>
-                            ))}
+                                )
+                            })}
                             </div>
                         ) : (
                             <div className="text-center text-muted-foreground pt-12">
@@ -217,11 +230,20 @@ export default function Messages({ userId }: { userId: string }) {
                     <>
                         <CardHeader className="border-b flex-shrink-0">
                             <CardTitle className="flex items-center gap-3">
-                                <Avatar>
-                                    <AvatarImage src={`https://picsum.photos/seed/${getOtherParticipant(selectedConversation)?.id}/50/50`} data-ai-hint="person face" />
-                                    <AvatarFallback>{getOtherParticipant(selectedConversation)?.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                {getOtherParticipant(selectedConversation)?.name}
+                                {selectedConversation.type === 'group' ? (
+                                    <>
+                                        <Avatar><Users/></Avatar>
+                                        {selectedConversation.name}
+                                    </>
+                                ) : (
+                                    <>
+                                     <Avatar>
+                                        <AvatarImage src={`https://picsum.photos/seed/${getOtherParticipant(selectedConversation)?.id}/50/50`} data-ai-hint="person face" />
+                                        <AvatarFallback>{getOtherParticipant(selectedConversation)?.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    {getOtherParticipant(selectedConversation)?.name}
+                                    </>
+                                )}
                             </CardTitle>
                         </CardHeader>
                         <ScrollArea className="flex-grow bg-muted/20">
@@ -236,10 +258,13 @@ export default function Messages({ userId }: { userId: string }) {
                                             {msg.senderId !== userId && 
                                                 <Avatar className="h-8 w-8 self-start">
                                                     <AvatarImage src={`https://picsum.photos/seed/${msg.senderId}/40/40`} data-ai-hint="person face"/>
-                                                    <AvatarFallback>{getOtherParticipant(selectedConversation)?.name.charAt(0)}</AvatarFallback>
+                                                    <AvatarFallback>{participantsMap[msg.senderId]?.name?.charAt(0) || '?'}</AvatarFallback>
                                                 </Avatar>
                                             }
                                             <div className={`rounded-lg px-3 py-2 max-w-xs lg:max-w-md ${msg.senderId === userId ? 'bg-primary text-primary-foreground' : 'bg-card border'}`}>
+                                                {selectedConversation.type === 'group' && msg.senderId !== userId && (
+                                                    <p className="text-xs font-semibold mb-1">{participantsMap[msg.senderId]?.name}</p>
+                                                )}
                                                 <p className="text-sm" style={{whiteSpace: 'pre-wrap'}}>{msg.text}</p>
                                                 <p className="text-xs text-right opacity-70 mt-1">{dayjs(msg.createdAt).fromNow(true)}</p>
                                             </div>

@@ -1,3 +1,4 @@
+
 import { config } from 'dotenv';
 config();
 
@@ -7,3 +8,4 @@ import '@/ai/flows/ai-driven-fitness-insights.ts';
 import '@/ai/flows/player-scouting-flow.ts';
 import '@/ai/flows/video-workout-analysis-flow.ts';
 import '@/ai/flows/player-analysis-flow.ts';
+import '@/ai/flows/generate-team-name.ts';

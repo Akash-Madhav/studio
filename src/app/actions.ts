@@ -2,10 +2,11 @@
 'use server';
 import { db, auth } from '@/lib/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit, setDoc, arrayUnion } from 'firebase/firestore';
 
 import { z } from 'zod';
 import { sampleUsers, sampleWorkouts } from '@/lib/sample-data';
+import { generateTeamName } from '@/ai/flows/generate-team-name';
 
 // Helper to convert Firestore Timestamp to YYYY-MM-DD string
 const formatDate = (timestamp: any): string | null => {
@@ -426,18 +427,51 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 transaction.set(newConvoRef, {
                     participantIds: [playerId, coachId],
                     createdAt: serverTimestamp(),
+                    type: 'direct',
                 });
                 conversationId = newConvoRef.id;
 
                 transaction.update(inviteRef, { status: 'accepted' });
                 transaction.update(playerRef, { status: 'recruited', coachId: coachId });
+
+                // Check for existing group chat or create a new one
+                const coachRef = doc(db, 'users', coachId);
+                const coachDoc = await transaction.get(coachRef);
+                const coachData = coachDoc.data();
+                if (!coachData) throw new Error('Coach not found');
+
+                const teamQuery = query(collection(db, 'users'), where('coachId', '==', coachId), where('status', '==', 'recruited'));
+                const teamSnapshot = await getDocs(teamQuery);
+                const teamSize = teamSnapshot.docs.length + 1; // +1 for the newly recruited player
+
+                if (teamSize >= 2) {
+                    const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
+                    const groupChatSnapshot = await getDocs(groupChatQuery);
+
+                    if (groupChatSnapshot.empty) {
+                        // Create a new group chat
+                        const teamName = await generateTeamName(coachData.name);
+                        const groupChatRef = doc(collection(db, 'conversations'));
+                        transaction.set(groupChatRef, {
+                            coachId: coachId,
+                            name: teamName,
+                            participantIds: [coachId, playerId, ...teamSnapshot.docs.map(d => d.id)],
+                            createdAt: serverTimestamp(),
+                            type: 'group',
+                        });
+                    } else {
+                        // Add player to existing group chat
+                        const groupChatDoc = groupChatSnapshot.docs[0];
+                        transaction.update(groupChatDoc.ref, {
+                            participantIds: arrayUnion(playerId)
+                        });
+                    }
+                }
             });
         } else {
             await runTransaction(db, async (transaction) => {
                 const inviteRef = doc(db, 'invites', inviteId);
                 const playerRef = doc(db, 'users', playerId);
-
-                // Use a transaction to ensure both updates succeed or fail together.
                 transaction.update(inviteRef, { status: 'declined' });
                 transaction.update(playerRef, { status: 'active', coachId: null });
             });
@@ -453,6 +487,8 @@ export interface Conversation {
     id: string;
     participants: { id: string; name: string }[];
     lastMessage?: { text: string; sentAt: string };
+    name?: string; // For group chats
+    type: 'direct' | 'group';
 }
 
 export async function getConversations(userId: string): Promise<{ success: boolean; conversations: Conversation[], message?: string }> {
@@ -477,7 +513,7 @@ export async function getConversations(userId: string): Promise<{ success: boole
         const conversations = await Promise.all(snapshot.docs.map(async (d) => {
             const data = d.data();
             const participants = data.participantIds
-                .filter((id: string) => id !== userId)
+                // .filter((id: string) => id !== userId) // Keep all for group context
                 .map((id: string) => ({ id, name: usersMap[id]?.name || 'Unknown' }));
 
             const messagesCol = collection(db, 'conversations', d.id, 'messages');
@@ -491,7 +527,9 @@ export async function getConversations(userId: string): Promise<{ success: boole
             return {
                 id: d.id,
                 participants,
-                lastMessage
+                lastMessage,
+                name: data.name,
+                type: data.type || 'direct',
             };
         }));
         return { success: true, conversations };
