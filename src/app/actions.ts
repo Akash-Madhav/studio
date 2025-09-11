@@ -5,7 +5,6 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "fire
 import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit, setDoc, arrayUnion } from 'firebase/firestore';
 
 import { z } from 'zod';
-import { sampleUsers, sampleWorkouts } from '@/lib/sample-data';
 import { generateTeamName } from '@/ai/flows/generate-team-name';
 
 // Helper to convert Firestore Timestamp to YYYY-MM-DD string
@@ -114,86 +113,6 @@ export async function signInWithGoogle(values: z.infer<typeof googleSignInSchema
         return { success: false, message: "An error occurred during Google sign-in." };
     }
 }
-
-
-export async function seedDatabase() {
-    try {
-        const usersCollection = collection(db, 'users');
-        const workoutsCollection = collection(db, 'workouts');
-
-        const existingUsersSnapshot = await getDocs(usersCollection);
-        if (!existingUsersSnapshot.empty) {
-            const users = existingUsersSnapshot.docs.map(d => {
-                const data = d.data();
-                return {
-                    ...data,
-                    id: d.id,
-                    dob: formatDate(data.dob),
-                }
-            });
-            return { success: true, message: "Database has already been seeded.", users: users };
-        }
-
-        const batch = writeBatch(db);
-
-        const usersToSeed = sampleUsers.map(user => ({
-            ...user,
-            dob: user.dob ? new Date(user.dob) : null,
-            coachId: user.status === 'recruited' ? 'coach1' : (user.status === 'pending_invite' ? 'coach2' : null)
-        }));
-
-        usersToSeed.forEach(user => {
-            const userRef = doc(db, 'users', user.id);
-            batch.set(userRef, user);
-        });
-
-        const workoutsToSeed = sampleWorkouts.map(workout => ({
-            ...workout,
-            createdAt: new Date(workout.createdAt)
-        }));
-
-        workoutsToSeed.forEach(workout => {
-            const workoutRef = doc(collection(db, 'workouts')); // Auto-generate ID
-            batch.set(workoutRef, workout);
-        });
-
-        await batch.commit();
-        
-        const seededUsers = usersToSeed.map(u => ({
-            ...u,
-            id: u.id,
-            dob: u.dob ? u.dob.toISOString().split('T')[0] : null
-        }));
-        
-        return { success: true, message: "Database seeded successfully!", users: seededUsers };
-    } catch (error: any) {
-        console.error("Error seeding database: ", error);
-        return { success: false, message: "Failed to seed database. Check Firestore rules and API status.", users: [] };
-    }
-}
-
-export async function getUsersForLogin() {
-    try {
-        const usersCollection = collection(db, 'users');
-        const userSnapshot = await getDocs(usersCollection);
-        if (userSnapshot.empty) {
-            return { success: true, users: [] };
-        }
-        const users = userSnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                ...data,
-                id: doc.id,
-                dob: formatDate(data.dob),
-            };
-        });
-        return { success: true, users };
-    } catch (error: any) {
-        console.error("Error fetching users for login: ", error);
-        return { success: false, users: [], message: "Could not fetch users." };
-    }
-}
-
 
 export async function getUser(userId: string) {
     if (!userId) {
