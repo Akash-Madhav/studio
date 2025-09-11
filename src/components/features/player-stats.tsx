@@ -11,7 +11,7 @@ import {
     CardFooter,
   } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
-import { Loader2, User, UserCheck, Eye, Sparkles } from "lucide-react";
+import { Loader2, User, UserCheck, Eye, Sparkles, History, Dumbbell, Calendar } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
     AlertDialog,
@@ -22,8 +22,19 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+  } from "@/components/ui/dialog"
 import { getPlayerAnalysis, PlayerAnalysisOutput } from '@/ai/flows/player-analysis-flow';
+import { getWorkoutHistory } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
+import dayjs from 'dayjs';
+import { ScrollArea } from '../ui/scroll-area';
   
 interface Player {
   id: string;
@@ -31,6 +42,16 @@ interface Player {
   userProfile: string;
   performanceData: string;
   status: string;
+}
+
+interface Workout {
+    _id: string;
+    exercise: string;
+    reps?: number;
+    weight?: number;
+    time?: string;
+    distance?: number;
+    createdAt: Date;
 }
 
 interface PlayerStatsProps {
@@ -42,6 +63,10 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
     const [isAnalyzing, setIsAnalyzing] = React.useState<string | null>(null);
     const [analysisResult, setAnalysisResult] = React.useState<PlayerAnalysisOutput | null>(null);
     const [selectedPlayer, setSelectedPlayer] = React.useState<Player | null>(null);
+    const [historyPlayer, setHistoryPlayer] = React.useState<Player | null>(null);
+    const [workoutHistory, setWorkoutHistory] = React.useState<Workout[]>([]);
+    const [isLoadingHistory, setIsLoadingHistory] = React.useState(false);
+    
     const { toast } = useToast();
 
     const handleAnalyzePlayer = async (player: Player) => {
@@ -67,9 +92,40 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
         }
     };
 
-    const closeDialog = () => {
+    const handleViewHistory = async (player: Player) => {
+        setHistoryPlayer(player);
+        setIsLoadingHistory(true);
+        const result = await getWorkoutHistory(player.id);
+        if (result.success) {
+            setWorkoutHistory(result.workouts as Workout[]);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to fetch workout history.',
+            });
+        }
+        setIsLoadingHistory(false);
+    };
+
+    const formatWorkoutDetails = (workout: Workout) => {
+        const details = [];
+        if (workout.reps) details.push(`${workout.reps} reps`);
+        if (workout.weight) details.push(`${workout.weight} kg`);
+        if (workout.distance) details.push(`${workout.distance} km`);
+        if (workout.time) details.push(`${workout.time}`);
+        return details.join(' · ');
+    };
+
+
+    const closeAnalysisDialog = () => {
         setAnalysisResult(null);
         setSelectedPlayer(null);
+    };
+    
+    const closeHistoryDialog = () => {
+        setHistoryPlayer(null);
+        setWorkoutHistory([]);
     };
 
     return (
@@ -80,7 +136,7 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
                         <UserCheck /> Your Recruited Players
                     </CardTitle>
                     <CardDescription>
-                        An overview of your team's player performance. Get an AI analysis.
+                        An overview of your team's player performance. Get an AI analysis or view their workout history.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="px-0">
@@ -115,6 +171,52 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
                                         <p className="text-sm text-muted-foreground line-clamp-3">{player.performanceData || 'N/A'}</p>
                                     </CardContent>
                                     <CardFooter className="flex justify-end gap-2 pt-4">
+                                         <Dialog onOpenChange={(open) => !open && closeHistoryDialog()}>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" size="sm" onClick={() => handleViewHistory(player)}>
+                                                    <History className="mr-2 h-4 w-4" />
+                                                    History
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="sm:max-w-[425px]">
+                                                <DialogHeader>
+                                                    <DialogTitle>Workout History: {historyPlayer?.name}</DialogTitle>
+                                                    <DialogDescription>
+                                                        A log of all recorded training sessions.
+                                                    </DialogDescription>
+                                                </DialogHeader>
+                                                <ScrollArea className="h-96 pr-4">
+                                                    {isLoadingHistory ? (
+                                                        <div className="flex justify-center items-center h-full">
+                                                            <Loader2 className="animate-spin" />
+                                                        </div>
+                                                    ) : workoutHistory.length > 0 ? (
+                                                        <div className="space-y-4">
+                                                            {workoutHistory.map((workout) => (
+                                                                <div key={workout._id} className="flex items-start gap-3">
+                                                                     <div className="bg-primary/10 text-primary p-2 rounded-full mt-1">
+                                                                        <Dumbbell className="h-5 w-5" />
+                                                                    </div>
+                                                                    <div className="flex-1">
+                                                                        <p className="font-semibold">{workout.exercise}</p>
+                                                                        <p className="text-sm text-muted-foreground">{formatWorkoutDetails(workout)}</p>
+                                                                         <div className="flex items-center gap-2 text-xs text-muted-foreground/80 mt-1">
+                                                                            <Calendar className="h-3 w-3" />
+                                                                            <span>{dayjs(workout.createdAt).format('MMMM D, YYYY h:mm A')}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-center text-muted-foreground py-12">
+                                                            No workouts logged yet.
+                                                        </div>
+                                                    )}
+                                                </ScrollArea>
+                                            </DialogContent>
+                                        </Dialog>
+
                                         <Button variant="secondary" size="sm" onClick={() => handleAnalyzePlayer(player)} disabled={!!isAnalyzing}>
                                             {isAnalyzing === player.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                             AI Analysis
@@ -127,7 +229,7 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
                 </CardContent>
             </Card>
 
-            <AlertDialog open={!!analysisResult && !!selectedPlayer} onOpenChange={(open) => !open && closeDialog()}>
+            <AlertDialog open={!!analysisResult && !!selectedPlayer} onOpenChange={(open) => !open && closeAnalysisDialog()}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>AI Analysis: {selectedPlayer?.name}</AlertDialogTitle>
@@ -152,10 +254,12 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
                        </div>
                     )}
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={closeDialog}>Close</AlertDialogCancel>
+                        <AlertDialogCancel onClick={closeAnalysisDialog}>Close</AlertDialogCancel>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
         </>
     );
   }
+
+    
