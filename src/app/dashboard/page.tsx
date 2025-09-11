@@ -16,6 +16,7 @@ import {
   MessageSquare,
   UserPlus,
   Mail,
+  UsersRound,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -39,11 +40,12 @@ import PendingInvites from '@/components/features/pending-invites';
 import PlayerInvites from '@/components/features/player-invites';
 import Messages from '@/components/features/messages';
 import SportMatch from '@/components/features/sport-match';
-import { getUser, getAllPlayers, getUsersByIds, getWorkoutHistory } from '@/app/actions';
+import CommunityHub from '@/components/features/community-hub';
+import { getAllPlayers, getUsersByIds } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
-import { onSnapshot, collection, query, where, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, doc, getDoc, Timestamp, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 
@@ -149,10 +151,17 @@ function DashboardContent() {
     const recruitedUnsubscribe = onSnapshot(recruitedQuery, async (snapshot) => {
         const recruitedDataPromises = snapshot.docs.map(async (d) => {
             const player: any = { id: d.id, ...d.data() };
-            const workoutHistoryResult = await getWorkoutHistory(d.id, 3);
+            
+            const workoutsCollection = collection(db, 'workouts');
+            const q = query(workoutsCollection, where("userId", "==", d.id), where('reps', '!=', null), where('weight', '!=', null));
+            const querySnapshot = await getDocs(q);
+            const workouts = querySnapshot.docs.map(doc => doc.data());
+            workouts.sort((a,b) => b.createdAt.toDate() - a.createdAt.toDate());
+
             let performanceData = 'No recent workouts logged.';
-            if (workoutHistoryResult.success && workoutHistoryResult.workouts.length > 0) {
-                 performanceData = workoutHistoryResult.workouts
+            if (workouts.length > 0) {
+                 performanceData = workouts
+                    .slice(0, 3)
                     .map(w => `${w.exercise}: ${w.reps || '-'} reps, ${w.weight || '-'} kg`)
                     .join(' | ');
             }
@@ -273,13 +282,15 @@ function DashboardContent() {
     setActiveTab(tab);
   };
 
-  const commonTabs = (
+  const commonPlayerTabs = (
       <>
         <TabsTrigger value="dashboard"><BarChart3 className="mr-2" />Dashboard</TabsTrigger>
         <TabsTrigger value="log-performance"><LogIn className="mr-2" />Log</TabsTrigger>
         <TabsTrigger value="history"><History className="mr-2" />History</TabsTrigger>
         <TabsTrigger value="ai-insights"><BrainCircuit className="mr-2" />Insights</TabsTrigger>
         <TabsTrigger value="recommendations"><Target className="mr-2" />Recs</TabsTrigger>
+        <TabsTrigger value="find-sport"><Search className="mr-2" />Find Sport</TabsTrigger>
+        <TabsTrigger value="invites"><Mail className="mr-2" />Invites</TabsTrigger>
       </>
   );
 
@@ -332,19 +343,19 @@ function DashboardContent() {
         </div>
         
         <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-            <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-3' : 'grid-cols-4 sm:grid-cols-8'}`}>
+             <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-4 sm:grid-cols-9'}`}>
               {isCoach ? (
                   <>
                       <TabsTrigger value="team"><Users className="mr-2"/>Team</TabsTrigger>
                       <TabsTrigger value="scouting"><UserPlus className="mr-2"/>Scouting</TabsTrigger>
                       <TabsTrigger value="messages"><MessageSquare className="mr-2"/>Messages</TabsTrigger>
+                      <TabsTrigger value="community"><UsersRound className="mr-2"/>Community</TabsTrigger>
                   </>
               ) : (
                   <>
-                      {commonTabs}
-                      <TabsTrigger value="find-sport"><Search className="mr-2" />Find Sport</TabsTrigger>
-                      <TabsTrigger value="invites"><Mail className="mr-2" />Invites</TabsTrigger>
+                      {commonPlayerTabs}
                       <TabsTrigger value="messages"><MessageSquare className="mr-2"/>Messages</TabsTrigger>
+                      <TabsTrigger value="community"><UsersRound className="mr-2"/>Community</TabsTrigger>
                   </>
               )}
             </TabsList>
@@ -364,6 +375,9 @@ function DashboardContent() {
                     </TabsContent>
                     <TabsContent value="messages" className="mt-4">
                         <Messages userId={userId} />
+                    </TabsContent>
+                    <TabsContent value="community" className="mt-4">
+                        <CommunityHub userId={userId} userName={userName} />
                     </TabsContent>
                 </>
             ) : (
@@ -391,6 +405,9 @@ function DashboardContent() {
                     </TabsContent>
                     <TabsContent value="messages" className="mt-4">
                         <Messages userId={userId} />
+                    </TabsContent>
+                     <TabsContent value="community" className="mt-4">
+                        <CommunityHub userId={userId} userName={userName} />
                     </TabsContent>
                 </>
             )}

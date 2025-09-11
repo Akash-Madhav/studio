@@ -218,7 +218,7 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
         
         let q;
         if (recordLimit) {
-            q = query(workoutsCollection, where("userId", "==", userId), limit(recordLimit));
+            q = query(workoutsCollection, where("userId", "==", userId));
         } else {
             q = query(workoutsCollection, where("userId", "==", userId));
         }
@@ -238,7 +238,9 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
         // Sort in memory to avoid index requirement
         workouts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         
-        return { success: true, workouts };
+        const limitedWorkouts = recordLimit ? workouts.slice(0, recordLimit) : workouts;
+        
+        return { success: true, workouts: limitedWorkouts };
     } catch (error: any) {
         console.error(`Error fetching workout history for user ${userId}:`, error);
         return { success: false, workouts: [], message: "Failed to fetch workout history." };
@@ -439,5 +441,54 @@ export async function sendMessage({ conversationId, senderId, text }: { conversa
     } catch (error) {
         console.error("Error sending message:", error);
         return { success: false, message: 'Failed to send message.' };
+    }
+}
+
+const createPostSchema = z.object({
+  authorId: z.string(),
+  authorName: z.string(),
+  content: z.string().min(1, "Post content cannot be empty."),
+});
+
+export async function createPost(values: z.infer<typeof createPostSchema>) {
+    try {
+        const validatedData = createPostSchema.parse(values);
+        const postsCollection = collection(db, 'posts');
+        await addDoc(postsCollection, {
+            ...validatedData,
+            createdAt: serverTimestamp(),
+        });
+        return { success: true, message: "Post created successfully!" };
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return { success: false, message: "Invalid post data." };
+        }
+        return { success: false, message: "Failed to create post." };
+    }
+}
+
+const addCommentSchema = z.object({
+  postId: z.string(),
+  authorId: z.string(),
+  authorName: z.string(),
+  content: z.string().min(1, "Comment cannot be empty."),
+});
+
+export async function addComment(values: z.infer<typeof addCommentSchema>) {
+    try {
+        const validatedData = addCommentSchema.parse(values);
+        const commentsCollection = collection(db, 'posts', validatedData.postId, 'comments');
+        await addDoc(commentsCollection, {
+            authorId: validatedData.authorId,
+            authorName: validatedData.authorName,
+            content: validatedData.content,
+            createdAt: serverTimestamp(),
+        });
+        return { success: true, message: "Comment added!" };
+    } catch (error) {
+         if (error instanceof z.ZodError) {
+            return { success: false, message: "Invalid comment data." };
+        }
+        return { success: false, message: "Failed to add comment." };
     }
 }
