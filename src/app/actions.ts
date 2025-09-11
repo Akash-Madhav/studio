@@ -218,9 +218,7 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
         
         let q;
         if (recordLimit) {
-            // NOTE: This query requires a composite index in Firestore.
-            // You can create it here: https://console.firebase.google.com/v1/r/project/optifitaicopy-87674237-d47c0/firestore/indexes?create_composite=Cl1wcm9qZWN0cy9vcHRpZml0YWljb3B5LTg3Njc0MjM3LWQ0N2MwL2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy93b3Jrb3V0cy9pbmRleGVzL18QARoKCgZ1c2VySWQQARoNCgljcmVhdGVkQXQQAhoMCghfX25hbWVfXxAC
-            q = query(workoutsCollection, where("userId", "==", userId), orderBy("createdAt", "desc"), limit(recordLimit));
+            q = query(workoutsCollection, where("userId", "==", userId), limit(recordLimit));
         } else {
             q = query(workoutsCollection, where("userId", "==", userId));
         }
@@ -237,9 +235,8 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
                 };
             });
 
-        if (!recordLimit) {
-            workouts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        }
+        // Sort in memory to avoid index requirement
+        workouts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         
         return { success: true, workouts };
     } catch (error: any) {
