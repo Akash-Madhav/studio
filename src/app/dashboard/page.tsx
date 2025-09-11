@@ -58,6 +58,16 @@ interface User {
     status?: string;
 }
 
+const formatDate = (timestamp: any): string | null => {
+    if (timestamp && typeof timestamp.toDate === 'function') {
+        const d = timestamp.toDate();
+        if (d instanceof Date && !isNaN(d.getTime())) {
+            return d.toISOString().split('T')[0];
+        }
+    }
+    return null;
+}
+
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -76,26 +86,35 @@ function DashboardContent() {
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
   const [isLoadingCoachData, setIsLoadingCoachData] = useState(isCoach);
   
-  const fetchUserData = useCallback(async () => {
+  useEffect(() => {
     if (!initialUserId) {
       setIsLoadingUser(false);
       return;
     }
     
     setIsLoadingUser(true);
-    try {
-      const userResult = await getUser(initialUserId);
-      if (userResult.success && userResult.user) {
-        setCurrentUser(userResult.user as User);
-      } else {
-        toast({ variant: 'destructive', title: 'Error', description: userResult.message || 'Could not load user data.' });
-        setCurrentUser(null);
-      }
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch dashboard data.' });
-    } finally {
-      setIsLoadingUser(false);
-    }
+    const userRef = doc(db, 'users', initialUserId);
+
+    const unsubscribe = onSnapshot(userRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const userData = docSnap.data();
+            setCurrentUser({
+                ...userData,
+                id: docSnap.id,
+                dob: formatDate(userData.dob),
+            } as User);
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
+            setCurrentUser(null);
+        }
+        setIsLoadingUser(false);
+    }, (error) => {
+        console.error("Error fetching user data:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch dashboard data.' });
+        setIsLoadingUser(false);
+    });
+
+    return () => unsubscribe();
   }, [initialUserId, toast]);
 
   const fetchAllPlayersForScouting = useCallback(async () => {
@@ -113,11 +132,10 @@ function DashboardContent() {
   }, [isCoach, toast]);
   
   useEffect(() => {
-    fetchUserData();
     if (isCoach) {
       fetchAllPlayersForScouting();
     }
-  }, [fetchUserData, fetchAllPlayersForScouting, isCoach]);
+  }, [fetchAllPlayersForScouting, isCoach]);
 
   useEffect(() => {
     if (!isCoach || !initialUserId) {
@@ -389,5 +407,3 @@ export default function Dashboard() {
     </Suspense>
   );
 }
-
-    
