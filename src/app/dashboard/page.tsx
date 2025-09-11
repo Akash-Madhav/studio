@@ -41,11 +41,11 @@ import PlayerInvites from '@/components/features/player-invites';
 import Messages from '@/components/features/messages';
 import SportMatch from '@/components/features/sport-match';
 import CommunityHub from '@/components/features/community-hub';
-import { getAllPlayers, getUsersByIds } from '@/app/actions';
+import { getAllPlayers, getUsersByIds, getUser } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
-import { onSnapshot, collection, query, where, doc, getDoc, Timestamp, getDocs } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, doc, getDoc, Timestamp, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 
@@ -60,21 +60,6 @@ interface User {
     status?: string;
 }
 
-const formatDate = (date: any): string | null => {
-    if (!date) return null;
-    try {
-        if (date instanceof Timestamp) {
-            return date.toDate().toISOString().split('T')[0];
-        }
-        if (date instanceof Date) {
-            return date.toISOString().split('T')[0];
-        }
-        return new Date(date).toISOString().split('T')[0];
-    } catch (e) {
-        return null;
-    }
-}
-
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -82,10 +67,11 @@ function DashboardContent() {
   const role = searchParams.get('role') || 'player';
   const initialUserId = searchParams.get('userId');
   const isCoach = role === 'coach';
-  const initialTab = searchParams.get('tab') || (isCoach ? 'team' : 'dashboard');
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const initialTab = searchParams.get('tab') || (isCoach ? 'team' : 'dashboard');
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const [players, setPlayers] = useState<any[]>([]);
@@ -95,33 +81,25 @@ function DashboardContent() {
   
   useEffect(() => {
     if (!initialUserId) {
-      setIsLoadingUser(false);
+      setIsLoading(false);
+      router.push('/');
       return;
     }
-    
-    setIsLoadingUser(true);
-    const userRef = doc(db, 'users', initialUserId);
 
-    const unsubscribe = onSnapshot(userRef, (docSnap) => {
-        if (docSnap.exists()) {
-            const userData = docSnap.data();
-            setCurrentUser({
-                ...userData,
-                id: docSnap.id,
-                dob: formatDate(userData.dob),
-            } as User);
+    const fetchInitialData = async () => {
+        setIsLoading(true);
+        const userRes = await getUser(initialUserId);
+        if (userRes.success && userRes.user) {
+            setCurrentUser(userRes.user as User);
         } else {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
-            setCurrentUser(null);
+            router.push('/');
         }
-        setIsLoadingUser(false);
-    }, (error) => {
-        console.error("Error fetching user data:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch dashboard data.' });
-        setIsLoadingUser(false);
-    });
-
-    return () => unsubscribe();
+        setIsLoading(false);
+    }
+    
+    fetchInitialData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialUserId, toast]);
 
   const fetchAllPlayersForScouting = useCallback(async () => {
@@ -236,7 +214,7 @@ function DashboardContent() {
   }, [searchParams, isCoach]);
 
 
-  if (isLoadingUser) {
+  if (isLoading) {
     return (
         <div className="flex flex-col min-h-screen w-full">
             <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 z-50">
@@ -280,8 +258,6 @@ function DashboardContent() {
   const updateUrl = (tab: string) => {
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.set('tab', tab);
-    newUrl.searchParams.set('userId', initialUserId || '');
-    newUrl.searchParams.set('role', role);
     router.push(newUrl.href, { scroll: false });
     setActiveTab(tab);
   };
@@ -428,3 +404,5 @@ export default function Dashboard() {
     </Suspense>
   );
 }
+
+    

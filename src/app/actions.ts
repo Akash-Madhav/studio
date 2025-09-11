@@ -67,12 +67,13 @@ export async function signInWithEmailAndPasswordAction(values: z.infer<typeof si
         const userDoc = await getDoc(userRef);
         
         if (!userDoc.exists()) {
-             // This case should ideally not happen if signup is working correctly,
-             // but we handle it defensively.
-             return { success: false, message: "User profile not found. Please sign up." };
+            // This case can happen if Firestore profile creation failed during sign-up
+            // Let's create a default profile. The user would need to select a role.
+            // For now, we'll default to 'player' and they can't log in. A better UX would be to ask for role.
+             return { success: false, message: "User profile not found. Please sign up again." };
         }
 
-        const userRole = userDoc.data()?.role || 'player'; // Default to player if role is missing
+        const userRole = userDoc.data()?.role || 'player'; 
 
         return { success: true, userId: user.uid, role: userRole };
     } catch (error: any)
@@ -244,9 +245,9 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
         
         let q;
         if (recordLimit) {
-            q = query(workoutsCollection, where("userId", "==", userId));
+            q = query(workoutsCollection, where("userId", "==", userId), orderBy("createdAt", "desc"), limit(recordLimit));
         } else {
-            q = query(workoutsCollection, where("userId", "==", userId));
+            q = query(workoutsCollection, where("userId", "==", userId), orderBy("createdAt", "desc"));
         }
         
         const querySnapshot = await getDocs(q);
@@ -260,13 +261,8 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
                     createdAt: formatTimestamp(data.createdAt), 
                 };
             });
-
-        // Sort in memory to avoid index requirement
-        workouts.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
         
-        const limitedWorkouts = recordLimit ? workouts.slice(0, recordLimit) : workouts;
-        
-        return { success: true, workouts: JSON.parse(JSON.stringify(limitedWorkouts)) };
+        return { success: true, workouts: JSON.parse(JSON.stringify(workouts)) };
     } catch (error: any) {
         console.error(`Error fetching workout history for user ${userId}:`, error);
         return { success: false, workouts: [], message: "Failed to fetch workout history." };
@@ -445,7 +441,7 @@ export async function getConversations(userId: string): Promise<{ success: boole
                 .map((id: string) => ({ id, name: usersMap[id]?.name || 'Unknown' }));
 
             const messagesCol = collection(db, 'conversations', d.id, 'messages');
-            const lastMsgQuery = query(messagesCol, orderBy('createdAt', 'desc'), where('text', '!=', null), limit(1));
+            const lastMsgQuery = query(messagesCol, orderBy('createdAt', 'desc'), limit(1));
             const lastMsgSnapshot = await getDocs(lastMsgQuery);
             const lastMessage = lastMsgSnapshot.docs[0] ? {
                 text: lastMsgSnapshot.docs[0].data().text,

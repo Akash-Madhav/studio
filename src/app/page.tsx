@@ -17,7 +17,6 @@ import { signInWithEmailAndPasswordAction, signInWithGoogle } from "@/app/action
 import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { Separator } from "@/components/ui/separator";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address."),
@@ -49,7 +48,6 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     const result = await signInWithEmailAndPasswordAction(values);
-    setIsLoading(false);
 
     if (result.success) {
       toast({
@@ -63,6 +61,7 @@ export default function LoginPage() {
         title: "Login Failed",
         description: result.message,
       });
+      setIsLoading(false);
     }
   }
 
@@ -73,11 +72,13 @@ export default function LoginPage() {
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
 
+        // Note: For a real app, you might want to force the user to select a role
+        // if they are a new Google Sign-In user. We default to 'player'.
         const serverResult = await signInWithGoogle({
             userId: user.uid,
             email: user.email!,
             name: user.displayName!,
-            role: 'player',
+            role: 'player', 
         });
 
         if (serverResult.success) {
@@ -96,7 +97,6 @@ export default function LoginPage() {
             title: "Google Sign-In Failed",
             description: error.message || "An error occurred during Google Sign-In.",
         });
-    } finally {
         setIsLoading(false);
     }
   }
@@ -196,3 +196,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
