@@ -220,7 +220,7 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
             experience: validatedData.experience,
             goals: validatedData.goals,
         });
-        return { success: true, message: "Profile updated successfully!" };
+        return { success: true, message: "Profile updated!" };
     } catch (error) {
         console.error("Error updating profile: ", error);
         if (error instanceof z.ZodError) {
@@ -548,20 +548,4 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
     }
 }
 
-export async function deleteAllData() {
-    try {
-        const collectionsToDelete = ['users', 'workouts', 'invites', 'conversations', 'posts'];
-        for (const col of collectionsToDelete) {
-            const snapshot = await getDocs(collection(db, col));
-            const batch = writeBatch(db);
-            snapshot.docs.forEach(doc => {
-                batch.delete(doc.ref);
-            });
-            await batch.commit();
-        }
-        return { success: true, message: "All data has been cleared." };
-    } catch (error) {
-        console.error("Error deleting all data:", error);
-        return { success: false, message: "Failed to clear database." };
-    }
-}
+    
