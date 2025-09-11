@@ -60,9 +60,15 @@ interface User {
     status?: string;
 }
 
-const formatDate = (date: string | Date | undefined): string | null => {
+const formatDate = (date: any): string | null => {
     if (!date) return null;
     try {
+        if (date instanceof Timestamp) {
+            return date.toDate().toISOString().split('T')[0];
+        }
+        if (date instanceof Date) {
+            return date.toISOString().split('T')[0];
+        }
         return new Date(date).toISOString().split('T')[0];
     } catch (e) {
         return null;
@@ -102,7 +108,7 @@ function DashboardContent() {
             setCurrentUser({
                 ...userData,
                 id: docSnap.id,
-                dob: formatDate(userData.dob?.toDate()),
+                dob: formatDate(userData.dob),
             } as User);
         } else {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
@@ -152,10 +158,9 @@ function DashboardContent() {
             const player: any = { id: d.id, ...d.data() };
             
             const workoutsCollection = collection(db, 'workouts');
-            const q = query(workoutsCollection, where("userId", "==", d.id), where('reps', '!=', null), where('weight', '!=', null));
+            const q = query(workoutsCollection, where("userId", "==", d.id), orderBy('createdAt', 'desc'), where('reps', '!=', null), where('weight', '!=', null));
             const querySnapshot = await getDocs(q);
             const workouts = querySnapshot.docs.map(doc => doc.data());
-            workouts.sort((a,b) => b.createdAt.toDate() - a.createdAt.toDate());
 
             let performanceData = 'No recent workouts logged.';
             if (workouts.length > 0) {
