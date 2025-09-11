@@ -81,6 +81,40 @@ export async function signInWithEmailAndPasswordAction(values: z.infer<typeof si
 }
 
 
+const googleSignInSchema = z.object({
+    userId: z.string(),
+    email: z.string().email(),
+    name: z.string(),
+    role: z.enum(['player', 'coach']),
+});
+
+export async function signInWithGoogle(values: z.infer<typeof googleSignInSchema>) {
+    try {
+        const validatedData = googleSignInSchema.parse(values);
+        const userRef = doc(db, "users", validatedData.userId);
+        const userDoc = await getDoc(userRef);
+
+        if (userDoc.exists()) {
+            const userRole = userDoc.data()?.role || 'player';
+            return { success: true, userId: validatedData.userId, role: userRole };
+        } else {
+            await setDoc(userRef, {
+                id: validatedData.userId,
+                name: validatedData.name,
+                email: validatedData.email,
+                role: validatedData.role,
+                status: 'active',
+                createdAt: serverTimestamp(),
+            });
+            return { success: true, userId: validatedData.userId, role: validatedData.role };
+        }
+    } catch (error) {
+        console.error("Error during Google sign-in process:", error);
+        return { success: false, message: "An error occurred during Google sign-in." };
+    }
+}
+
+
 export async function seedDatabase() {
     try {
         const usersCollection = collection(db, 'users');
@@ -556,5 +590,3 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
-
-    
