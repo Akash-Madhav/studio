@@ -9,7 +9,10 @@ import { sampleUsers, sampleWorkouts } from '@/lib/sample-data';
 // Helper to convert Firestore Timestamp to YYYY-MM-DD string
 const formatDate = (timestamp: any): string | null => {
     if (timestamp && typeof timestamp.toDate === 'function') {
-        return timestamp.toDate().toISOString().split('T')[0];
+        const d = timestamp.toDate();
+        if (d instanceof Date && !isNaN(d.getTime())) {
+            return d.toISOString().split('T')[0];
+        }
     }
     return null;
 }
@@ -261,7 +264,12 @@ export async function getAllPlayers() {
                         return parts.join(' ');
                     }).join('; ');
             }
-            return { ...player, performanceData };
+            const profileParts = [];
+            if (player.experience) profileParts.push(player.experience);
+            if (player.goals) profileParts.push(player.goals);
+            const userProfile = profileParts.length > 0 ? profileParts.join(', ') : 'No profile information available.';
+
+            return { ...player, performanceData, userProfile };
         }));
 
         return { success: true, players: playersWithWorkouts };
@@ -341,7 +349,7 @@ export async function getRecruitedPlayers(coachId: string) {
                 .slice(0, 3)
                 .map(w => `${w.exercise}: ${w.reps || '-'} reps, ${w.weight || '-'} kg`)
                 .join(' | ');
-            const userProfile = (player.experience && player.goals) ? `${player.experience}, ${player.goals}` : 'N/A';
+            const userProfile = (player.experience && player.goals) ? `${player.experience}, ${player.goals}` : 'No profile information available.';
             return {
                 id: d.id,
                 name: player.name,
