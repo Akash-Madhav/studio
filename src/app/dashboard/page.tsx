@@ -245,13 +245,12 @@ function DashboardContent() {
         </div>
         
         <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-            <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-3 sm:grid-cols-7'}`}>
+            <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-3' : 'grid-cols-3 sm:grid-cols-7'}`}>
               {isCoach ? (
                   <>
                       <TabsTrigger value="team"><Users className="mr-2"/>Team</TabsTrigger>
                       <TabsTrigger value="scouting"><UserPlus className="mr-2"/>Scouting</TabsTrigger>
                       <TabsTrigger value="messages"><MessageSquare className="mr-2"/>Messages</TabsTrigger>
-                      <TabsTrigger value="log-performance"><LogIn className="mr-2" />My Log</TabsTrigger>
                   </>
               ) : (
                   <>
@@ -277,9 +276,6 @@ function DashboardContent() {
                     </TabsContent>
                     <TabsContent value="messages" className="mt-4">
                         <Messages userId={userId} />
-                    </TabsContent>
-                    <TabsContent value="log-performance" className="mt-4">
-                        <PerformanceLogging userId={userId} onWorkoutLogged={() => {}} />
                     </TabsContent>
                 </>
             ) : (
