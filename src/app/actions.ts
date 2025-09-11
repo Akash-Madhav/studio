@@ -215,7 +215,7 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
 export async function getWorkoutHistory(userId: string) {
     try {
         const workoutsCollection = collection(db, 'workouts');
-        const q = query(workoutsCollection, where("userId", "==", userId), orderBy("createdAt", "desc"));
+        const q = query(workoutsCollection, where("userId", "==", userId));
         const querySnapshot = await getDocs(q);
 
         const workouts = querySnapshot.docs
@@ -227,6 +227,7 @@ export async function getWorkoutHistory(userId: string) {
                     createdAt: data.createdAt ? data.createdAt.toDate() : new Date(), 
                 };
             })
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         
         return { success: true, workouts };
     } catch (error: any) {
