@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useForm as useSearchForm } from "react-hook-form";
 import * as z from "zod";
-import { Loader2, UserCheck, Search, Send, FileText, Check, ChevronsUpDown, ShieldCheck, Mail, UserX, UserSearch } from "lucide-react";
+import { Loader2, UserCheck, Search, Send, FileText, Check, ChevronsUpDown, ShieldCheck, Mail, UserX, UserSearch, Sparkles } from "lucide-react";
 import { useSearchParams } from 'next/navigation';
 import {
   getPlayerRecommendations,
