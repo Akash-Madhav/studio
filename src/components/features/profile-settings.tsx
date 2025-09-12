@@ -127,11 +127,15 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
     }
     
     const result = await updateUserProfile({ 
-        ...values, 
         userId,
+        name: values.name,
+        email: values.email,
+        experience: values.experience,
+        goals: values.goals,
         dob: values.dob ? values.dob.toISOString().split('T')[0] : null,
         photoURL: uploadedPhotoURL,
     });
+
     if (result.success) {
       toast({
         title: "Profile Updated",

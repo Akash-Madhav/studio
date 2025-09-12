@@ -227,7 +227,7 @@ const updateUserProfileSchema = z.object({
     dob: z.string().optional().nullable(),
     experience: z.string().optional(),
     goals: z.string().optional(),
-    photoURL: z.string().url().optional().nullable().or(z.literal('')),
+    photoURL: z.string().url().optional().nullable(),
 });
 
 
@@ -251,7 +251,7 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
     } catch (error) {
         console.error("Error updating profile: ", error);
         if (error instanceof z.ZodError) {
-            return { success: false, message: "Invalid data provided." };
+            return { success: false, message: `Invalid data provided: ${error.message}` };
         }
         return { success: false, message: "Failed to update profile." };
     }
@@ -570,5 +570,3 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
-
-    
