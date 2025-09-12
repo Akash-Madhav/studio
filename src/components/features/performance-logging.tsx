@@ -84,7 +84,7 @@ export default function PerformanceLogging({ userId, onWorkoutLogged }: Performa
     if (videoRef.current?.srcObject) {
       setAnalysisResult(null);
       const stream = videoRef.current.srcObject as MediaStream;
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
       recordedChunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
@@ -94,7 +94,7 @@ export default function PerformanceLogging({ userId, onWorkoutLogged }: Performa
       };
 
       mediaRecorderRef.current.onstop = async () => {
-        const videoBlob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+        const videoBlob = new Blob(recordedChunksRef.current, { type: 'video/mp4' });
         const reader = new FileReader();
         reader.readAsDataURL(videoBlob);
         reader.onloadend = async () => {
