@@ -11,6 +11,7 @@ import {
   PersonalizedTrainingRecommendationsOutput,
 } from "@/ai/flows/personalized-training-recommendations";
 import { getUser, getWorkoutHistory } from "@/app/actions";
+import dayjs from 'dayjs';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,14 +38,14 @@ const formSchema = z.object({
 });
 
 async function getPerformanceSummary(userId: string) {
-    const result = await getWorkoutHistory(userId, 5);
+    const result = await getWorkoutHistory(userId, 10);
     if (!result.success || result.workouts.length === 0) {
         return "No recent workouts to analyze.";
     }
   
     return result.workouts
       .map((data) => {
-        let record = `${data.exercise}:`;
+        let record = `${dayjs(data.createdAt).format('YYYY-MM-DD')} - ${data.exercise}:`;
         if (data.reps) record += ` ${data.reps} reps`;
         if (data.weight) record += ` at ${data.weight}kg`;
         if (data.distance) record += ` for ${data.distance}km`;
