@@ -10,3 +10,4 @@ import '@/ai/flows/video-workout-analysis-flow.ts';
 import '@/ai/flows/player-analysis-flow.ts';
 import '@/ai/flows/generate-team-name.ts';
 import '@/ai/flows/suggest-sports-list.ts';
+import '@/ai/flows/workout-summary-flow.ts';
