@@ -9,11 +9,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, Dumbbell, Calendar, Info } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Loader2, Dumbbell, Calendar, Info, User } from "lucide-react";
 import dayjs from 'dayjs';
 import { useToast } from '@/hooks/use-toast';
 import { onSnapshot, collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getUser } from '@/app/actions'; // Import getUser to fetch user details
 
 interface Workout {
     _id: string;
@@ -26,8 +36,15 @@ interface Workout {
     createdAt: Date;
 }
 
+interface User {
+    id: string;
+    name: string;
+    email: string;
+}
+
 export default function WorkoutHistory({ userId }: { userId: string }) {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -36,6 +53,17 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
         setIsLoading(false);
         return;
     }
+
+    async function fetchUser() {
+        const userRes = await getUser(userId);
+        if (userRes.success && userRes.user) {
+            setUser(userRes.user as User);
+        } else {
+            toast({ variant: 'destructive', title: "Error", description: "Could not load user details." });
+        }
+    }
+
+    fetchUser();
     
     const q = query(
         collection(db, 'workouts'), 
@@ -53,7 +81,6 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
             } as Workout;
         });
         
-        // Sort client-side
         workoutsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         
         setWorkouts(workoutsData);
@@ -98,30 +125,35 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
                 <p>Use the "Log" tab to record your first workout.</p>
             </div>
         ) : (
-          <div className="space-y-4">
-            {workouts.map((workout) => (
-              <div key={workout._id} className="p-4 rounded-lg border flex items-start gap-4">
-                <div className="bg-primary/10 text-primary p-3 rounded-full">
-                    <Dumbbell className="h-6 w-6" />
+          <div>
+            {user && (
+                <div className="flex items-center gap-2 p-3 mb-4 rounded-md bg-muted/50 border">
+                    <User className="h-5 w-5 text-muted-foreground"/>
+                    <span className="font-mono text-sm">{user.email}</span>
                 </div>
-                <div className="flex-1">
-                    <p className="font-semibold text-lg">{workout.exercise}</p>
-                    <p className="text-muted-foreground">{formatWorkoutDetails(workout)}</p>
-                </div>
-                <div className="text-right">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
-                        <span>{dayjs(workout.createdAt).format('MMMM D, YYYY')}</span>
-                    </div>
-                     <p className="text-xs text-muted-foreground/80">{dayjs(workout.createdAt).format('h:mm A')}</p>
-                </div>
-              </div>
-            ))}
+            )}
+            <Table>
+                <TableCaption>A list of your recent workouts.</TableCaption>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Exercise</TableHead>
+                        <TableHead>Details</TableHead>
+                        <TableHead className="text-right">Date</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                {workouts.map((workout) => (
+                    <TableRow key={workout._id}>
+                        <TableCell className="font-medium">{workout.exercise}</TableCell>
+                        <TableCell>{formatWorkoutDetails(workout)}</TableCell>
+                        <TableCell className="text-right">{dayjs(workout.createdAt).format('MMMM D, YYYY')}</TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
           </div>
         )}
       </CardContent>
     </Card>
   );
 }
-
-    
