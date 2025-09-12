@@ -20,7 +20,6 @@ interface Invite {
   inviteId: string;
   playerId: string;
   playerName: string;
-  playerAvatar: string;
   sentAt: string; // Changed to string
 }
 
@@ -56,7 +55,6 @@ export default function PendingInvites({ invites, isLoading }: PendingInvitesPro
                                 <CardHeader>
                                     <div className="flex items-center gap-4">
                                         <Avatar className="h-12 w-12">
-                                            <AvatarImage src={invite.playerAvatar} data-ai-hint="person face"/>
                                             <AvatarFallback>{invite.playerName.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <div>

@@ -193,7 +193,6 @@ export default function Messages({ userId }: { userId: string }) {
                                 const otherParticipant = getOtherParticipant(convo);
                                 const isGroup = convo.type === 'group';
                                 const displayName = isGroup ? convo.name : otherParticipant?.name;
-                                const avatarId = isGroup ? convo.id : otherParticipant?.id;
                                 
                                 return (
                                     <div 
@@ -203,8 +202,7 @@ export default function Messages({ userId }: { userId: string }) {
                                     >
                                         <div className="flex items-center gap-3">
                                             <Avatar>
-                                                {isGroup ? <Users/> : <AvatarImage src={`https://picsum.photos/seed/${avatarId}/50/50`} data-ai-hint="person face" />}
-                                                <AvatarFallback>{displayName?.charAt(0)}</AvatarFallback>
+                                                {isGroup ? <Users/> : <AvatarFallback>{displayName?.charAt(0)}</AvatarFallback>}
                                             </Avatar>
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-semibold truncate">{displayName}</p>
@@ -238,7 +236,6 @@ export default function Messages({ userId }: { userId: string }) {
                                 ) : (
                                     <>
                                      <Avatar>
-                                        <AvatarImage src={`https://picsum.photos/seed/${getOtherParticipant(selectedConversation)?.id}/50/50`} data-ai-hint="person face" />
                                         <AvatarFallback>{getOtherParticipant(selectedConversation)?.name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     {getOtherParticipant(selectedConversation)?.name}
@@ -257,7 +254,6 @@ export default function Messages({ userId }: { userId: string }) {
                                         <div key={msg._id} className={`flex items-end gap-2 ${msg.senderId === userId ? 'justify-end' : 'justify-start'}`}>
                                             {msg.senderId !== userId && 
                                                 <Avatar className="h-8 w-8 self-start">
-                                                    <AvatarImage src={`https://picsum.photos/seed/${msg.senderId}/40/40`} data-ai-hint="person face"/>
                                                     <AvatarFallback>{participantsMap[msg.senderId]?.name?.charAt(0) || '?'}</AvatarFallback>
                                                 </Avatar>
                                             }

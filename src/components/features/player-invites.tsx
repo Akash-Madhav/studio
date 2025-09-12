@@ -27,7 +27,6 @@ interface Invite {
     inviteId: string;
     coachId: string;
     coachName: string;
-    coachAvatar: string;
     sentAt: Date;
 }
 
@@ -72,7 +71,6 @@ export default function PlayerInvites({ userId }: { userId: string }) {
                     inviteId: doc.id,
                     coachId: data.coachId,
                     coachName: coach?.name || 'Unknown Coach',
-                    coachAvatar: `https://picsum.photos/seed/${data.coachId}/50/50`,
                     sentAt: sentAt ? sentAt.toDate() : new Date(),
                 } as Invite;
             });
@@ -143,7 +141,6 @@ export default function PlayerInvites({ userId }: { userId: string }) {
                                 <CardHeader>
                                     <div className="flex items-center gap-4">
                                         <Avatar className="h-12 w-12">
-                                            <AvatarImage src={invite.coachAvatar} data-ai-hint="person face"/>
                                             <AvatarFallback>{invite.coachName.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <div>
@@ -180,5 +177,3 @@ export default function PlayerInvites({ userId }: { userId: string }) {
         </Card>
     );
 }
-
-    

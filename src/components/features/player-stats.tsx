@@ -157,7 +157,6 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
                                     <CardHeader>
                                         <div className="flex items-center gap-4">
                                             <Avatar className="h-12 w-12">
-                                                <AvatarImage src={`https://picsum.photos/seed/${player.id}/100/100`} data-ai-hint="person face" />
                                                 <AvatarFallback>{player.name.charAt(0)}</AvatarFallback>
                                             </Avatar>
                                             <div>
@@ -261,5 +260,3 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
         </>
     );
   }
-
-    

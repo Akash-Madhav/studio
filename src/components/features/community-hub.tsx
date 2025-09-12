@@ -193,7 +193,6 @@ export default function CommunityHub({ userId, userName }: CommunityHubProps) {
                                 <CardHeader>
                                     <div className="flex items-center gap-3">
                                         <Avatar>
-                                            <AvatarImage src={`https://picsum.photos/seed/${post.authorId}/50/50`} data-ai-hint="person face" />
                                             <AvatarFallback>{post.authorName.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <div>
@@ -231,7 +230,6 @@ export default function CommunityHub({ userId, userName }: CommunityHubProps) {
                                             {comments.map(comment => (
                                                 <div key={comment.id} className="flex items-start gap-3">
                                                     <Avatar className="h-8 w-8">
-                                                         <AvatarImage src={`https://picsum.photos/seed/${comment.authorId}/40/40`} data-ai-hint="person face" />
                                                         <AvatarFallback>{comment.authorName.charAt(0)}</AvatarFallback>
                                                     </Avatar>
                                                     <div className="flex-1 bg-muted/50 p-3 rounded-md">

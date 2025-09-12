@@ -223,18 +223,16 @@ export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
 const updateUserProfileSchema = z.object({
     userId: z.string(),
     name: z.string().min(2, "Name is required."),
-    email: z.string().email("Invalid email address."),
     dob: z.string().optional().nullable(),
     experience: z.string().optional().nullable(),
     goals: z.string().optional().nullable(),
-    photoURL: z.string().url().optional().nullable(),
 });
 
 
 export async function updateUserProfile(values: z.infer<typeof updateUserProfileSchema>) {
     try {
         const validatedData = updateUserProfileSchema.parse(values);
-        const { userId, email, ...profileData } = validatedData; // Exclude email from profileData
+        const { userId, ...profileData } = validatedData;
         const userRef = doc(db, 'users', userId);
         
         const updateData: any = {
@@ -242,7 +240,6 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
             dob: profileData.dob ? new Date(profileData.dob) : null,
             experience: profileData.experience ?? null,
             goals: profileData.goals ?? null,
-            photoURL: profileData.photoURL ?? null,
         };
         
         await updateDoc(userRef, updateData);

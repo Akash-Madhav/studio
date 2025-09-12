@@ -231,7 +231,6 @@ function DashboardContent() {
                     inviteId: d.id,
                     playerId: data.playerId,
                     playerName: player?.name || 'Unknown',
-                    playerAvatar: player?.photoURL || `https://picsum.photos/seed/${data.playerId}/50/50`,
                     sentAt: sentAt ? sentAt.toDate().toISOString() : new Date().toISOString(),
                 };
             });
@@ -331,7 +330,6 @@ function DashboardContent() {
               <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="icon" className="rounded-full">
                   <Avatar>
-                    <AvatarImage src={currentUser.photoURL || `https://picsum.photos/seed/${initialUserId}/50/50`} alt="@user" data-ai-hint="person face" />
                     <AvatarFallback>{(currentUser?.name || '').charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <span className="sr-only">Toggle user menu</span>
