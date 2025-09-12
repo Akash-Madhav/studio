@@ -34,7 +34,6 @@ import { useToast } from "@/hooks/use-toast";
 import { updateUserProfile, getUser } from "@/app/actions";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "../ui/avatar";
-import { ScrollArea } from "../ui/scroll-area";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required."),
@@ -55,7 +54,6 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
   const [isFetchingUser, setIsFetchingUser] = useState(true);
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
-  const [workoutSummary, setWorkoutSummary] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -80,7 +78,6 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
         });
         setUserEmail(result.user.email || "");
         setUserName(result.user.name || "");
-        setWorkoutSummary(result.user.workoutSummary || null);
       } else {
         toast({ variant: 'destructive', title: "Error", description: "Failed to load user profile." });
       }
@@ -136,152 +133,129 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
   }
 
   return (
-    <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle>Profile Settings</CardTitle>
-          <CardDescription>
-            Update your personal information and goals.
-          </CardDescription>
-        </CardHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <CardContent className="space-y-6">
-              <div className="flex items-center gap-6">
-                  <Avatar className="h-24 w-24">
-                      <AvatarFallback className="text-4xl">
-                        {(userName || '').charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                  </Avatar>
-                  <div className="space-y-1">
-                      <h2 className="text-2xl font-bold">{userName}</h2>
-                      <p className="text-muted-foreground">{userEmail}</p>
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                          <FormItem>
-                          <FormLabel>Name</FormLabel>
-                          <FormControl>
-                              <Input placeholder="Your name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                          </FormItem>
-                      )}
-                  />
-                   <FormField
-                    control={form.control}
-                    name="dob"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Date of birth</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                             <Calendar
-                                  captionLayout="dropdown-buttons"
-                                  fromYear={1920}
-                                  toYear={new Date().getFullYear()}
-                                  mode="single"
-                                  selected={field.value ?? undefined}
-                                  onSelect={field.onChange}
-                                  disabled={(date) =>
-                                  date > new Date() || date < new Date("1900-01-01")
-                                  }
-                                  initialFocus
-                              />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-              </div>
-              
-              <FormField
-                control={form.control}
-                name="experience"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Experience Level</FormLabel>
-                    <FormControl>
-                        <Input placeholder="e.g., Beginner, Intermediate" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="goals"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fitness Goals</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Describe your fitness goals..."
-                        className="min-h-[100px]"
-                        {...field}
-                        value={field.value ?? ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" disabled={isSubmitting} className="w-full">
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Update Profile
-              </Button>
-            </CardFooter>
-          </form>
-        </Form>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Fitness Accomplishment Summary</CardTitle>
-          <CardDescription>
-            An AI-powered summary of your workout history, updated automatically after each session.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            {workoutSummary ? (
-                <ScrollArea className="h-96 pr-4">
-                    <div className="p-4 bg-muted/50 rounded-md whitespace-pre-line text-sm leading-relaxed">
-                        {workoutSummary}
-                    </div>
-                </ScrollArea>
-            ) : (
-                <div className="text-center text-muted-foreground py-12">
-                    Your summary will appear here after you log your first workout.
+    <Card className="max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle>Profile Settings</CardTitle>
+        <CardDescription>
+          Update your personal information and goals.
+        </CardDescription>
+      </CardHeader>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <CardContent className="space-y-6">
+            <div className="flex items-center gap-6">
+                <Avatar className="h-24 w-24">
+                    <AvatarFallback className="text-4xl">
+                      {(userName || '').charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                </Avatar>
+                <div className="space-y-1">
+                    <h2 className="text-2xl font-bold">{userName}</h2>
+                    <p className="text-muted-foreground">{userEmail}</p>
                 </div>
-            )}
-        </CardContent>
-      </Card>
-    </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                            <Input placeholder="Your name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="dob"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Date of birth</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                           <Calendar
+                                captionLayout="dropdown-buttons"
+                                fromYear={1920}
+                                toYear={new Date().getFullYear()}
+                                mode="single"
+                                selected={field.value ?? undefined}
+                                onSelect={field.onChange}
+                                disabled={(date) =>
+                                date > new Date() || date < new Date("1900-01-01")
+                                }
+                                initialFocus
+                            />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            </div>
+            
+            <FormField
+              control={form.control}
+              name="experience"
+              render={({ field }) => (
+                  <FormItem>
+                  <FormLabel>Experience Level</FormLabel>
+                  <FormControl>
+                      <Input placeholder="e.g., Beginner, Intermediate" {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                  </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="goals"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fitness Goals</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Describe your fitness goals..."
+                      className="min-h-[100px]"
+                      {...field}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+          <CardFooter>
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update Profile
+            </Button>
+          </CardFooter>
+        </form>
+      </Form>
+    </Card>
   );
 }

@@ -17,7 +17,6 @@ import {
   UserPlus,
   Mail,
   UsersRound,
-  FileText,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -42,7 +41,6 @@ import PlayerInvites from '@/components/features/player-invites';
 import Messages from '@/components/features/messages';
 import SportMatch from '@/components/features/sport-match';
 import CommunityHub from '@/components/features/community-hub';
-import WorkoutAccomplishmentSummary from '@/components/features/workout-accomplishment-summary';
 import { getAllPlayers, getUsersByIds, getUser } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -313,7 +311,6 @@ function DashboardContent() {
         <TabsTrigger value="dashboard"><BarChart3 className="mr-2" />Dashboard</TabsTrigger>
         <TabsTrigger value="log-performance"><LogIn className="mr-2" />Log</TabsTrigger>
         <TabsTrigger value="history"><History className="mr-2" />History</TabsTrigger>
-        <TabsTrigger value="summary"><FileText className="mr-2" />Summary</TabsTrigger>
         <TabsTrigger value="ai-insights"><BrainCircuit className="mr-2" />Insights</TabsTrigger>
         <TabsTrigger value="recommendations"><Target className="mr-2" />Recs</TabsTrigger>
         <TabsTrigger value="find-sport"><Search className="mr-2" />Find Sport</TabsTrigger>
@@ -369,7 +366,7 @@ function DashboardContent() {
         </div>
         
         <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-             <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-4 sm:grid-cols-10'}`}>
+             <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-4 sm:grid-cols-9'}`}>
               {isCoach ? (
                   <>
                       <TabsTrigger value="team"><Users className="mr-2"/>Team</TabsTrigger>
@@ -422,12 +419,6 @@ function DashboardContent() {
                           workouts={workoutHistory} 
                           isLoading={isLoadingHistory}
                           user={currentUser}
-                        />
-                    </TabsContent>
-                    <TabsContent value="summary" className="mt-4">
-                        <WorkoutAccomplishmentSummary
-                            workouts={workoutHistory}
-                            isLoading={isLoadingHistory}
                         />
                     </TabsContent>
                     <TabsContent value="ai-insights" className="mt-4">

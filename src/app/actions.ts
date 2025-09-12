@@ -3,8 +3,6 @@
 import { db, auth } from '@/lib/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit, setDoc, arrayUnion } from 'firebase/firestore';
-import { generateWorkoutSummary } from '@/ai/flows/workout-summary-flow';
-import dayjs from 'dayjs';
 
 import { z } from 'zod';
 import { generateTeamName } from '@/ai/flows/generate-team-name';
@@ -203,33 +201,6 @@ export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
             ...validatedData,
             createdAt: serverTimestamp(),
         });
-
-        // After logging, regenerate and save the workout summary
-        try {
-            const historyResult = await getWorkoutHistory(validatedData.userId);
-            if (historyResult.success && historyResult.workouts.length > 0) {
-                 const formattedHistory = historyResult.workouts
-                    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) // Sort oldest to newest
-                    .map((w: any) => {
-                        let record = `${dayjs(w.createdAt).format('YYYY-MM-DD')} - ${w.exercise}:`;
-                        const details = [];
-                        if (w.reps) details.push(`${w.reps} reps`);
-                        if (w.weight) details.push(`${w.weight}kg`);
-                        if (w.distance) details.push(`${w.distance}km`);
-                        if (w.time) details.push(w.time);
-                        return `${record} ${details.join(', ')}`;
-                    })
-                    .join("\n");
-
-                const summary = await generateWorkoutSummary(formattedHistory);
-                
-                const userRef = doc(db, 'users', validatedData.userId);
-                await updateDoc(userRef, { workoutSummary: summary });
-            }
-        } catch (summaryError) {
-            console.error("Failed to update workout summary:", summaryError);
-            // Don't block the main success message if only the summary fails
-        }
 
         return { 
             success: true, 
