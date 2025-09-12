@@ -76,6 +76,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
   const [sportSuggestions, setSportSuggestions] = useState<string[]>([]);
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [sportQuery, setSportQuery] = useState("");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -83,7 +84,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
       sport: "Soccer",
     },
   });
-
+  
   const getPlayerProfile = (playerId: string) => {
     return players.find(p => p.id === playerId)?.userProfile;
   }
@@ -103,6 +104,21 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
       setIsFetchingSuggestions(false);
     }
   }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (sportQuery) {
+        fetchSportSuggestions(sportQuery);
+      } else {
+        setSportSuggestions([]);
+      }
+    }, 500); // 500ms debounce delay
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [sportQuery, fetchSportSuggestions]);
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsScouting(true);
@@ -219,7 +235,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                             placeholder="Search for a sport..."
                             onValueChange={(search) => {
                               field.onChange(search);
-                              fetchSportSuggestions(search);
+                              setSportQuery(search);
                             }}
                             value={field.value}
                           />
@@ -234,6 +250,8 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                                   key={sport}
                                   onSelect={() => {
                                     form.setValue("sport", sport);
+                                    setSportQuery("");
+                                    setSportSuggestions([]);
                                     setPopoverOpen(false);
                                   }}
                                 >
