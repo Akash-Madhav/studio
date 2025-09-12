@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -239,11 +238,8 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                         <Command>
                            <CommandInput
                               placeholder="Search for a sport..."
-                              onValueChange={(search) => {
-                                field.onChange(search);
-                                setSportQuery(search);
-                              }}
-                              value={field.value}
+                              value={sportQuery}
+                              onValueChange={setSportQuery}
                             />
                           <CommandList>
                             <CommandEmpty>

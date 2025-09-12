@@ -283,7 +283,8 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
 export async function getAllPlayers() {
     try {
         const usersCollection = collection(db, 'users');
-        const q = query(usersCollection, where("role", "==", "player"));
+        // Only get players with status 'active' (no coach)
+        const q = query(usersCollection, where("role", "==", "player"), where("status", "==", "active"));
         const querySnapshot = await getDocs(q);
         const players = querySnapshot.docs.map(doc => {
             const data = doc.data();
@@ -296,8 +297,9 @@ export async function getAllPlayers() {
         });
 
         const playersWithWorkouts = await Promise.all(players.map(async (player: any) => {
-            const workoutHistory = await getWorkoutHistory(player.id, 3);
-            let performanceData = 'No recent workouts.';
+            // Get the COMPLETE workout history for each player
+            const workoutHistory = await getWorkoutHistory(player.id);
+            let performanceData = 'No workouts logged.';
             if (workoutHistory.success && workoutHistory.workouts.length > 0) {
                 performanceData = workoutHistory.workouts
                     .map(w => {
