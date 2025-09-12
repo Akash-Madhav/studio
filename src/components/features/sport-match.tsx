@@ -10,7 +10,6 @@ import {
   suggestSports,
   SportSuggestionOutput,
 } from "@/ai/flows/ai-sport-match-suggestion";
-import { getWorkoutHistory } from "@/app/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,14 +36,29 @@ const formSchema = z.object({
   userPreferences: z.string().min(1, "User preferences are required."),
 });
 
+interface Workout {
+    _id: string;
+    exercise: string;
+    reps?: number;
+    weight?: number;
+    time?: string;
+    distance?: number;
+    createdAt: Date;
+}
 
-async function getPerformanceSummary(userId: string) {
-    const result = await getWorkoutHistory(userId, 5);
-    if (!result.success || result.workouts.length === 0) {
+interface SportMatchProps {
+  userId: string;
+  workouts: Workout[];
+  isLoading: boolean;
+}
+
+function getPerformanceSummary(workouts: Workout[]) {
+    if (workouts.length === 0) {
         return "No recent workouts to analyze.";
     }
 
-    return result.workouts
+    return workouts
+      .slice(0, 5)
       .map((data) => {
         let record = `${data.exercise}:`;
         if (data.reps) record += ` ${data.reps} reps`;
@@ -56,13 +70,12 @@ async function getPerformanceSummary(userId: string) {
       .join(", ");
 }
 
-export default function SportMatch({ userId }: { userId: string }) {
+export default function SportMatch({ userId, workouts, isLoading: isFetchingData }: SportMatchProps) {
   const { toast } = useToast();
   const [suggestions, setSuggestions] = useState<SportSuggestionOutput | null>(
     null
   );
   const [isLoading, setIsLoading] = useState(false);
-  const [isFetchingData, setIsFetchingData] = useState(true);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -74,36 +87,21 @@ export default function SportMatch({ userId }: { userId: string }) {
   });
 
   useEffect(() => {
-    async function loadPerformanceData() {
-        setIsFetchingData(true);
-        if (userId) {
-            try {
-                const summary = await getPerformanceSummary(userId);
-                form.setValue('performanceData', summary);
-            } catch (error) {
-                console.error("Error loading sport match data:", error);
-                toast({
-                    variant: "destructive",
-                    title: "Error",
-                    description: "Could not load your workout data. You may need to create a Firestore index.",
-                });
-                form.setValue('performanceData', "Error loading workout data.");
-            }
-        }
-        setIsFetchingData(false);
+    if (!isFetchingData) {
+        const summary = getPerformanceSummary(workouts);
+        form.setValue('performanceData', summary);
     }
-    loadPerformanceData();
-  }, [userId, form, toast]);
+  }, [workouts, isFetchingData, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     setSuggestions(null);
     
-    if (values.performanceData.startsWith("Error")) {
+    if (values.performanceData.startsWith("No recent workouts")) {
          toast({
             variant: "destructive",
             title: "Cannot Generate Matches",
-            description: "Please resolve the data loading issue first.",
+            description: "Please log some workouts before trying to find a sport.",
         });
         setIsLoading(false);
         return;

@@ -427,7 +427,11 @@ function DashboardContent() {
                         />
                     </TabsContent>
                     <TabsContent value="find-sport" className="mt-4">
-                        <SportMatch userId={userId} />
+                        <SportMatch 
+                          userId={userId} 
+                          workouts={workoutHistory}
+                          isLoading={isLoadingHistory}
+                        />
                     </TabsContent>
                     <TabsContent value="invites" className="mt-4">
                         <PlayerInvites userId={userId} />
@@ -453,5 +457,3 @@ export default function Dashboard() {
     </Suspense>
   );
 }
-
-    
