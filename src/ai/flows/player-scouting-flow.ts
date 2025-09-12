@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A player scouting AI agent for coaches.
@@ -43,9 +44,17 @@ const prompt = ai.definePrompt({
   name: 'playerScoutingPrompt',
   input: {schema: PlayerScoutingInputSchema},
   output: {schema: PlayerScoutingOutputSchema},
-  prompt: `You are an expert sports scout. A coach is looking for players for the sport: {{{sport}}}.
+  prompt: `You are an expert sports scout specializing in {{{sport}}}. Your task is to analyze potential athletes based on their workout history and profile to find the best fits for a team.
 
-  Analyze the following list of players and their performance data. For each player, provide a suitability score (0-100), a brief analysis of their strengths and weaknesses for the specified sport, and a detailed report. Use the provided name for each player in your response.
+  A coach is looking for players for the sport: {{{sport}}}.
+
+  Analyze the following list of players. For each player, evaluate how their logged performance data (e.g., strength training, cardio, specific exercises) translates to the physical demands and key skills required for {{{sport}}}.
+  
+  - For strength-based sports like Football or Powerlifting, look for high weight numbers in exercises like squats and deadlifts.
+  - For endurance sports like Soccer or long-distance running, look for long workout durations or high distances.
+  - For sports requiring explosive power like Basketball or Volleyball, consider exercises that build vertical jump and agility.
+
+  Based on this deep analysis, provide a suitability score (0-100), a brief analysis of their strengths and weaknesses, and a detailed report explaining *why* their specific training regimen makes them a good or poor candidate for {{{sport}}}.
 
   Players:
   {{#each playersData}}
