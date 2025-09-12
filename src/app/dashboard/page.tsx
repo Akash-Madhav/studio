@@ -404,7 +404,10 @@ function DashboardContent() {
             ) : (
                 <>
                     <TabsContent value="dashboard" className="mt-4">
-                      <ProgressVisualization userId={userId} />
+                      <ProgressVisualization 
+                        workouts={workoutHistory} 
+                        isLoading={isLoadingHistory} 
+                      />
                     </TabsContent>
                      <TabsContent value="log-performance" className="mt-4">
                         <PerformanceLogging userId={userId} onWorkoutLogged={() => {}} />

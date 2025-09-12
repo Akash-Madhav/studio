@@ -19,9 +19,6 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Info, Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 interface Workout {
     _id: string;
@@ -32,6 +29,11 @@ interface Workout {
     time?: string;
     distance?: number;
     createdAt: Date;
+}
+
+interface ProgressVisualizationProps {
+  workouts: Workout[];
+  isLoading: boolean;
 }
 
 const weightChartConfig = {
@@ -56,59 +58,24 @@ const repsChartConfig = {
   },
 } satisfies ChartConfig;
 
-export default function ProgressVisualization({ userId }: { userId: string}) {
-    const { toast } = useToast();
-    const [userWorkouts, setUserWorkouts] = useState<Workout[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        if (!userId) {
-            setIsLoading(false);
-            return;
-        }
-
-        const q = query(collection(db, 'workouts'), where('userId', '==', userId));
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const workoutsData = snapshot.docs.map(doc => {
-                const data = doc.data();
-                const createdAt = data.createdAt as Timestamp;
-                return {
-                    ...data,
-                    _id: doc.id,
-                    createdAt: createdAt ? createdAt.toDate() : new Date(),
-                } as Workout;
-            });
-            // Sort client-side
-            workoutsData.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-            setUserWorkouts(workoutsData);
-            setIsLoading(false);
-        }, (error) => {
-            console.error("Error fetching workout history:", error);
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "Could not load workout history for charts.",
-            });
-            setIsLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, [userId, toast]);
-
-
+export default function ProgressVisualization({ workouts, isLoading }: ProgressVisualizationProps) {
+    
+    const sortedWorkouts = useMemo(() => {
+        return [...workouts].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    }, [workouts]);
+    
     const weightChartData = useMemo(() => {
         const monthlyData: {[key: string]: number} = {};
-        userWorkouts.filter(w => w.weight).forEach(w => {
+        sortedWorkouts.filter(w => w.weight).forEach(w => {
             const month = dayjs(w.createdAt).format('MMM');
             monthlyData[month] = (monthlyData[month] || 0) + (w.weight! * (w.reps || 1));
         });
         return Object.keys(monthlyData).map(month => ({ month, weight: monthlyData[month]}));
-    }, [userWorkouts]);
+    }, [sortedWorkouts]);
 
     const cardioChartData = useMemo(() => {
         const monthlyData: {[key: string]: { totalMinutes: number, count: number }} = {};
-        userWorkouts.filter(w => w.time).forEach(w => {
+        sortedWorkouts.filter(w => w.time).forEach(w => {
             const month = dayjs(w.createdAt).format('MMM');
             const timeParts = w.time?.split(':').map(Number) || [0, 0];
             const minutes = timeParts.length > 1 ? timeParts[0] + timeParts[1] / 60 : timeParts[0];
@@ -121,16 +88,16 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
         });
 
         return Object.keys(monthlyData).map(month => ({ month, minutes: Math.round(monthlyData[month].totalMinutes / monthlyData[month].count) }));
-    }, [userWorkouts]);
+    }, [sortedWorkouts]);
 
     const repsChartData = useMemo(() => {
         const maxReps: {[key: string]: number} = {};
-        userWorkouts.filter(w => w.reps).forEach(w => {
+        sortedWorkouts.filter(w => w.reps).forEach(w => {
             maxReps[w.exercise] = Math.max(maxReps[w.exercise] || 0, w.reps!);
         });
         const sortedExercises = Object.keys(maxReps).sort((a,b) => maxReps[b] - maxReps[a]).slice(0, 5);
         return sortedExercises.map(exercise => ({ exercise, reps: maxReps[exercise]}));
-    }, [userWorkouts]);
+    }, [sortedWorkouts]);
     
     if (isLoading) {
         return (
@@ -142,7 +109,7 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
         )
     }
 
-    if (userWorkouts.length === 0) {
+    if (workouts.length === 0) {
         return (
             <Card className="md:col-span-2 lg:col-span-3">
                 <CardContent className="flex flex-col items-center justify-center h-96">
@@ -245,5 +212,3 @@ export default function ProgressVisualization({ userId }: { userId: string}) {
     </div>
   );
 }
-
-    
