@@ -37,6 +37,7 @@ export async function signUpWithEmailAndPassword(values: z.infer<typeof signUpSc
             email: validatedData.email,
             role: validatedData.role,
             status: 'active',
+            photoURL: null,
             createdAt: serverTimestamp(),
         });
         
@@ -74,6 +75,7 @@ export async function signInWithEmailAndPasswordAction(values: z.infer<typeof si
                 email: user.email!,
                 role: 'player', // Default role
                 status: 'active',
+                photoURL: null,
                 createdAt: serverTimestamp(),
             };
             await setDoc(userRef, defaultProfile);
@@ -120,6 +122,7 @@ export async function signInWithGoogle(values: z.infer<typeof googleSignInSchema
                 email: validatedData.email,
                 role: role,
                 status: 'active',
+                photoURL: null,
                 createdAt: serverTimestamp(),
             });
             return { success: true, userId: validatedData.userId, role: role };
@@ -224,20 +227,22 @@ const updateUserProfileSchema = z.object({
     dob: z.string().optional().nullable(),
     experience: z.string().optional(),
     goals: z.string().optional(),
+    photoURL: z.string().url().optional().nullable(),
 });
 
 
 export async function updateUserProfile(values: z.infer<typeof updateUserProfileSchema>) {
     try {
         const validatedData = updateUserProfileSchema.parse(values);
-        const userRef = doc(db, 'users', validatedData.userId);
-        await updateDoc(userRef, {
-            name: validatedData.name,
-            email: validatedData.email,
+        const { userId, ...profileData } = validatedData;
+        const userRef = doc(db, 'users', userId);
+        
+        const updateData: any = {
+            ...profileData,
             dob: validatedData.dob ? new Date(validatedData.dob) : null,
-            experience: validatedData.experience,
-            goals: validatedData.goals,
-        });
+        };
+
+        await updateDoc(userRef, updateData);
         return { success: true, message: "Profile updated!" };
     } catch (error) {
         console.error("Error updating profile: ", error);
@@ -561,5 +566,3 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
-
-    

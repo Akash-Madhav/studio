@@ -4,9 +4,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { CalendarIcon, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { CalendarIcon, Loader2, Upload, User } from "lucide-react";
+import { useState, useEffect, ChangeEvent } from "react";
 import { format } from "date-fns";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,14 +33,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { updateUserProfile, getUser } from "@/app/actions";
 import { cn } from "@/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-
+import { storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required."),
@@ -47,6 +43,7 @@ const formSchema = z.object({
   dob: z.date().optional().nullable(),
   experience: z.string().optional(),
   goals: z.string().optional(),
+  photoURL: z.string().url().optional().nullable(),
 });
 
 interface ProfileSettingsProps {
@@ -58,6 +55,8 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingUser, setIsFetchingUser] = useState(true);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -67,6 +66,7 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
       dob: undefined,
       experience: "",
       goals: "",
+      photoURL: "",
     },
   });
 
@@ -81,7 +81,11 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
           dob: result.user.dob ? new Date(result.user.dob) : undefined,
           experience: result.user.experience || "",
           goals: result.user.goals || "",
+          photoURL: result.user.photoURL || "",
         });
+        if (result.user.photoURL) {
+            setImagePreview(result.user.photoURL);
+        }
       } else {
         toast({ variant: 'destructive', title: "Error", description: "Failed to load user profile." });
       }
@@ -92,12 +96,41 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
     }
   }, [userId, form, toast]);
 
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
+    let uploadedPhotoURL = values.photoURL;
+
+    if (imageFile) {
+        try {
+            const storageRef = ref(storage, `profile_pictures/${userId}/${imageFile.name}`);
+            const snapshot = await uploadBytes(storageRef, imageFile);
+            uploadedPhotoURL = await getDownloadURL(snapshot.ref);
+        } catch (error) {
+            console.error("Error uploading image:", error);
+            toast({ variant: "destructive", title: "Image Upload Failed", description: "Could not upload your profile picture." });
+            setIsSubmitting(false);
+            return;
+        }
+    }
+    
     const result = await updateUserProfile({ 
         ...values, 
         userId,
         dob: values.dob ? values.dob.toISOString().split('T')[0] : null,
+        photoURL: uploadedPhotoURL,
     });
     if (result.success) {
       toast({
@@ -140,7 +173,19 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            <div className="flex items-center gap-6">
+                <Avatar className="h-24 w-24">
+                    <AvatarImage src={imagePreview || `https://picsum.photos/seed/${userId}/100/100`} alt="Profile" />
+                    <AvatarFallback><User className="h-12 w-12"/></AvatarFallback>
+                </Avatar>
+                <div className="space-y-2">
+                    <FormLabel>Profile Photo</FormLabel>
+                    <Input id="picture" type="file" accept="image/*" onChange={handleImageChange} />
+                    <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB.</p>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                     control={form.control}

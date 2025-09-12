@@ -58,6 +58,7 @@ interface User {
     experience?: string;
     goals?: string;
     status?: string;
+    photoURL?: string;
 }
 
 function DashboardContent() {
@@ -86,19 +87,18 @@ function DashboardContent() {
       return;
     }
 
-    const fetchInitialData = async () => {
-        setIsLoading(true);
-        const userRes = await getUser(initialUserId);
-        if (userRes.success && userRes.user) {
-            setCurrentUser(userRes.user as User);
+    const userRef = doc(db, "users", initialUserId);
+    const unsubscribe = onSnapshot(userRef, (doc) => {
+        if (doc.exists()) {
+            setCurrentUser({ id: doc.id, ...doc.data() } as User);
         } else {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
             router.push('/');
         }
         setIsLoading(false);
-    }
-    
-    fetchInitialData();
+    });
+
+    return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialUserId, toast]);
 
@@ -190,7 +190,7 @@ function DashboardContent() {
                     inviteId: d.id,
                     playerId: data.playerId,
                     playerName: player?.name || 'Unknown',
-                    playerAvatar: `https://picsum.photos/seed/${data.playerId}/50/50`,
+                    playerAvatar: player?.photoURL || `https://picsum.photos/seed/${data.playerId}/50/50`,
                     sentAt: sentAt ? sentAt.toDate().toISOString() : new Date().toISOString(),
                 };
             });
@@ -290,7 +290,7 @@ function DashboardContent() {
               <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="icon" className="rounded-full">
                   <Avatar>
-                    <AvatarImage src={`https://picsum.photos/seed/${initialUserId}/50/50`} alt="@user" data-ai-hint="person face" />
+                    <AvatarImage src={currentUser.photoURL || `https://picsum.photos/seed/${initialUserId}/50/50`} alt="@user" data-ai-hint="person face" />
                     <AvatarFallback>{(currentUser?.name || '').charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <span className="sr-only">Toggle user menu</span>
@@ -404,5 +404,3 @@ export default function Dashboard() {
     </Suspense>
   );
 }
-
-    
