@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Loader2, UserCheck, Search, Send, FileText, Check, ChevronsUpDown } from "lucide-react";
+import { Loader2, UserCheck, Search, Send, FileText, Check, ChevronsUpDown, ShieldCheck } from "lucide-react";
 import { useSearchParams } from 'next/navigation';
 import {
   getPlayerRecommendations,
@@ -301,6 +301,18 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
           {isScouting && (
             <div className="flex justify-center items-center h-48">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
+          {recommendations?.keyAttributesForSport && (
+            <div className="p-3 bg-muted/50 rounded-md">
+                <h4 className="font-semibold text-primary mb-2 flex items-center gap-2">
+                    <ShieldCheck size={16}/> Key Attributes for {form.getValues('sport')}
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                    {recommendations.keyAttributesForSport.map(attr => (
+                        <Badge key={attr} variant="secondary">{attr}</Badge>
+                    ))}
+                </div>
             </div>
           )}
           {recommendations?.recommendations && recommendations.recommendations.length > 0 ? (

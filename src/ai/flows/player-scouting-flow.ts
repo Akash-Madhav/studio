@@ -23,13 +23,14 @@ const PlayerScoutingInputSchema = z.object({
 export type PlayerScoutingInput = z.infer<typeof PlayerScoutingInputSchema>;
 
 const PlayerScoutingOutputSchema = z.object({
+  keyAttributesForSport: z.array(z.string()).describe('A list of the key physical attributes and skills the AI identified as crucial for the specified sport.'),
   recommendations: z.array(
     z.object({
       playerId: z.string().describe('The ID of the recommended player.'),
       playerName: z.string().describe('The name of the recommended player.'),
       suitabilityScore: z.number().min(0).max(100).describe('A score from 0-100 indicating how suitable the player is for the sport.'),
-      analysis: z.string().describe('A brief analysis of the player\'s strengths and weaknesses for the sport.'),
-      report: z.string().describe('A detailed report on why the player is a good fit and potential areas for development.'),
+      analysis: z.string().describe('A brief analysis of the player\'s strengths and weaknesses for the sport, based on the key attributes.'),
+      report: z.string().describe('A detailed report on why the player is a good fit, linking their specific workouts to the demands of the sport, and identifying potential areas for development.'),
     })
   ).describe('A list of recommended players with analysis and reports.'),
 });
@@ -44,27 +45,34 @@ const prompt = ai.definePrompt({
   name: 'playerScoutingPrompt',
   input: {schema: PlayerScoutingInputSchema},
   output: {schema: PlayerScoutingOutputSchema},
-  prompt: `You are an expert sports scout specializing in {{{sport}}}. Your task is to analyze potential athletes based on their workout history and profile to find the best fits for a team.
+  prompt: `You are an expert sports scout with deep knowledge of athletic performance. Your task is to analyze potential athletes for a {{{sport}}} team based on their workout history and profile.
 
-  A coach is looking for players for the sport: {{{sport}}}.
+**Analysis Protocol:**
 
-  Analyze the following list of players. For each player, evaluate how their logged performance data (e.g., strength training, cardio, specific exercises) translates to the physical demands and key skills required for {{{sport}}}.
-  
-  - For strength-based sports like Football or Powerlifting, look for high weight numbers in exercises like squats and deadlifts.
-  - For endurance sports like Soccer or long-distance running, look for long workout durations or high distances.
-  - For sports requiring explosive power like Basketball or Volleyball, consider exercises that build vertical jump and agility.
+**Step 1: Define Key Attributes for the Sport**
+First, identify and list the most crucial physical attributes and skills required to excel in **{{{sport}}}**. For example, for Basketball, this might include 'Explosive Power', 'Agility', 'Vertical Leap', and 'Cardiovascular Endurance'.
 
-  Based on this deep analysis, provide a suitability score (0-100), a brief analysis of their strengths and weaknesses, and a detailed report explaining *why* their specific training regimen makes them a good or poor candidate for {{{sport}}}.
+**Step 2: Evaluate Each Player Against Key Attributes**
+Analyze the following list of players. For each player, meticulously evaluate how their logged performance data and profile information translate to the key attributes you defined for **{{{sport}}}**. Be specific.
+-   If scouting for Football (American), a high squat and bench press weight in their performance data directly indicates 'Raw Strength'.
+-   If scouting for Marathon Running, consistent long-distance runs or long cardio sessions indicate 'High Endurance'.
+-   If scouting for Volleyball, exercises like box jumps or plyometrics suggest 'Explosive Vertical Power'.
 
-  Players:
-  {{#each playersData}}
-  - Player ID: {{this.id}}
-    - Name: {{this.name}}
-    - Profile: {{this.userProfile}}
-    - Performance Data: {{this.performanceData}}
-  {{/each}}
+**Step 3: Generate Recommendations**
+Based on your deep analysis, provide a suitability score (0-100) and a detailed report for the top 3 most suitable players.
+-   **Suitability Score**: A quantitative measure of their fit.
+-   **Analysis**: A brief summary of their strengths and weaknesses against the key attributes.
+-   **Report**: Explain *why* their specific training regimen makes them a good candidate. Connect the dots between their workouts (e.g., "His 140kg deadlift...") and the demands of the sport (e.g., "...provides the foundational strength needed for a defensive lineman."). Also mention their potential for development.
 
-  Recommend the top 3 most suitable players. Your response should be based on the provided data and tailored to the demands of the sport of {{{sport}}}.`,
+**Player Data:**
+{{#each playersData}}
+-   **Player ID**: {{this.id}}
+    -   **Name**: {{this.name}}
+    -   **Profile**: {{this.userProfile}}
+    -   **Performance Data**: {{this.performanceData}}
+{{/each}}
+
+Your final output must be structured according to the PlayerScoutingOutputSchema. Begin by listing the key attributes you identified for {{{sport}}}.`,
 });
 
 
