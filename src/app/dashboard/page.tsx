@@ -45,7 +45,7 @@ import { getAllPlayers, getUsersByIds, getUser } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
-import { onSnapshot, collection, query, where, doc, getDoc, Timestamp, getDocs, orderBy } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, doc, getDoc, Timestamp, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 
