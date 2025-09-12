@@ -234,19 +234,17 @@ const updateUserProfileSchema = z.object({
 export async function updateUserProfile(values: z.infer<typeof updateUserProfileSchema>) {
     try {
         const validatedData = updateUserProfileSchema.parse(values);
-        const { userId, ...profileData } = validatedData;
+        const { userId, email, ...profileData } = validatedData; // Exclude email from profileData
         const userRef = doc(db, 'users', userId);
         
         const updateData: any = {
-            ...profileData,
+            name: profileData.name,
             dob: profileData.dob ? new Date(profileData.dob) : null,
+            experience: profileData.experience ?? null,
+            goals: profileData.goals ?? null,
+            photoURL: profileData.photoURL ?? null,
         };
         
-        // Ensure optional fields are set to null if they are undefined to avoid Firestore errors
-        updateData.experience = updateData.experience ?? null;
-        updateData.goals = updateData.goals ?? null;
-        updateData.photoURL = updateData.photoURL ?? null;
-
         await updateDoc(userRef, updateData);
         return { success: true, message: "Profile updated!" };
     } catch (error) {
@@ -571,5 +569,7 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
+
+    
 
     
