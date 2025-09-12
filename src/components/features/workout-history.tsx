@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Card,
   CardContent,
@@ -18,12 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Dumbbell, Calendar, Info, User } from "lucide-react";
+import { Loader2, Info, User } from "lucide-react";
 import dayjs from 'dayjs';
-import { useToast } from '@/hooks/use-toast';
-import { onSnapshot, collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { getUser } from '@/app/actions'; // Import getUser to fetch user details
 
 interface Workout {
     _id: string;
@@ -42,62 +38,13 @@ interface User {
     email: string;
 }
 
-export default function WorkoutHistory({ userId }: { userId: string }) {
-  const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
+interface WorkoutHistoryProps {
+  workouts: Workout[];
+  isLoading: boolean;
+  user: User | null;
+}
 
-  useEffect(() => {
-    if (!userId) {
-        setIsLoading(false);
-        return;
-    }
-
-    async function fetchUser() {
-        const userRes = await getUser(userId);
-        if (userRes.success && userRes.user) {
-            setUser(userRes.user as User);
-        } else {
-            toast({ variant: 'destructive', title: "Error", description: "Could not load user details." });
-        }
-    }
-
-    fetchUser();
-    
-    const q = query(
-        collection(db, 'workouts'), 
-        where("userId", "==", userId)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const workoutsData = snapshot.docs.map(doc => {
-            const data = doc.data();
-            const createdAt = data.createdAt as Timestamp;
-            return {
-                ...data,
-                _id: doc.id,
-                createdAt: createdAt ? createdAt.toDate() : new Date(),
-            } as Workout;
-        });
-        
-        workoutsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        
-        setWorkouts(workoutsData);
-        setIsLoading(false);
-    }, (error) => {
-        console.error("Error fetching workout history:", error);
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Could not load workout history. You may need to create a Firestore index.",
-        });
-        setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [userId, toast]);
-
+export default function WorkoutHistory({ workouts, isLoading, user }: WorkoutHistoryProps) {
   const formatWorkoutDetails = (workout: Workout) => {
     const details = [];
     if (workout.reps) details.push(`${workout.reps} reps`);
@@ -157,3 +104,5 @@ export default function WorkoutHistory({ userId }: { userId: string }) {
     </Card>
   );
 }
+
+    

@@ -10,7 +10,7 @@ import {
   generatePersonalizedRecommendations,
   PersonalizedTrainingRecommendationsOutput,
 } from "@/ai/flows/personalized-training-recommendations";
-import { getUser, getWorkoutHistory } from "@/app/actions";
+import { getUser } from "@/app/actions";
 import dayjs from 'dayjs';
 
 import { Button } from "@/components/ui/button";
@@ -37,13 +37,29 @@ const formSchema = z.object({
   fitnessGoals: z.string().min(1, "Fitness goals are required."),
 });
 
-async function getPerformanceSummary(userId: string) {
-    const result = await getWorkoutHistory(userId, 10);
-    if (!result.success || result.workouts.length === 0) {
+interface Workout {
+    _id: string;
+    exercise: string;
+    reps?: number;
+    weight?: number;
+    time?: string;
+    distance?: number;
+    createdAt: Date;
+}
+
+interface PersonalizedRecommendationsProps {
+  userId: string;
+  workouts: Workout[];
+  isLoading: boolean;
+}
+
+function getPerformanceSummary(workouts: Workout[]) {
+    if (workouts.length === 0) {
         return "No recent workouts to analyze.";
     }
   
-    return result.workouts
+    return workouts
+      .slice(0, 10)
       .map((data) => {
         let record = `${dayjs(data.createdAt).format('YYYY-MM-DD')} - ${data.exercise}:`;
         if (data.reps) record += ` ${data.reps} reps`;
@@ -55,12 +71,11 @@ async function getPerformanceSummary(userId: string) {
       .join("\n");
 }
 
-export default function PersonalizedRecommendations({ userId }: { userId: string }) {
+export default function PersonalizedRecommendations({ userId, workouts, isLoading: isFetchingData }: PersonalizedRecommendationsProps) {
   const { toast } = useToast();
   const [recommendations, setRecommendations] =
     useState<PersonalizedTrainingRecommendationsOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isFetchingData, setIsFetchingData] = useState(true);
   const [performanceData, setPerformanceData] = useState("");
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -69,32 +84,26 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
       fitnessGoals: "",
     },
   });
-
+  
   useEffect(() => {
-    async function loadData() {
-        setIsFetchingData(true);
+    async function loadGoals() {
         if (userId) {
-            try {
-                const userRes = await getUser(userId);
-                if (userRes.success && userRes.user) {
-                     form.setValue('fitnessGoals', userRes.user.goals || '');
-                }
-                const performanceSummary = await getPerformanceSummary(userId);
-                setPerformanceData(performanceSummary);
-            } catch (error) {
-                 console.error("Error loading recommendation data:", error);
-                 toast({
-                    variant: "destructive",
-                    title: "Error",
-                    description: "Could not load your data. You may need to create a Firestore index for workout history.",
-                 });
-                 setPerformanceData("Error loading workout data.");
+            const userRes = await getUser(userId);
+            if (userRes.success && userRes.user) {
+                 form.setValue('fitnessGoals', userRes.user.goals || '');
             }
         }
-        setIsFetchingData(false);
     }
-    loadData();
-  }, [userId, form, toast]);
+    loadGoals();
+  }, [userId, form]);
+
+  useEffect(() => {
+    if (!isFetchingData) {
+        const summary = getPerformanceSummary(workouts);
+        setPerformanceData(summary);
+    }
+  }, [workouts, isFetchingData]);
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
@@ -236,3 +245,5 @@ export default function PersonalizedRecommendations({ userId }: { userId: string
     </div>
   );
 }
+
+    

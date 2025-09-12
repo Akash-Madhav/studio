@@ -61,6 +61,17 @@ interface User {
     photoURL?: string;
 }
 
+interface Workout {
+    _id: string;
+    userId: string;
+    exercise: string;
+    reps?: number;
+    weight?: number;
+    time?: string;
+    distance?: number;
+    createdAt: Date;
+}
+
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -79,6 +90,9 @@ function DashboardContent() {
   const [recruitedPlayers, setRecruitedPlayers] = useState<any[]>([]);
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
   const [isLoadingCoachData, setIsLoadingCoachData] = useState(isCoach);
+
+  const [workoutHistory, setWorkoutHistory] = useState<Workout[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(!isCoach);
   
   useEffect(() => {
     if (!initialUserId) {
@@ -88,7 +102,7 @@ function DashboardContent() {
     }
 
     const userRef = doc(db, "users", initialUserId);
-    const unsubscribe = onSnapshot(userRef, (doc) => {
+    const unsubscribeUser = onSnapshot(userRef, (doc) => {
         if (doc.exists()) {
             setCurrentUser({ id: doc.id, ...doc.data() } as User);
         } else {
@@ -98,9 +112,36 @@ function DashboardContent() {
         setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    // Fetch workout history for players
+    let unsubscribeHistory: () => void = () => {};
+    if (role === 'player') {
+      const q = query(collection(db, 'workouts'), where("userId", "==", initialUserId));
+      unsubscribeHistory = onSnapshot(q, (snapshot) => {
+          const workoutsData = snapshot.docs.map(doc => {
+              const data = doc.data();
+              const createdAt = data.createdAt as Timestamp;
+              return {
+                  ...data,
+                  _id: doc.id,
+                  createdAt: createdAt ? createdAt.toDate() : new Date(),
+              } as Workout;
+          });
+          workoutsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+          setWorkoutHistory(workoutsData);
+          setIsLoadingHistory(false);
+      }, (error) => {
+          console.error("Error fetching workout history:", error);
+          toast({ variant: "destructive", title: "Error", description: "Could not load workout history." });
+          setIsLoadingHistory(false);
+      });
+    }
+
+    return () => {
+      unsubscribeUser();
+      unsubscribeHistory();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialUserId, toast]);
+  }, [initialUserId, role, toast]);
 
   const fetchAllPlayersForScouting = useCallback(async () => {
      if (!isCoach) return;
@@ -369,13 +410,21 @@ function DashboardContent() {
                         <PerformanceLogging userId={userId} onWorkoutLogged={() => {}} />
                     </TabsContent>
                      <TabsContent value="history" className="mt-4">
-                        <WorkoutHistory userId={userId} />
+                        <WorkoutHistory 
+                          workouts={workoutHistory} 
+                          isLoading={isLoadingHistory}
+                          user={currentUser}
+                        />
                     </TabsContent>
                     <TabsContent value="ai-insights" className="mt-4">
                         <AiInsights userId={userId} />
                     </TabsContent>
                     <TabsContent value="recommendations" className="mt-4">
-                        <PersonalizedRecommendations userId={userId} />
+                        <PersonalizedRecommendations 
+                          userId={userId} 
+                          workouts={workoutHistory}
+                          isLoading={isLoadingHistory}
+                        />
                     </TabsContent>
                     <TabsContent value="find-sport" className="mt-4">
                         <SportMatch userId={userId} />
@@ -404,3 +453,5 @@ export default function Dashboard() {
     </Suspense>
   );
 }
+
+    
