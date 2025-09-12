@@ -195,6 +195,10 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
 
   const isLoading = isFetchingPlayers || isScouting;
 
+  const filteredRecommendations = recommendations?.recommendations.filter(
+    (rec) => rec.suitabilityScore > 40
+  );
+
   return (
     <div className="grid md:grid-cols-2 gap-8 items-start">
       <Card>
@@ -307,9 +311,9 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                 </div>
             </div>
           )}
-          {recommendations?.recommendations && recommendations.recommendations.length > 0 ? (
+          {recommendations && filteredRecommendations && filteredRecommendations.length > 0 ? (
             <Accordion type="single" collapsible className="w-full">
-              {recommendations.recommendations.map((rec, index) => (
+              {filteredRecommendations.map((rec, index) => (
                 <AccordionItem value={`item-${index}`} key={rec.playerId}>
                   <AccordionTrigger>
                     <div className="flex items-center gap-4 w-full">
@@ -369,7 +373,9 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
           ) : (
             !isScouting && (
                 <div className="text-center text-muted-foreground py-12">
-                    {isFetchingPlayers
+                    {recommendations ? 
+                        "There are no suitable players for this sport with a suitability score above 40%."
+                        : isFetchingPlayers
                         ? "Fetching player data..."
                         : players.filter(p => p.status === 'active').length === 0 
                         ? "No available players to scout. Players with pending invites or on a team are excluded."
@@ -382,5 +388,3 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     </div>
   );
 }
-
-    
