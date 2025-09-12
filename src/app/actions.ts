@@ -227,7 +227,7 @@ const updateUserProfileSchema = z.object({
     dob: z.string().optional().nullable(),
     experience: z.string().optional(),
     goals: z.string().optional(),
-    photoURL: z.string().url().optional().nullable(),
+    photoURL: z.string().url().optional().nullable().or(z.literal('')),
 });
 
 
@@ -566,3 +566,5 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
+
+    
