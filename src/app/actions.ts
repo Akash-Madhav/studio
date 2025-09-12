@@ -383,12 +383,27 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
 
 export async function respondToInvite({ inviteId, response, playerId, coachId }: { inviteId: string, response: 'accepted' | 'declined', playerId: string, coachId: string }) {
     try {
-        let conversationId: string | null = null;
         if (response === 'accepted') {
+            // --- Pre-transaction reads ---
+            const coachRef = doc(db, 'users', coachId);
+            const coachDoc = await getDoc(coachRef);
+            const coachData = coachDoc.data();
+            if (!coachData) throw new Error('Coach not found');
+
+            const teamQuery = query(collection(db, 'users'), where('coachId', '==', coachId), where('status', '==', 'recruited'));
+            const teamSnapshot = await getDocs(teamQuery);
+            const teamSize = teamSnapshot.docs.length; // Current size, before adding the new player
+
+            const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
+            const groupChatSnapshot = await getDocs(groupChatQuery);
+            
+            let conversationId: string | null = null;
+            // --- Transaction ---
             await runTransaction(db, async (transaction) => {
                 const inviteRef = doc(db, 'invites', inviteId);
                 const playerRef = doc(db, 'users', playerId);
 
+                // Create direct conversation
                 const newConvoRef = doc(collection(db, 'conversations'));
                 transaction.set(newConvoRef, {
                     participantIds: [playerId, coachId],
@@ -397,31 +412,21 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 });
                 conversationId = newConvoRef.id;
 
+                // Update player and invite status
                 transaction.update(inviteRef, { status: 'accepted' });
                 transaction.update(playerRef, { status: 'recruited', coachId: coachId });
 
-                // Check for existing group chat or create a new one
-                const coachRef = doc(db, 'users', coachId);
-                const coachDoc = await transaction.get(coachRef);
-                const coachData = coachDoc.data();
-                if (!coachData) throw new Error('Coach not found');
-
-                const teamQuery = query(collection(db, 'users'), where('coachId', '==', coachId), where('status', '==', 'recruited'));
-                const teamSnapshot = await getDocs(teamQuery);
-                const teamSize = teamSnapshot.docs.length + 1; // +1 for the newly recruited player
-
-                if (teamSize >= 2) {
-                    const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
-                    const groupChatSnapshot = await getDocs(groupChatQuery);
-
+                // Handle group chat logic
+                if (teamSize + 1 >= 2) { // +1 for the newly accepted player
                     if (groupChatSnapshot.empty) {
                         // Create a new group chat
                         const teamName = await generateTeamName(coachData.name);
                         const groupChatRef = doc(collection(db, 'conversations'));
+                        const allParticipantIds = [coachId, playerId, ...teamSnapshot.docs.map(d => d.id)];
                         transaction.set(groupChatRef, {
                             coachId: coachId,
                             name: teamName,
-                            participantIds: [coachId, playerId, ...teamSnapshot.docs.map(d => d.id)],
+                            participantIds: allParticipantIds,
                             createdAt: serverTimestamp(),
                             type: 'group',
                         });
@@ -434,15 +439,16 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                     }
                 }
             });
-        } else {
+             return { success: true, conversationId };
+        } else { // Declined
             await runTransaction(db, async (transaction) => {
                 const inviteRef = doc(db, 'invites', inviteId);
                 const playerRef = doc(db, 'users', playerId);
                 transaction.update(inviteRef, { status: 'declined' });
                 transaction.update(playerRef, { status: 'active', coachId: null });
             });
+             return { success: true, conversationId: null };
         }
-        return { success: true, conversationId };
     } catch (error) {
         console.error("Error responding to invite:", error);
         return { success: false, message: 'Failed to respond to invite.' };
@@ -594,3 +600,5 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
+
+    
