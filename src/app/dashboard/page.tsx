@@ -114,7 +114,7 @@ function DashboardContent() {
     // Fetch workout history for players
     let unsubscribeHistory: () => void = () => {};
     if (role === 'player') {
-      const q = query(collection(db, 'workouts'), where("userId", "==", initialUserId));
+      const q = query(collection(db, 'workouts'), where("userId", "==", initialUserId), orderBy("createdAt", "desc"));
       unsubscribeHistory = onSnapshot(q, (snapshot) => {
           const workoutsData = snapshot.docs.map(doc => {
               const data = doc.data();
@@ -125,7 +125,6 @@ function DashboardContent() {
                   createdAt: createdAt ? createdAt.toDate() : new Date(),
               } as Workout;
           });
-          workoutsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
           setWorkoutHistory(workoutsData);
           setIsLoadingHistory(false);
       }, (error) => {
@@ -176,13 +175,17 @@ function DashboardContent() {
             const player: any = { id: d.id, ...d.data() };
             
             const workoutsCollection = collection(db, 'workouts');
-            const q = query(workoutsCollection, where("userId", "==", d.id), orderBy('createdAt', 'desc'), limit(3));
+            const q = query(workoutsCollection, where("userId", "==", d.id));
             const querySnapshot = await getDocs(q);
-            const workouts = querySnapshot.docs.map(doc => doc.data());
+            
+            const workouts = querySnapshot.docs.map(doc => ({ ...doc.data(), createdAt: (doc.data().createdAt as Timestamp).toDate() }));
+            workouts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+            const recentWorkouts = workouts.slice(0, 3);
+
 
             let performanceData = 'No recent workouts logged.';
-            if (workouts.length > 0) {
-                 performanceData = workouts
+            if (recentWorkouts.length > 0) {
+                 performanceData = recentWorkouts
                     .map(w => {
                         const parts = [w.exercise];
                         if (w.reps) parts.push(`${w.reps} reps`);
