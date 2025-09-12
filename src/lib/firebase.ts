@@ -9,7 +9,6 @@ const firebaseConfig = {
   "storageBucket": "optifitaicopy-87674237-d47c0.firebasestorage.app",
   "apiKey": "AIzaSyD0wsmwziRfkE_PQLdx3s0oYMj2a9Ru8cY",
   "authDomain": "optifitaicopy-87674237-d47c0.firebaseapp.com",
-  "measurementId": "",
   "messagingSenderId": "620460614828"
 };
 
