@@ -238,8 +238,12 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
         const userRef = doc(db, 'users', userId);
         
         const updateData: any = {
-            ...profileData,
-            dob: validatedData.dob ? new Date(validatedData.dob) : null,
+            name: profileData.name,
+            email: profileData.email,
+            dob: profileData.dob ? new Date(profileData.dob) : null,
+            experience: profileData.experience || null,
+            goals: profileData.goals || null,
+            photoURL: profileData.photoURL || null,
         };
 
         await updateDoc(userRef, updateData);
