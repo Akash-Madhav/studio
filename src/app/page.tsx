@@ -72,13 +72,10 @@ export default function LoginPage() {
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
 
-        // Note: For a real app, you might want to force the user to select a role
-        // if they are a new Google Sign-In user. We default to 'player'.
         const serverResult = await signInWithGoogle({
             userId: user.uid,
             email: user.email!,
             name: user.displayName!,
-            role: 'player', 
         });
 
         if (serverResult.success) {
@@ -196,5 +193,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

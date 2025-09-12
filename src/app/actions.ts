@@ -67,10 +67,17 @@ export async function signInWithEmailAndPasswordAction(values: z.infer<typeof si
         const userDoc = await getDoc(userRef);
         
         if (!userDoc.exists()) {
-            // This case can happen if Firestore profile creation failed during sign-up
-            // Let's create a default profile. The user would need to select a role.
-            // For now, we'll default to 'player' and they can't log in. A better UX would be to ask for role.
-             return { success: false, message: "User profile not found. Please sign up again." };
+             // If the user is authenticated but has no profile, create a default one.
+            const defaultProfile = {
+                id: user.uid,
+                name: user.displayName || user.email?.split('@')[0] || 'New User',
+                email: user.email!,
+                role: 'player', // Default role
+                status: 'active',
+                createdAt: serverTimestamp(),
+            };
+            await setDoc(userRef, defaultProfile);
+            return { success: true, userId: user.uid, role: 'player' };
         }
 
         const userRole = userDoc.data()?.role || 'player'; 
@@ -92,7 +99,7 @@ const googleSignInSchema = z.object({
     userId: z.string(),
     email: z.string().email(),
     name: z.string(),
-    role: z.enum(['player', 'coach']),
+    role: z.enum(['player', 'coach']).optional(), // Role is optional now
 });
 
 export async function signInWithGoogle(values: z.infer<typeof googleSignInSchema>) {
@@ -105,15 +112,17 @@ export async function signInWithGoogle(values: z.infer<typeof googleSignInSchema
             const userRole = userDoc.data()?.role || 'player';
             return { success: true, userId: validatedData.userId, role: userRole };
         } else {
+            // If user does not exist, create them. Use the provided role, or default to player.
+            const role = validatedData.role || 'player';
             await setDoc(userRef, {
                 id: validatedData.userId,
                 name: validatedData.name,
                 email: validatedData.email,
-                role: validatedData.role,
+                role: role,
                 status: 'active',
                 createdAt: serverTimestamp(),
             });
-            return { success: true, userId: validatedData.userId, role: validatedData.role };
+            return { success: true, userId: validatedData.userId, role: role };
         }
     } catch (error) {
         console.error("Error during Google sign-in process:", error);
@@ -552,5 +561,3 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
-
-    
