@@ -326,6 +326,35 @@ export async function getAllPlayers() {
     }
 }
 
+export async function findPlayerByEmail(email: string) {
+    try {
+        if (!email) {
+            return { success: false, player: null, message: 'Email is required.' };
+        }
+        const usersCollection = collection(db, 'users');
+        const q = query(usersCollection, where("email", "==", email), where("role", "==", "player"), limit(1));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            return { success: false, player: null, message: 'No player found with that email.' };
+        }
+
+        const playerDoc = querySnapshot.docs[0];
+        const data = playerDoc.data();
+        const player = {
+            id: playerDoc.id,
+            ...data,
+            dob: formatTimestamp(data.dob),
+            createdAt: formatTimestamp(data.createdAt),
+        };
+        
+        return { success: true, player: JSON.parse(JSON.stringify(player)) };
+    } catch (error) {
+        console.error("Error finding player by email:", error);
+        return { success: false, player: null, message: 'An error occurred while searching for the player.' };
+    }
+}
+
 export async function sendRecruitInvite(playerId: string, coachId: string) {
     try {
         const inviteRef = collection(db, 'invites');
@@ -565,7 +594,3 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
-
-    
-
-    
