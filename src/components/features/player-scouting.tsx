@@ -283,7 +283,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                 ) : (
                   <Search className="mr-2" />
                 )}
-                {isFetchingPlayers ? 'Loading Players...' : 'Find Players'}
+                {isFetchingPlayers ? 'Loading Players...' : isScouting ? 'Finding Players...' : 'Find Players'}
               </Button>
             </CardFooter>
           </form>
@@ -298,7 +298,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isLoading && (
+          {isScouting && (
             <div className="flex justify-center items-center h-48">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
