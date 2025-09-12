@@ -37,7 +37,6 @@ export async function signUpWithEmailAndPassword(values: z.infer<typeof signUpSc
             email: validatedData.email,
             role: validatedData.role,
             status: 'active',
-            photoURL: null,
             createdAt: serverTimestamp(),
         });
         
@@ -75,7 +74,6 @@ export async function signInWithEmailAndPasswordAction(values: z.infer<typeof si
                 email: user.email!,
                 role: 'player', // Default role
                 status: 'active',
-                photoURL: null,
                 createdAt: serverTimestamp(),
             };
             await setDoc(userRef, defaultProfile);
@@ -122,7 +120,6 @@ export async function signInWithGoogle(values: z.infer<typeof googleSignInSchema
                 email: validatedData.email,
                 role: role,
                 status: 'active',
-                photoURL: null,
                 createdAt: serverTimestamp(),
             });
             return { success: true, userId: validatedData.userId, role: role };
