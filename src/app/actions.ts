@@ -254,12 +254,8 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
     try {
         const workoutsCollection = collection(db, 'workouts');
         
-        let q;
-        if (recordLimit) {
-            q = query(workoutsCollection, where("userId", "==", userId), orderBy("createdAt", "desc"), limit(recordLimit));
-        } else {
-            q = query(workoutsCollection, where("userId", "==", userId), orderBy("createdAt", "desc"));
-        }
+        // Remove orderBy from the query to prevent index error
+        let q = query(workoutsCollection, where("userId", "==", userId));
         
         const querySnapshot = await getDocs(q);
 
@@ -273,7 +269,12 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
                 };
             });
         
-        return { success: true, workouts: JSON.parse(JSON.stringify(workouts)) };
+        // Sort in code instead of in the query
+        workouts.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+
+        const finalWorkouts = recordLimit ? workouts.slice(0, recordLimit) : workouts;
+        
+        return { success: true, workouts: JSON.parse(JSON.stringify(finalWorkouts)) };
     } catch (error: any) {
         console.error(`Error fetching workout history for user ${userId}:`, error);
         return { success: false, workouts: [], message: "Failed to fetch workout history." };
@@ -600,5 +601,3 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
-
-    
