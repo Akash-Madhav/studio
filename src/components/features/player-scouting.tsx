@@ -235,19 +235,14 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                       </PopoverTrigger>
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                         <Command>
-                          <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
-                              <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                              <Input
-                                  placeholder="Search for a sport..."
-                                  className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                                  onChange={(e) => {
-                                      const search = e.target.value;
-                                      field.onChange(search);
-                                      setSportQuery(search);
-                                  }}
-                                  value={field.value}
-                              />
-                          </div>
+                           <CommandInput
+                              placeholder="Search for a sport..."
+                              onValueChange={(search) => {
+                                field.onChange(search);
+                                setSportQuery(search);
+                              }}
+                              value={field.value}
+                            />
                           <CommandList>
                             <CommandEmpty>
                               {isFetchingSuggestions ? 'Searching...' : 'No sport found.'}
