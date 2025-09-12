@@ -58,6 +58,8 @@ Analyze the following list of players. For each player, meticulously evaluate ho
 -   If scouting for Marathon Running, consistent long-distance runs or long cardio sessions indicate 'High Endurance'.
 -   If scouting for Volleyball, exercises like box jumps or plyometrics suggest 'Explosive Vertical Power'.
 
+**Crucial Rule**: If a player's performance data or user profile is insufficient for a meaningful analysis (e.g., "No recent workouts" or "No profile information available"), you MUST assign a **suitability score of 0**. Your analysis and report should state that an assessment is not possible due to a lack of data. Do not speculate.
+
 **Step 3: Generate Recommendations**
 Based on your deep analysis, provide a suitability score (0-100) and a detailed report for only the **top 3** most suitable players.
 -   **Suitability Score**: A quantitative measure of their fit.
