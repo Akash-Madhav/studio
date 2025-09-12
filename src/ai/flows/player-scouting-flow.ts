@@ -59,7 +59,7 @@ Analyze the following list of players. For each player, meticulously evaluate ho
 -   If scouting for Volleyball, exercises like box jumps or plyometrics suggest 'Explosive Vertical Power'.
 
 **Step 3: Generate Recommendations**
-Based on your deep analysis, provide a suitability score (0-100) and a detailed report for the top 3 most suitable players.
+Based on your deep analysis, provide a suitability score (0-100) and a detailed report for only the **top 3** most suitable players.
 -   **Suitability Score**: A quantitative measure of their fit.
 -   **Analysis**: A brief summary of their strengths and weaknesses against the key attributes.
 -   **Report**: Explain *why* their specific training regimen makes them a good candidate. Connect the dots between their workouts (e.g., "His 140kg deadlift...") and the demands of the sport (e.g., "...provides the foundational strength needed for a defensive lineman."). Also mention their potential for development.
