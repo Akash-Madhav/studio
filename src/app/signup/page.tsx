@@ -102,7 +102,9 @@ export default function SignUpPage() {
         toast({
             variant: "destructive",
             title: "Google Sign-In Failed",
-            description: error.message || "An error occurred during Google Sign-In.",
+             description: error.code === 'auth/popup-closed-by-user' 
+                ? 'The sign-in window was closed.' 
+                : error.message || "An unexpected error occurred.",
         });
     } finally {
         setIsLoading(false);

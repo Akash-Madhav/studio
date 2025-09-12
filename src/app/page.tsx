@@ -72,6 +72,7 @@ export default function LoginPage() {
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
 
+        // This server action now primarily ensures the user exists in our database.
         const serverResult = await signInWithGoogle({
             userId: user.uid,
             email: user.email!,
@@ -83,16 +84,21 @@ export default function LoginPage() {
                 title: "Login Successful",
                 description: "Welcome back!",
             });
+            // The role from the server determines where to redirect.
             router.push(`/dashboard?role=${serverResult.role}&userId=${serverResult.userId}`);
         } else {
+            // If the server action fails, we still show an error.
             throw new Error(serverResult.message);
         }
 
     } catch (error: any) {
+        // This will catch errors from the pop-up (like closed pop-up) and from our server action.
         toast({
             variant: "destructive",
             title: "Google Sign-In Failed",
-            description: error.message || "An error occurred during Google Sign-In.",
+            description: error.code === 'auth/popup-closed-by-user' 
+                ? 'The sign-in window was closed.' 
+                : error.message || "An unexpected error occurred.",
         });
         setIsLoading(false);
     }
