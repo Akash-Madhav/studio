@@ -4,8 +4,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { CalendarIcon, Loader2, Upload, User } from "lucide-react";
+import { CalendarIcon, Loader2, User } from "lucide-react";
 import { useState, useEffect, ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import Image from "next/image";
 
@@ -53,6 +54,7 @@ interface ProfileSettingsProps {
 
 export default function ProfileSettings({ userId, role }: ProfileSettingsProps) {
   const { toast } = useToast();
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingUser, setIsFetchingUser] = useState(true);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -141,6 +143,7 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
         title: "Profile Updated",
         description: "Your changes have been saved successfully.",
       });
+      router.push(`/dashboard?role=${role}&userId=${userId}`);
     } else {
       toast({
         variant: "destructive",

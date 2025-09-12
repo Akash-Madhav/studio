@@ -225,8 +225,8 @@ const updateUserProfileSchema = z.object({
     name: z.string().min(2, "Name is required."),
     email: z.string().email("Invalid email address."),
     dob: z.string().optional().nullable(),
-    experience: z.string().optional(),
-    goals: z.string().optional(),
+    experience: z.string().optional().nullable(),
+    goals: z.string().optional().nullable(),
     photoURL: z.string().url().optional().nullable(),
 });
 
@@ -238,13 +238,14 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
         const userRef = doc(db, 'users', userId);
         
         const updateData: any = {
-            name: profileData.name,
-            email: profileData.email,
+            ...profileData,
             dob: profileData.dob ? new Date(profileData.dob) : null,
-            experience: profileData.experience || null,
-            goals: profileData.goals || null,
-            photoURL: profileData.photoURL || null,
         };
+        
+        // Ensure optional fields are set to null if they are undefined to avoid Firestore errors
+        updateData.experience = updateData.experience ?? null;
+        updateData.goals = updateData.goals ?? null;
+        updateData.photoURL = updateData.photoURL ?? null;
 
         await updateDoc(userRef, updateData);
         return { success: true, message: "Profile updated!" };
