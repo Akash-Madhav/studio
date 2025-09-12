@@ -255,14 +255,6 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                                     setPopoverOpen(false);
                                   }}
                                 >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      sport === field.value
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    )}
-                                  />
                                   {sport}
                                 </CommandItem>
                               ))}
@@ -390,3 +382,5 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     </div>
   );
 }
+
+    
