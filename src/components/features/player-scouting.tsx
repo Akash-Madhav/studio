@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { zodResolver } from "@zodform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Loader2, UserCheck, Search, Send, FileText, Check, ChevronsUpDown, ShieldCheck } from "lucide-react";
@@ -195,9 +195,11 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
 
   const isLoading = isFetchingPlayers || isScouting;
 
-  const filteredRecommendations = recommendations?.recommendations.filter(
+  const highScoringRecs = recommendations?.recommendations.filter(
     (rec) => rec.suitabilityScore > 40
   );
+  const hasHighScoringRecs = highScoringRecs && highScoringRecs.length > 0;
+  const playersToShow = hasHighScoringRecs ? highScoringRecs : recommendations?.recommendations || [];
 
   return (
     <div className="grid md:grid-cols-2 gap-8 items-start">
@@ -311,9 +313,14 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                 </div>
             </div>
           )}
-          {recommendations && filteredRecommendations && filteredRecommendations.length > 0 ? (
+           {recommendations && !hasHighScoringRecs && (
+            <div className="text-center text-sm text-muted-foreground p-3 bg-muted/50 rounded-md border border-dashed">
+                No players met the &gt;40% suitability threshold. Showing the top 3 potential candidates instead.
+            </div>
+          )}
+          {recommendations && playersToShow.length > 0 ? (
             <Accordion type="single" collapsible className="w-full">
-              {filteredRecommendations.map((rec, index) => (
+              {playersToShow.map((rec, index) => (
                 <AccordionItem value={`item-${index}`} key={rec.playerId}>
                   <AccordionTrigger>
                     <div className="flex items-center gap-4 w-full">
@@ -374,7 +381,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
             !isScouting && (
                 <div className="text-center text-muted-foreground py-12">
                     {recommendations ? 
-                        "There are no suitable players for this sport with a suitability score above 40%."
+                        "The AI could not find any suitable players based on the current data."
                         : isFetchingPlayers
                         ? "Fetching player data..."
                         : players.filter(p => p.status === 'active').length === 0 
@@ -388,3 +395,5 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     </div>
   );
 }
+
+    
