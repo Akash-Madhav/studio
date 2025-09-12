@@ -1,16 +1,17 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Loader2, UserCheck, Search, Send, FileText } from "lucide-react";
+import { Loader2, UserCheck, Search, Send, FileText, Check, ChevronsUpDown } from "lucide-react";
 import { useSearchParams } from 'next/navigation';
 import {
   getPlayerRecommendations,
   PlayerScoutingOutput,
 } from "@/ai/flows/player-scouting-flow";
+import { suggestSportsList, SportSuggestionOutput } from "@/ai/flows/suggest-sports-list";
 import { sendRecruitInvite } from "@/app/actions";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,10 @@ import {
 } from "@/components/ui/accordion";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+
 
 const formSchema = z.object({
   sport: z.string().min(1, "Sport is required."),
@@ -68,6 +73,9 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     useState<PlayerScoutingOutput | null>(null);
   const [isScouting, setIsScouting] = useState(false);
   const [isSendingInvite, setIsSendingInvite] = useState<string | null>(null);
+  const [sportSuggestions, setSportSuggestions] = useState<string[]>([]);
+  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -79,6 +87,22 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
   const getPlayerProfile = (playerId: string) => {
     return players.find(p => p.id === playerId)?.userProfile;
   }
+
+  const fetchSportSuggestions = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setSportSuggestions([]);
+      return;
+    }
+    setIsFetchingSuggestions(true);
+    try {
+      const result = await suggestSportsList(query);
+      setSportSuggestions(result.suggestions);
+    } catch (error) {
+      console.error("Failed to fetch sport suggestions:", error);
+    } finally {
+      setIsFetchingSuggestions(false);
+    }
+  }, []);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsScouting(true);
@@ -173,9 +197,62 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Sport</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Basketball, Soccer" {...field} />
-                    </FormControl>
+                    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              "w-full justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value || "Select sport"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <Command>
+                          <CommandInput
+                            placeholder="Search for a sport..."
+                            onValueChange={(search) => {
+                              field.onChange(search);
+                              fetchSportSuggestions(search);
+                            }}
+                            value={field.value}
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              {isFetchingSuggestions ? 'Searching...' : 'No sport found.'}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {sportSuggestions.map((sport) => (
+                                <CommandItem
+                                  value={sport}
+                                  key={sport}
+                                  onSelect={() => {
+                                    form.setValue("sport", sport);
+                                    setPopoverOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      sport === field.value
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  {sport}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
                 )}
