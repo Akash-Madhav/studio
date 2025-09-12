@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { zodResolver } from "@zodform/resolvers/zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Loader2, UserCheck, Search, Send, FileText, Check, ChevronsUpDown, ShieldCheck } from "lucide-react";
@@ -199,7 +199,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     (rec) => rec.suitabilityScore > 40
   );
   const hasHighScoringRecs = highScoringRecs && highScoringRecs.length > 0;
-  const playersToShow = hasHighScoringRecs ? highScoringRecs : recommendations?.recommendations || [];
+  const playersToShow = hasHighScoringRecs ? highScoringRecs : (recommendations?.recommendations || []).slice(0, 3);
 
   return (
     <div className="grid md:grid-cols-2 gap-8 items-start">
@@ -313,7 +313,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                 </div>
             </div>
           )}
-           {recommendations && !hasHighScoringRecs && (
+           {recommendations && !hasHighScoringRecs && recommendations.recommendations.length > 0 && (
             <div className="text-center text-sm text-muted-foreground p-3 bg-muted/50 rounded-md border border-dashed">
                 No players met the &gt;40% suitability threshold. Showing the top 3 potential candidates instead.
             </div>
@@ -395,5 +395,3 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     </div>
   );
 }
-
-    
