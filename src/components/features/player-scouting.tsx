@@ -407,9 +407,9 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent>
-                        <p className="text-sm"><span className="font-semibold">Status:</span> <Badge variant={searchedPlayer.status === 'active' ? 'secondary' : 'default'}>{searchedPlayer.status.replace('_', ' ')}</Badge></p>
-                         <p className="text-sm mt-2"><span className="font-semibold">Goals:</span> {searchedPlayer.goals || 'Not specified'}</p>
+                    <CardContent className="space-y-2">
+                        <div className="text-sm flex items-center gap-2"><span className="font-semibold">Status:</span> <Badge variant={searchedPlayer.status === 'active' ? 'secondary' : 'default'}>{searchedPlayer.status.replace('_', ' ')}</Badge></div>
+                         <p className="text-sm"><span className="font-semibold">Goals:</span> {searchedPlayer.goals || 'Not specified'}</p>
                     </CardContent>
                     <CardFooter>
                         <Button className="w-full" onClick={() => handleSendInvite(searchedPlayer.id)} disabled={isSendingInvite === searchedPlayer.id || searchedPlayer.status !== 'active'}>
