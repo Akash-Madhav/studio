@@ -24,7 +24,7 @@ const prompt = ai.definePrompt({
   name: 'sportSuggestionPrompt',
   input: { schema: SportSuggestionInputSchema },
   output: { schema: SportSuggestionOutputSchema },
-  prompt: `You are a sports encyclopedia. Given the user's input, provide a list of up to 5 sports that are similar to or start with that name.
+  prompt: `You are a sports encyclopedia. Given the user's input, provide a list of up to 5 sports that match the query.
 
   User Input: {{{input}}}
   
