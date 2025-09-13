@@ -11,7 +11,6 @@ import {
   getPlayerRecommendations,
   PlayerScoutingOutput,
 } from "@/ai/flows/player-scouting-flow";
-import { suggestSportsList, SportSuggestionOutput } from "@/ai/flows/suggest-sports-list";
 import { sendRecruitInvite, findPlayerByEmail } from "@/app/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -78,11 +77,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
   // State for AI Scouting
   const [recommendations, setRecommendations] = useState<PlayerScoutingOutput | null>(null);
   const [isScouting, setIsScouting] = useState(false);
-  const [sportSuggestions, setSportSuggestions] = useState<string[]>([]);
-  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
-  const [popoverOpen, setPopoverOpen] = useState(false);
-  const [sportQuery, setSportQuery] = useState("");
-
+  
   // State for Email Search
   const [searchedPlayer, setSearchedPlayer] = useState<any | null>(null);
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
@@ -103,37 +98,6 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
   const getPlayerProfile = (playerId: string) => {
     return players.find(p => p.id === playerId)?.userProfile;
   }
-
-  const fetchSportSuggestions = useCallback(async (query: string) => {
-    if (query.length < 2) {
-      setSportSuggestions([]);
-      return;
-    }
-    setIsFetchingSuggestions(true);
-    try {
-      const result = await suggestSportsList(query);
-      setSportSuggestions(result.suggestions);
-    } catch (error) {
-      console.error("Failed to fetch sport suggestions:", error);
-    } finally {
-      setIsFetchingSuggestions(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      if (sportQuery) {
-        fetchSportSuggestions(sportQuery);
-      } else {
-        setSportSuggestions([]);
-      }
-    }, 500);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [sportQuery, fetchSportSuggestions]);
-
 
   async function onAiSubmit(values: z.infer<typeof aiFormSchema>) {
     setIsScouting(true);
@@ -261,50 +225,9 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Sport</FormLabel>
-                      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                            >
-                              {field.value || "Select sport"}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                          <Command>
-                            <CommandInput
-                                placeholder="Search for a sport..."
-                                value={sportQuery}
-                                onValueChange={setSportQuery}
-                              />
-                            <CommandList>
-                              <CommandEmpty>
-                                {isFetchingSuggestions ? 'Searching...' : 'No sport found.'}
-                              </CommandEmpty>
-                              <CommandGroup>
-                                {sportSuggestions.map((sport) => (
-                                  <CommandItem
-                                    value={sport}
-                                    key={sport}
-                                    onSelect={() => {
-                                      aiForm.setValue("sport", sport);
-                                      setSportQuery("");
-                                      setSportSuggestions([]);
-                                      setPopoverOpen(false);
-                                    }}
-                                  >
-                                    {sport}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+                      <FormControl>
+                        <Input placeholder="e.g., Soccer, Basketball" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
