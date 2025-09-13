@@ -114,7 +114,7 @@ function DashboardContent() {
     // Fetch workout history for players
     let unsubscribeHistory: () => void = () => {};
     if (role === 'player') {
-      const q = query(collection(db, 'workouts'), where("userId", "==", initialUserId), orderBy("createdAt", "desc"));
+      const q = query(collection(db, 'workouts'), where("userId", "==", initialUserId));
       unsubscribeHistory = onSnapshot(q, (snapshot) => {
           const workoutsData = snapshot.docs.map(doc => {
               const data = doc.data();
@@ -125,6 +125,7 @@ function DashboardContent() {
                   createdAt: createdAt ? createdAt.toDate() : new Date(),
               } as Workout;
           });
+          workoutsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
           setWorkoutHistory(workoutsData);
           setIsLoadingHistory(false);
       }, (error) => {
@@ -465,3 +466,5 @@ export default function Dashboard() {
     </Suspense>
   );
 }
+
+    
