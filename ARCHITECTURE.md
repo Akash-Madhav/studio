@@ -65,17 +65,17 @@ graph TD
 
 ## Technology Stack
 
-*   **Algorithm Development:**
-    *   Python & TensorFlow – Core technologies used for developing the AI-powered Sports Performance Analysis Algorithm.
+*   **AI & Algorithm Development:**
+    *   **Genkit & Google Gemini** – Core technologies used for developing all AI-powered features, including the Sports Performance Analysis, workout video analysis, and personalized recommendations.
 
 *   **Computer Vision & Motion Tracking:**
-    *   OpenCV & MediaPipe – Frameworks used for extracting keypoints, angles, and motion data in real-time.
+    *   **Google Gemini 1.5 Flash** – The multimodal foundation model used for extracting key metrics, counting reps, and analyzing form from user-submitted workout videos.
 
 *   **Web & Backend Development:**
-    *   Flask & MySQL – Backend server and database management for storing performance data and analysis results.
+    *   **Next.js Server Actions & Cloud Firestore** – Backend server logic is handled through modern Next.js Server Actions, with all application data (users, workouts, etc.) stored and managed in a secure Firestore database.
 
-*   **Mobile / Frontend Application:**
-    *   JavaScript / React – Interface for user interaction and visualization of performance analytics.
+*   **Frontend Application:**
+    *   **Next.js, React & TypeScript** – The user interface is built as a modern, type-safe, and performant web application for interacting with and visualizing performance analytics.
 
-*   **Encryption & Security:**
-    *   Custom encryption methodology for secure storage and transfer of sensitive user fitness data.
+*   **Authentication & Security:**
+    *   **Firebase Authentication** – Manages all user authentication, providing secure and reliable sign-in processes. Data transfer is secured via HTTPS.
