@@ -62,3 +62,20 @@ graph TD
 4.  **Data Response (Backend → Frontend):**
     *   The Server Action receives the data (either from the database or the AI Engine) and securely returns a serialized response.
     *   The **React UI** updates dynamically to display the new information to the user.
+
+## Technology Stack
+
+*   **AI & Algorithm Development:**
+    *   **Genkit & Google Gemini** – Core technologies used for developing all AI-powered features, including the Sports Performance Analysis, workout video analysis, and personalized recommendations.
+
+*   **Computer Vision & Motion Tracking:**
+    *   **Google Gemini 1.5 Flash** – The multimodal foundation model used for extracting key metrics, counting reps, and analyzing form from user-submitted workout videos.
+
+*   **Web & Backend Development:**
+    *   **Next.js Server Actions & Cloud Firestore** – Backend server logic is handled through modern Next.js Server Actions, with all application data (users, workouts, etc.) stored and managed in a secure Firestore database.
+
+*   **Frontend Application:**
+    *   **Next.js, React & TypeScript** – The user interface is built as a modern, type-safe, and performant web application for interacting with and visualizing performance analytics.
+
+*   **Authentication & Security:**
+    *   **Firebase Authentication** – Manages all user authentication, providing secure and reliable sign-in processes. Data transfer is secured via HTTPS.
