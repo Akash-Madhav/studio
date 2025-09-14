@@ -91,6 +91,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
   // State for AI Scouting
   const [recommendations, setRecommendations] = useState<PlayerScoutingOutput | null>(null);
   const [isScouting, setIsScouting] = useState(false);
+  const [open, setOpen] = useState(false)
   
   // State for Email Search
   const [searchedPlayer, setSearchedPlayer] = useState<any | null>(null);
@@ -101,7 +102,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
 
   const aiForm = useForm<z.infer<typeof aiFormSchema>>({
     resolver: zodResolver(aiFormSchema),
-    defaultValues: { sport: "Soccer" },
+    defaultValues: { sport: "" },
   });
 
   const searchForm = useSearchForm<z.infer<typeof searchFormSchema>>({
@@ -117,8 +118,8 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     setIsScouting(true);
     setRecommendations(null);
 
-    // Filter out players already recruited by ANY coach, including the current one.
-    const scoutablePlayers = players.filter(p => p.status === 'active' && p.coachId !== coachId);
+    // Filter out players already recruited by the current coach or any other coach
+    const scoutablePlayers = players.filter(p => p.status === 'active');
 
     if (scoutablePlayers.length === 0) {
         toast({
@@ -245,7 +246,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Sport</FormLabel>
-                      <Popover>
+                      <Popover open={open} onOpenChange={setOpen}>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button
@@ -256,18 +257,18 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                                 !field.value && "text-muted-foreground"
                               )}
                             >
-                              {field.value
-                                ? sportsList.find(
-                                    (sport) => sport.label === field.value
-                                  )?.label
-                                : "Select sport"}
+                              {field.value || "Select or type a sport..."}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
                         <PopoverContent className="w-full p-0">
                           <Command>
-                            <CommandInput placeholder="Search sport..." />
+                            <CommandInput 
+                                placeholder="Search sport..." 
+                                value={field.value}
+                                onValueChange={field.onChange}
+                            />
                             <CommandEmpty>No sport found.</CommandEmpty>
                             <CommandList>
                                 <CommandGroup>
@@ -277,6 +278,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                                     key={sport.value}
                                     onSelect={() => {
                                         aiForm.setValue("sport", sport.label)
+                                        setOpen(false)
                                     }}
                                     >
                                     <Check
