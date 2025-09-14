@@ -61,6 +61,7 @@ interface PlayerData {
   performanceData: string;
   userProfile: string;
   status: string;
+  coachId?: string;
 }
 
 interface PlayerScoutingProps {
@@ -72,7 +73,7 @@ interface PlayerScoutingProps {
 export default function PlayerScouting({ players, isLoading: isFetchingPlayers, onInviteSent }: PlayerScoutingProps) {
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const coachId = searchParams.get('userId') || 'coach1';
+  const coachId = searchParams.get('userId') || '';
 
   // State for AI Scouting
   const [recommendations, setRecommendations] = useState<PlayerScoutingOutput | null>(null);
@@ -103,7 +104,9 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     setIsScouting(true);
     setRecommendations(null);
 
+    // Filter out players already recruited by ANY coach, including the current one.
     const scoutablePlayers = players.filter(p => p.status === 'active');
+
     if (scoutablePlayers.length === 0) {
         toast({
             title: "No available players to scout.",
@@ -192,7 +195,11 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     if (searchedPlayer && searchedPlayer.id === playerId) {
         return searchedPlayer.status;
     }
-    return players.find(p => p.id === playerId)?.status;
+    const player = players.find(p => p.id === playerId);
+    if (player?.status === 'recruited' && player.coachId === coachId) {
+        return 'recruited_by_you';
+    }
+    return player?.status;
   };
 
   const highScoringRecs = recommendations?.recommendations.filter(
@@ -282,7 +289,9 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
             )}
             {recommendations && playersToShow.length > 0 ? (
                 <Accordion type="single" collapsible className="w-full">
-                {playersToShow.map((rec, index) => (
+                {playersToShow.map((rec, index) => {
+                    const status = getPlayerStatus(rec.playerId);
+                    return (
                     <AccordionItem value={`item-${index}`} key={rec.playerId}>
                     <AccordionTrigger>
                         <div className="flex items-center gap-4 w-full"><UserCheck className="text-accent" />
@@ -290,8 +299,9 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                             <p className="font-semibold">{rec.playerName}</p>
                             <p className="text-sm text-muted-foreground">Suitability: {rec.suitabilityScore}%</p>
                         </div>
-                        {getPlayerStatus(rec.playerId) === 'pending_invite' && (<Badge variant="secondary">Invite Pending</Badge>)}
-                        {getPlayerStatus(rec.playerId) === 'recruited' && (<Badge variant="default">Recruited</Badge>)}
+                        {status === 'pending_invite' && (<Badge variant="secondary">Invite Pending</Badge>)}
+                        {status === 'recruited' && (<Badge variant="destructive">Recruited by Other</Badge>)}
+                        {status === 'recruited_by_you' && (<Badge variant="default">On Your Team</Badge>)}
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-4 pt-2">
@@ -300,14 +310,14 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                         <div><h4 className="font-semibold text-primary mb-1">Suitability Score</h4><Progress value={rec.suitabilityScore} className="h-2 mb-2" /></div>
                         <div><h4 className="font-semibold text-primary mb-1">Scouting Report</h4><p className="text-sm text-muted-foreground">{rec.report}</p></div>
                         <div className="pt-2 border-t">
-                        <Button size="sm" className="w-full" onClick={() => handleSendInvite(rec.playerId)} disabled={isSendingInvite === rec.playerId || getPlayerStatus(rec.playerId) !== 'active'}>
+                        <Button size="sm" className="w-full" onClick={() => handleSendInvite(rec.playerId)} disabled={isSendingInvite === rec.playerId || status !== 'active'}>
                             {isSendingInvite === rec.playerId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                            {getPlayerStatus(rec.playerId) === 'pending_invite' ? 'Invite Sent' : getPlayerStatus(rec.playerId) === 'recruited' ? 'Already Recruited' : 'Send Recruit Invite'}
+                            {status === 'pending_invite' ? 'Invite Sent' : status === 'recruited' ? 'Unavailable' : status === 'recruited_by_you' ? 'Already on Team' : 'Send Recruit Invite'}
                         </Button>
                         </div>
                     </AccordionContent>
                     </AccordionItem>
-                ))}
+                )})}
                 </Accordion>
             ) : !isScouting && recommendations && (
                 <div className="text-center text-muted-foreground py-12">The AI could not find any suitable players based on the current data.</div>
@@ -331,13 +341,18 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                        <div className="text-sm flex items-center gap-2"><span className="font-semibold">Status:</span> <Badge variant={searchedPlayer.status === 'active' ? 'secondary' : 'default'}>{searchedPlayer.status.replace('_', ' ')}</Badge></div>
+                        <div className="text-sm flex items-center gap-2">
+                            <span className="font-semibold">Status:</span> 
+                            <Badge variant={searchedPlayer.status === 'active' ? 'secondary' : 'default'}>
+                                {searchedPlayer.status === 'recruited' && searchedPlayer.coachId === coachId ? 'On Your Team' : searchedPlayer.status.replace('_', ' ')}
+                            </Badge>
+                        </div>
                          <p className="text-sm"><span className="font-semibold">Goals:</span> {searchedPlayer.goals || 'Not specified'}</p>
                     </CardContent>
                     <CardFooter>
                         <Button className="w-full" onClick={() => handleSendInvite(searchedPlayer.id)} disabled={isSendingInvite === searchedPlayer.id || searchedPlayer.status !== 'active'}>
                              {isSendingInvite === searchedPlayer.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                            {searchedPlayer.status === 'pending_invite' ? 'Invite Sent' : searchedPlayer.status === 'recruited' ? 'Already Recruited' : 'Send Recruit Invite'}
+                            {searchedPlayer.status === 'pending_invite' ? 'Invite Sent' : searchedPlayer.status === 'recruited' ? (searchedPlayer.coachId === coachId ? 'Already on Team' : 'Unavailable') : 'Send Recruit Invite'}
                         </Button>
                     </CardFooter>
                  </Card>
