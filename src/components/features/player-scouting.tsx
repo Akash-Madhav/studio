@@ -55,6 +55,19 @@ const searchFormSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
 });
 
+const sportsList = [
+    { value: "soccer", label: "Soccer" },
+    { value: "basketball", label: "Basketball" },
+    { value: "football", label: "American Football" },
+    { value: "baseball", label: "Baseball" },
+    { value: "tennis", label: "Tennis" },
+    { value: "volleyball", label: "Volleyball" },
+    { value: "track and field", label: "Track & Field" },
+    { value: "swimming", label: "Swimming" },
+    { value: "hockey", label: "Hockey" },
+    { value: "cricket", label: "Cricket" },
+]
+
 interface PlayerData {
   id: string;
   name: string;
@@ -78,6 +91,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
   // State for AI Scouting
   const [recommendations, setRecommendations] = useState<PlayerScoutingOutput | null>(null);
   const [isScouting, setIsScouting] = useState(false);
+  const [open, setOpen] = useState(false)
   
   // State for Email Search
   const [searchedPlayer, setSearchedPlayer] = useState<any | null>(null);
@@ -88,7 +102,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
 
   const aiForm = useForm<z.infer<typeof aiFormSchema>>({
     resolver: zodResolver(aiFormSchema),
-    defaultValues: { sport: "Soccer" },
+    defaultValues: { sport: "" },
   });
 
   const searchForm = useSearchForm<z.infer<typeof searchFormSchema>>({
@@ -104,7 +118,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     setIsScouting(true);
     setRecommendations(null);
 
-    // Filter out players already recruited by ANY coach, including the current one.
+    // Filter out players already recruited by the current coach or any other coach
     const scoutablePlayers = players.filter(p => p.status === 'active');
 
     if (scoutablePlayers.length === 0) {
@@ -226,15 +240,63 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
           <TabsContent value="ai-scout" className="mt-4">
             <Form {...aiForm}>
               <form onSubmit={aiForm.handleSubmit(onAiSubmit)} className="space-y-4">
-                <FormField
+                 <FormField
                   control={aiForm.control}
                   name="sport"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex flex-col">
                       <FormLabel>Sport</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Soccer, Basketball" {...field} />
-                      </FormControl>
+                      <Popover open={open} onOpenChange={setOpen}>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className={cn(
+                                "w-full justify-between",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value || "Select or type a sport..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0">
+                          <Command>
+                            <CommandInput 
+                                placeholder="Search sport..." 
+                                value={field.value}
+                                onValueChange={field.onChange}
+                            />
+                            <CommandEmpty>No sport found.</CommandEmpty>
+                            <CommandList>
+                                <CommandGroup>
+                                {sportsList.map((sport) => (
+                                    <CommandItem
+                                    value={sport.label}
+                                    key={sport.value}
+                                    onSelect={() => {
+                                        aiForm.setValue("sport", sport.label)
+                                        setOpen(false)
+                                    }}
+                                    >
+                                    <Check
+                                        className={cn(
+                                        "mr-2 h-4 w-4",
+                                        sport.label === field.value
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                    />
+                                    {sport.label}
+                                    </CommandItem>
+                                ))}
+                                </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                       <FormMessage />
                     </FormItem>
                   )}
