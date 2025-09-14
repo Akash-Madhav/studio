@@ -76,6 +76,10 @@ export default function SignUpPage() {
   async function handleGoogleSignIn() {
     setIsLoading(true);
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+        prompt: 'select_account',
+        auth_domain: auth.config.authDomain,
+    });
     const selectedRole = form.getValues('role');
     try {
         const result = await signInWithPopup(auth, provider);
