@@ -55,6 +55,19 @@ const searchFormSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
 });
 
+const sportsList = [
+    { value: "soccer", label: "Soccer" },
+    { value: "basketball", label: "Basketball" },
+    { value: "football", label: "American Football" },
+    { value: "baseball", label: "Baseball" },
+    { value: "tennis", label: "Tennis" },
+    { value: "volleyball", label: "Volleyball" },
+    { value: "track and field", label: "Track & Field" },
+    { value: "swimming", label: "Swimming" },
+    { value: "hockey", label: "Hockey" },
+    { value: "cricket", label: "Cricket" },
+]
+
 interface PlayerData {
   id: string;
   name: string;
@@ -105,7 +118,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     setRecommendations(null);
 
     // Filter out players already recruited by ANY coach, including the current one.
-    const scoutablePlayers = players.filter(p => p.status === 'active');
+    const scoutablePlayers = players.filter(p => p.status === 'active' && p.coachId !== coachId);
 
     if (scoutablePlayers.length === 0) {
         toast({
@@ -226,15 +239,62 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
           <TabsContent value="ai-scout" className="mt-4">
             <Form {...aiForm}>
               <form onSubmit={aiForm.handleSubmit(onAiSubmit)} className="space-y-4">
-                <FormField
+                 <FormField
                   control={aiForm.control}
                   name="sport"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex flex-col">
                       <FormLabel>Sport</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Soccer, Basketball" {...field} />
-                      </FormControl>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className={cn(
+                                "w-full justify-between",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value
+                                ? sportsList.find(
+                                    (sport) => sport.label === field.value
+                                  )?.label
+                                : "Select sport"}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0">
+                          <Command>
+                            <CommandInput placeholder="Search sport..." />
+                            <CommandEmpty>No sport found.</CommandEmpty>
+                            <CommandList>
+                                <CommandGroup>
+                                {sportsList.map((sport) => (
+                                    <CommandItem
+                                    value={sport.label}
+                                    key={sport.value}
+                                    onSelect={() => {
+                                        aiForm.setValue("sport", sport.label)
+                                    }}
+                                    >
+                                    <Check
+                                        className={cn(
+                                        "mr-2 h-4 w-4",
+                                        sport.label === field.value
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                    />
+                                    {sport.label}
+                                    </CommandItem>
+                                ))}
+                                </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                       <FormMessage />
                     </FormItem>
                   )}
