@@ -17,7 +17,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { signUpWithEmailAndPassword, signInWithGoogle } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
-import { signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword } from "firebase/auth";
+import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 const formSchema = z.object({
@@ -56,12 +56,13 @@ export default function SignUpPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-        await createUserWithEmailAndPassword(auth, values.email, values.password);
         const result = await signUpWithEmailAndPassword(values);
         if (result.success) {
+            // Sign in the user on the client after successful server-side creation
+            await signInWithEmailAndPassword(auth, values.email, values.password);
             toast({
                 title: "Account Created",
-                description: "Welcome to OptiFit AI!",
+                description: "Welcome to OptiFit AI! Redirecting you...",
             });
             router.push(`/dashboard?role=${result.role}&userId=${result.userId}`);
         } else {
@@ -248,3 +249,5 @@ export default function SignUpPage() {
     </div>
   );
 }
+
+    
