@@ -15,8 +15,8 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { signInWithEmailAndPasswordAction, signInWithGoogle } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase";
-import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { signInWithPopup, GoogleAuthProvider, getAuth } from "firebase/auth";
+import { getApp } from "firebase/app";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address."),
@@ -69,7 +69,9 @@ export default function LoginPage() {
     setIsLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-        const result = await signInWithPopup(auth, provider);
+        const app = getApp();
+        const authInstance = getAuth(app);
+        const result = await signInWithPopup(authInstance, provider);
         const user = result.user;
 
         // This server action now primarily ensures the user exists in our database.
