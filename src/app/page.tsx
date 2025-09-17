@@ -15,8 +15,8 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { signInWithEmailAndPasswordAction, signInWithGoogle } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { signInWithPopup, GoogleAuthProvider, getAuth } from "firebase/auth";
-import { app } from "@/lib/firebase";
+import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address."),
@@ -48,8 +48,6 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      // We only need to call the server action.
-      // The client-side signInWithEmailAndPassword is not needed here.
       const serverResult = await signInWithEmailAndPasswordAction(values);
       if (serverResult.success) {
         toast({
@@ -75,11 +73,9 @@ export default function LoginPage() {
     setIsLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-        const authInstance = getAuth(app);
-        const result = await signInWithPopup(authInstance, provider);
+        const result = await signInWithPopup(auth, provider);
         const user = result.user;
 
-        // This server action now primarily ensures the user exists in our database.
         const serverResult = await signInWithGoogle({
             userId: user.uid,
             email: user.email!,
@@ -91,15 +87,12 @@ export default function LoginPage() {
                 title: "Login Successful",
                 description: "Welcome back!",
             });
-            // The role from the server determines where to redirect.
             router.push(`/dashboard?role=${serverResult.role}&userId=${serverResult.userId}`);
         } else {
-            // If the server action fails, we still show an error.
             throw new Error(serverResult.message);
         }
 
     } catch (error: any) {
-        // This will catch errors from the pop-up (like closed pop-up) and from our server action.
         toast({
             variant: "destructive",
             title: "Google Sign-In Failed",
