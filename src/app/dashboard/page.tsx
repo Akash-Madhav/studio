@@ -49,6 +49,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { onSnapshot, collection, query, where, doc, getDoc, Timestamp, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import PhysiqueRater from '@/components/features/physique-rater';
+import PhysiqueHistory from '@/components/features/physique-history';
 
 
 interface User {
@@ -439,7 +440,10 @@ function DashboardContent() {
                         />
                     </TabsContent>
                     <TabsContent value="physique" className="mt-4">
-                        <PhysiqueRater />
+                        <div className="grid lg:grid-cols-2 gap-8">
+                            <PhysiqueRater userId={userId}/>
+                            <PhysiqueHistory userId={userId} />
+                        </div>
                     </TabsContent>
                     <TabsContent value="find-sport" className="mt-4">
                         <SportMatch 

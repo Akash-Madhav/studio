@@ -6,6 +6,7 @@ import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimes
 
 import { z } from 'zod';
 import { generateTeamName } from '@/ai/flows/generate-team-name';
+import type { PhysiqueAnalysisOutput } from '@/ai/flows/physique-analysis-flow';
 
 // Helper to convert Firestore Timestamp to a serializable format
 const formatTimestamp = (timestamp: any): Date | null => {
@@ -362,11 +363,11 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
 
 export async function respondToInvite({ inviteId, response, playerId, coachId }: { inviteId: string, response: 'accepted' | 'declined', playerId: string, coachId: string }) {
     try {
-        const batch = writeBatch(db);
-        const inviteRef = doc(db, 'invites', inviteId);
-        const playerRef = doc(db, 'users', playerId);
-
         if (response === 'accepted') {
+            const batch = writeBatch(db);
+            const inviteRef = doc(db, 'invites', inviteId);
+            const playerRef = doc(db, 'users', playerId);
+            
             // Update player and invite status
             batch.update(playerRef, { status: 'recruited', coachId: coachId });
             batch.update(inviteRef, { status: 'accepted' });
@@ -378,19 +379,18 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 createdAt: serverTimestamp(),
                 type: 'direct',
             });
-
+            
             // Handle group chat logic
             const teamQuery = query(collection(db, 'users'), where('coachId', '==', coachId), where('status', '==', 'recruited'));
             const teamSnapshot = await getDocs(teamQuery);
             const teamMembers = teamSnapshot.docs.map(d => d.id);
-            const teamSize = teamMembers.length + 1; // +1 for the new player
 
-            if (teamSize >= 2) {
-                const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
-                const groupChatSnapshot = await getDocs(groupChatQuery);
-
-                if (groupChatSnapshot.empty) {
-                    // Create new group chat
+            const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
+            const groupChatSnapshot = await getDocs(groupChatQuery);
+            
+            if (groupChatSnapshot.empty) {
+                // Create new group chat if there's at least one other team member
+                if (teamMembers.length > 0) {
                     const coachSnap = await getDoc(doc(db, 'users', coachId));
                     const coachData = coachSnap.data();
                     let teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
@@ -403,18 +403,22 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                         createdAt: serverTimestamp(),
                         type: 'group',
                     });
-                } else {
-                    // Add player to existing group chat
-                    const groupChatDoc = groupChatSnapshot.docs[0];
-                    batch.update(groupChatDoc.ref, {
-                        participantIds: arrayUnion(playerId)
-                    });
                 }
+            } else {
+                // Add player to existing group chat
+                const groupChatDoc = groupChatSnapshot.docs[0];
+                batch.update(groupChatDoc.ref, {
+                    participantIds: arrayUnion(playerId)
+                });
             }
+
             await batch.commit();
             return { success: true, conversationId: newConvoRef.id };
 
         } else { // 'declined'
+            const batch = writeBatch(db);
+            const inviteRef = doc(db, 'invites', inviteId);
+            const playerRef = doc(db, 'users', playerId);
             batch.update(playerRef, { status: 'active', coachId: null });
             batch.update(inviteRef, { status: 'declined' });
             await batch.commit();
@@ -570,5 +574,45 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
             return { success: false, message: "Invalid comment data." };
         }
         return { success: false, message: "Failed to add comment." };
+    }
+}
+
+export async function logPhysiqueAnalysis(userId: string, analysis: PhysiqueAnalysisOutput) {
+    try {
+        if (!userId) {
+            throw new Error("User ID is required.");
+        }
+        const analysesCollection = collection(db, 'physique_analyses');
+        await addDoc(analysesCollection, {
+            userId,
+            ...analysis,
+            createdAt: serverTimestamp(),
+        });
+        return { success: true, message: "Physique analysis logged successfully!" };
+    } catch (error) {
+        console.error("Error logging physique analysis:", error);
+        return { success: false, message: "Failed to log physique analysis." };
+    }
+}
+
+export async function getPhysiqueHistory(userId: string) {
+    try {
+        const analysesCollection = collection(db, 'physique_analyses');
+        const q = query(analysesCollection, where("userId", "==", userId), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+
+        const analyses = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                createdAt: formatTimestamp(data.createdAt),
+            };
+        });
+
+        return { success: true, analyses: JSON.parse(JSON.stringify(analyses)) };
+    } catch (error: any) {
+        console.error(`Error fetching physique history for user ${userId}:`, error);
+        return { success: false, analyses: [], message: "Failed to fetch physique history." };
     }
 }
