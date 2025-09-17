@@ -53,34 +53,27 @@ export async function signUpWithEmailAndPassword(values: z.infer<typeof signUpSc
 
 
 const signInSchema = z.object({
-  email: z.string().email("Invalid email address."),
+  userId: z.string(),
 });
 
 
 export async function signInWithEmailAndPasswordAction(values: z.infer<typeof signInSchema>) {
     try {
         const validatedData = signInSchema.parse(values);
-        const userRecord = await getAdminAuth().getUserByEmail(validatedData.email);
-        
-        const userRef = doc(db, "users", userRecord.uid);
+        const userRef = doc(db, "users", validatedData.userId);
         const userDoc = await getDoc(userRef);
         
         if (!userDoc.exists()) {
-           // This case should be rare, but we handle it.
            return { success: false, message: 'User profile not found. Please sign up.' };
         }
 
         const userRole = userDoc.data()?.role || 'player'; 
 
-        return { success: true, userId: userRecord.uid, role: userRole };
+        return { success: true, userId: validatedData.userId, role: userRole };
     } catch (error: any)
      {
         console.error("Error signing in:", error);
-        let message = 'Failed to sign in. Please check your credentials.';
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            message = 'Invalid email or password.';
-        }
-        return { success: false, message };
+        return { success: false, message: 'Failed to retrieve user profile.' };
     }
 }
 
@@ -377,15 +370,11 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
 
             const teamQuery = query(collection(db, 'users'), where('coachId', '==', coachId), where('status', '==', 'recruited'));
             const teamSnapshot = await getDocs(teamQuery);
-            const teamSize = teamSnapshot.docs.length + 1;
+            const teamSize = teamSnapshot.docs.length + 1; // Correctly calculate team size
 
             let teamName = coachData.name ? `${coachData.name}'s Team` : 'The Team';
             if (teamSize >= 2) {
-                const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
-                const groupChatSnapshot = await getDocs(groupChatQuery);
-                if (groupChatSnapshot.empty) {
-                    teamName = await generateTeamName(coachData.name);
-                }
+                teamName = await generateTeamName(coachData.name);
             }
 
             let conversationId: string | null = null;
