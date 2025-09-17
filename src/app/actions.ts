@@ -364,39 +364,42 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
     try {
         if (response === 'accepted') {
             const coachRef = doc(db, 'users', coachId);
-            const coachDoc = await getDoc(coachRef);
-            if (!coachDoc.exists()) throw new Error('Coach not found');
-            const coachData = coachDoc.data();
+            const coachSnap = await getDoc(coachRef);
+            if (!coachSnap.exists()) throw new Error('Coach not found');
+            const coachData = coachSnap.data();
 
             const teamQuery = query(collection(db, 'users'), where('coachId', '==', coachId), where('status', '==', 'recruited'));
             const teamSnapshot = await getDocs(teamQuery);
-            const teamSize = teamSnapshot.docs.length + 1; // Correctly calculate team size
+            const teamSize = teamSnapshot.docs.length + 1;
 
             let teamName = coachData.name ? `${coachData.name}'s Team` : 'The Team';
             if (teamSize >= 2) {
                 teamName = await generateTeamName(coachData.name);
             }
 
-            let conversationId: string | null = null;
-            await runTransaction(db, async (transaction) => {
+            const conversationId = await runTransaction(db, async (transaction) => {
                 const inviteRef = doc(db, 'invites', inviteId);
                 const playerRef = doc(db, 'users', playerId);
                 const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
                 
+                // Create a new direct conversation
                 const newConvoRef = doc(collection(db, 'conversations'));
                 transaction.set(newConvoRef, {
                     participantIds: [playerId, coachId],
                     createdAt: serverTimestamp(),
                     type: 'direct',
                 });
-                conversationId = newConvoRef.id;
 
+                // Update invite and player status
                 transaction.update(inviteRef, { status: 'accepted' });
                 transaction.update(playerRef, { status: 'recruited', coachId: coachId });
 
+                // Handle group chat logic
                 const groupChatSnapshot = await transaction.get(groupChatQuery);
+                
                 if (teamSize >= 2) {
                     if (groupChatSnapshot.empty) {
+                        // Create a new group chat if it's the second player
                         const groupChatRef = doc(collection(db, 'conversations'));
                         const allParticipantIds = [coachId, playerId, ...teamSnapshot.docs.map(d => d.id)];
                         transaction.set(groupChatRef, {
@@ -407,15 +410,20 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                             type: 'group',
                         });
                     } else {
+                        // Add the new player to the existing group chat
                         const groupChatDoc = groupChatSnapshot.docs[0];
                         transaction.update(groupChatDoc.ref, {
                             participantIds: arrayUnion(playerId)
                         });
                     }
                 }
+                
+                return newConvoRef.id;
             });
+
             return { success: true, conversationId };
         } else {
+            // Handle 'declined' response
             await runTransaction(db, async (transaction) => {
                 const inviteRef = doc(db, 'invites', inviteId);
                 const playerRef = doc(db, 'users', playerId);
