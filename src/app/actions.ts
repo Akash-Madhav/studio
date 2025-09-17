@@ -393,6 +393,13 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
             const groupChatSnapshot = await getDocs(groupChatQuery);
             
             let conversationId: string | null = null;
+            
+            // Generate team name *before* the transaction
+            let teamName = coachData.name ? `${coachData.name}'s Team` : 'The Team'; // Fallback
+            if (teamSize + 1 >= 2 && groupChatSnapshot.empty) {
+                 teamName = await generateTeamName(coachData.name);
+            }
+
             // --- Transaction ---
             await runTransaction(db, async (transaction) => {
                 const inviteRef = doc(db, 'invites', inviteId);
@@ -415,7 +422,6 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 if (teamSize + 1 >= 2) { // +1 for the newly accepted player
                     if (groupChatSnapshot.empty) {
                         // Create a new group chat
-                        const teamName = await generateTeamName(coachData.name);
                         const groupChatRef = doc(collection(db, 'conversations'));
                         const allParticipantIds = [coachId, playerId, ...teamSnapshot.docs.map(d => d.id)];
                         transaction.set(groupChatRef, {
@@ -595,5 +601,3 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
-
-    
