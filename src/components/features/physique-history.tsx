@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { getPhysiqueHistory } from '@/app/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, TrendingUp, History } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -12,7 +11,7 @@ import { Badge } from '../ui/badge';
 import dayjs from 'dayjs';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { onSnapshot, collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { onSnapshot, collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 
@@ -55,8 +54,7 @@ export default function PhysiqueHistory({ userId }: PhysiqueHistoryProps) {
         }
 
         const analysesQuery = query(
-            collection(db, 'physique_analyses'),
-            where("userId", "==", userId),
+            collection(db, 'users', userId, 'physique_analyses'),
             orderBy("createdAt", "desc")
         );
 

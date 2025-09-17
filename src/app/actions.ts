@@ -582,9 +582,8 @@ export async function logPhysiqueAnalysis(userId: string, analysis: PhysiqueAnal
         if (!userId) {
             throw new Error("User ID is required.");
         }
-        const analysesCollection = collection(db, 'physique_analyses');
+        const analysesCollection = collection(db, 'users', userId, 'physique_analyses');
         await addDoc(analysesCollection, {
-            userId,
             ...analysis,
             createdAt: serverTimestamp(),
         });
@@ -597,8 +596,8 @@ export async function logPhysiqueAnalysis(userId: string, analysis: PhysiqueAnal
 
 export async function getPhysiqueHistory(userId: string) {
     try {
-        const analysesCollection = collection(db, 'physique_analyses');
-        const q = query(analysesCollection, where("userId", "==", userId), orderBy("createdAt", "desc"));
+        const analysesCollection = collection(db, 'users', userId, 'physique_analyses');
+        const q = query(analysesCollection, orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
 
         const analyses = querySnapshot.docs.map(doc => {
