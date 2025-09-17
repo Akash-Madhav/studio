@@ -82,6 +82,7 @@ export default function PhysiqueHistory({ userId }: PhysiqueHistoryProps) {
     
     const chartData = useMemo(() => {
         return history
+            .filter(item => item.rating && typeof item.rating.score === 'number')
             .map(item => ({
                 date: dayjs(item.createdAt).format("MMM D"),
                 score: item.rating.score,
