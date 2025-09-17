@@ -6,7 +6,6 @@ import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimes
 
 import { z } from 'zod';
 import { generateTeamName } from '@/ai/flows/generate-team-name';
-import type { PhysiqueAnalysisOutput } from '@/ai/flows/physique-analysis-flow';
 
 // Helper to convert Firestore Timestamp to a serializable format
 const formatTimestamp = (timestamp: any): Date | null => {
@@ -577,14 +576,14 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
     }
 }
 
-export async function logPhysiqueAnalysis(userId: string, analysis: PhysiqueAnalysisOutput) {
+export async function logPhysiqueAnalysis(userId: string, summary: string) {
     try {
         if (!userId) {
             throw new Error("User ID is required.");
         }
         const analysesCollection = collection(db, 'users', userId, 'physique_analyses');
         await addDoc(analysesCollection, {
-            ...analysis,
+            summary,
             createdAt: serverTimestamp(),
         });
         return { success: true, message: "Physique analysis logged successfully!" };

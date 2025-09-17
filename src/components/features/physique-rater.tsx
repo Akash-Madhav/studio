@@ -9,8 +9,6 @@ import { logPhysiqueAnalysis } from "@/app/actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -151,7 +149,7 @@ export default function PhysiqueRater({ userId }: PhysiqueRaterProps) {
         if (!analysisResult || !userId) return;
 
         setIsLogging(true);
-        const result = await logPhysiqueAnalysis(userId, analysisResult);
+        const result = await logPhysiqueAnalysis(userId, analysisResult.summary);
         if (result.success) {
             toast({ title: "Analysis Logged", description: "Your physique analysis has been saved." });
             setAnalysisResult(null); // Clear the result after logging
@@ -253,52 +251,13 @@ export default function PhysiqueRater({ userId }: PhysiqueRaterProps) {
             {analysisResult && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Analysis Results</CardTitle>
+                        <CardTitle>Analysis Summary</CardTitle>
                         <CardDescription>
-                            Here's your personalized physique breakdown. You can log it to track your progress.
+                            Here's your personalized physique summary. You can log it to track your progress.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-6">
-                             <div>
-                                <h3 className="font-semibold text-primary mb-2">Overall Symmetry</h3>
-                                <div className="p-4 bg-muted/50 rounded-md space-y-2">
-                                    <div className="flex items-center gap-4">
-                                        <Badge variant="default" className="text-lg">{analysisResult.symmetry.rating}/10</Badge>
-                                        <p className="text-sm text-muted-foreground flex-1">{analysisResult.symmetry.comment}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-primary mb-2">Recommendations</h3>
-                                <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
-                                    {analysisResult.recommendations.map((rec, index) => (
-                                        <li key={index}>{rec}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-primary mb-2">Muscle Group Ratings</h3>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Muscle Group</TableHead>
-                                            <TableHead>Rating (1-10)</TableHead>
-                                            <TableHead>Comment</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {Object.entries(analysisResult.muscleGroups).map(([group, data]) => (
-                                            <TableRow key={group}>
-                                                <TableCell className="capitalize font-medium">{group}</TableCell>
-                                                <TableCell><Badge variant="secondary">{data.rating}/10</Badge></TableCell>
-                                                <TableCell>{data.comment}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </div>
+                    <CardContent>
+                        <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md">{analysisResult.summary}</p>
                     </CardContent>
                     <CardFooter>
                         <Button className="w-full" onClick={handleLogAnalysis} disabled={isLogging}>
