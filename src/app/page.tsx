@@ -15,9 +15,8 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { signInWithEmailAndPasswordAction, signInWithGoogle } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { signInWithPopup, GoogleAuthProvider, getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithPopup, GoogleAuthProvider, getAuth } from "firebase/auth";
 import { getApp } from "firebase/app";
-import { auth } from "@/lib/firebase";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address."),
@@ -49,12 +48,11 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       const serverResult = await signInWithEmailAndPasswordAction(values);
       if (serverResult.success) {
         toast({
           title: "Login Successful",
-          description: "Welcome back!",
+          description: "Welcome back! Redirecting you to the dashboard...",
         });
         router.push(`/dashboard?role=${serverResult.role}&userId=${serverResult.userId}`);
       } else {
@@ -207,5 +205,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
