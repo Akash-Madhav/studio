@@ -17,6 +17,7 @@ import {
   UserPlus,
   Mail,
   UsersRound,
+  Scan,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
 import { onSnapshot, collection, query, where, doc, getDoc, Timestamp, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import PhysiqueRater from '@/components/features/physique-rater';
 
 
 interface User {
@@ -317,6 +319,7 @@ function DashboardContent() {
         <TabsTrigger value="history"><History className="mr-2" />History</TabsTrigger>
         <TabsTrigger value="ai-insights"><BrainCircuit className="mr-2" />Insights</TabsTrigger>
         <TabsTrigger value="recommendations"><Target className="mr-2" />Recs</TabsTrigger>
+        <TabsTrigger value="physique"><Scan className="mr-2" />Physique</TabsTrigger>
         <TabsTrigger value="find-sport"><Search className="mr-2" />Find Sport</TabsTrigger>
         <TabsTrigger value="invites"><Mail className="mr-2" />Invites</TabsTrigger>
       </>
@@ -370,7 +373,7 @@ function DashboardContent() {
         </div>
         
         <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-             <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-4 sm:grid-cols-9'}`}>
+             <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-5 sm:grid-cols-10'}`}>
               {isCoach ? (
                   <>
                       <TabsTrigger value="team"><Users className="mr-2"/>Team</TabsTrigger>
@@ -434,6 +437,9 @@ function DashboardContent() {
                           workouts={workoutHistory}
                           isLoading={isLoadingHistory}
                         />
+                    </TabsContent>
+                    <TabsContent value="physique" className="mt-4">
+                        <PhysiqueRater />
                     </TabsContent>
                     <TabsContent value="find-sport" className="mt-4">
                         <SportMatch 
