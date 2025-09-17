@@ -15,7 +15,7 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { signInWithEmailAndPasswordAction, signInWithGoogle } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { signInWithPopup, GoogleAuthProvider, getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithPopup, GoogleAuthProvider, getAuth } from "firebase/auth";
 import { app } from "@/lib/firebase";
 
 const formSchema = z.object({
@@ -48,9 +48,8 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      const auth = getAuth(app);
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      
+      // We only need to call the server action.
+      // The client-side signInWithEmailAndPassword is not needed here.
       const serverResult = await signInWithEmailAndPasswordAction(values);
       if (serverResult.success) {
         toast({
@@ -208,5 +207,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
