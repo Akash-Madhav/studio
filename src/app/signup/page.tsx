@@ -17,8 +17,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { signUpWithEmailAndPassword, signInWithGoogle } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
-import { signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, getAuth } from "firebase/auth";
+import { app } from "@/lib/firebase";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required."),
@@ -56,7 +56,8 @@ export default function SignUpPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const auth = getAuth(app);
+        await createUserWithEmailAndPassword(auth, values.email, values.password);
         const result = await signUpWithEmailAndPassword(values);
         if (result.success) {
             toast({
@@ -80,6 +81,7 @@ export default function SignUpPage() {
 
   async function handleGoogleSignIn() {
     setIsLoading(true);
+    const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
     const selectedRole = form.getValues('role');
     try {
