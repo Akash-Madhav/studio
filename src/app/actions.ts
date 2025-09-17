@@ -362,76 +362,65 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
 
 export async function respondToInvite({ inviteId, response, playerId, coachId }: { inviteId: string, response: 'accepted' | 'declined', playerId: string, coachId: string }) {
     try {
-        if (response === 'accepted') {
-            const coachRef = doc(db, 'users', coachId);
-            const coachSnap = await getDoc(coachRef);
-            if (!coachSnap.exists()) throw new Error('Coach not found');
-            const coachData = coachSnap.data();
+        const batch = writeBatch(db);
+        const inviteRef = doc(db, 'invites', inviteId);
+        const playerRef = doc(db, 'users', playerId);
 
+        if (response === 'accepted') {
+            // Update player and invite status
+            batch.update(playerRef, { status: 'recruited', coachId: coachId });
+            batch.update(inviteRef, { status: 'accepted' });
+
+            // Create a new direct conversation
+            const newConvoRef = doc(collection(db, 'conversations'));
+            batch.set(newConvoRef, {
+                participantIds: [playerId, coachId],
+                createdAt: serverTimestamp(),
+                type: 'direct',
+            });
+
+            // Handle group chat logic
             const teamQuery = query(collection(db, 'users'), where('coachId', '==', coachId), where('status', '==', 'recruited'));
             const teamSnapshot = await getDocs(teamQuery);
-            const teamSize = teamSnapshot.docs.length + 1;
+            const teamMembers = teamSnapshot.docs.map(d => d.id);
+            const teamSize = teamMembers.length + 1; // +1 for the new player
 
-            let teamName = coachData.name ? `${coachData.name}'s Team` : 'The Team';
             if (teamSize >= 2) {
-                teamName = await generateTeamName(coachData.name);
-            }
-
-            const conversationId = await runTransaction(db, async (transaction) => {
-                const inviteRef = doc(db, 'invites', inviteId);
-                const playerRef = doc(db, 'users', playerId);
                 const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
-                
-                // Create a new direct conversation
-                const newConvoRef = doc(collection(db, 'conversations'));
-                transaction.set(newConvoRef, {
-                    participantIds: [playerId, coachId],
-                    createdAt: serverTimestamp(),
-                    type: 'direct',
-                });
+                const groupChatSnapshot = await getDocs(groupChatQuery);
 
-                // Update invite and player status
-                transaction.update(inviteRef, { status: 'accepted' });
-                transaction.update(playerRef, { status: 'recruited', coachId: coachId });
-
-                // Handle group chat logic
-                const groupChatSnapshot = await transaction.get(groupChatQuery);
-                
-                if (teamSize >= 2) {
-                    if (groupChatSnapshot.empty) {
-                        // Create a new group chat if it's the second player
-                        const groupChatRef = doc(collection(db, 'conversations'));
-                        const allParticipantIds = [coachId, playerId, ...teamSnapshot.docs.map(d => d.id)];
-                        transaction.set(groupChatRef, {
-                            coachId: coachId,
-                            name: teamName,
-                            participantIds: allParticipantIds,
-                            createdAt: serverTimestamp(),
-                            type: 'group',
-                        });
-                    } else {
-                        // Add the new player to the existing group chat
-                        const groupChatDoc = groupChatSnapshot.docs[0];
-                        transaction.update(groupChatDoc.ref, {
-                            participantIds: arrayUnion(playerId)
-                        });
-                    }
+                if (groupChatSnapshot.empty) {
+                    // Create new group chat
+                    const coachSnap = await getDoc(doc(db, 'users', coachId));
+                    const coachData = coachSnap.data();
+                    let teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
+                    
+                    const groupChatRef = doc(collection(db, 'conversations'));
+                    batch.set(groupChatRef, {
+                        coachId: coachId,
+                        name: teamName,
+                        participantIds: [...teamMembers, coachId, playerId],
+                        createdAt: serverTimestamp(),
+                        type: 'group',
+                    });
+                } else {
+                    // Add player to existing group chat
+                    const groupChatDoc = groupChatSnapshot.docs[0];
+                    batch.update(groupChatDoc.ref, {
+                        participantIds: arrayUnion(playerId)
+                    });
                 }
-                
-                return newConvoRef.id;
-            });
+            }
+            await batch.commit();
+            return { success: true, conversationId: newConvoRef.id };
 
-            return { success: true, conversationId };
-        } else {
-            // Handle 'declined' response
-            await runTransaction(db, async (transaction) => {
-                const inviteRef = doc(db, 'invites', inviteId);
-                const playerRef = doc(db, 'users', playerId);
-                transaction.update(inviteRef, { status: 'declined' });
-                transaction.update(playerRef, { status: 'active', coachId: null });
-            });
+        } else { // 'declined'
+            batch.update(playerRef, { status: 'active', coachId: null });
+            batch.update(inviteRef, { status: 'declined' });
+            await batch.commit();
             return { success: true, conversationId: null };
         }
+
     } catch (error) {
         console.error("Error responding to invite:", error);
         return { success: false, message: 'Failed to respond to invite.' };
