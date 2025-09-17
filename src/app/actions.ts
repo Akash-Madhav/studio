@@ -19,23 +19,18 @@ const formatTimestamp = (timestamp: any): Date | null => {
 }
 
 const signUpSchema = z.object({
+  userId: z.string(),
   name: z.string().min(2, "Name is required."),
   email: z.string().email("Invalid email address."),
-  password: z.string().min(6, "Password must be at least 6 characters."),
   role: z.enum(['player', 'coach']),
 });
 
 export async function signUpWithEmailAndPassword(values: z.infer<typeof signUpSchema>) {
     try {
         const validatedData = signUpSchema.parse(values);
-        const userRecord = await getAdminAuth().createUser({
-            email: validatedData.email,
-            password: validatedData.password,
-            displayName: validatedData.name,
-        });
-
-        await setDoc(doc(db, "users", userRecord.uid), {
-            id: userRecord.uid,
+        
+        await setDoc(doc(db, "users", validatedData.userId), {
+            id: validatedData.userId,
             name: validatedData.name,
             email: validatedData.email,
             role: validatedData.role,
@@ -43,27 +38,27 @@ export async function signUpWithEmailAndPassword(values: z.infer<typeof signUpSc
             createdAt: serverTimestamp(),
         });
         
-        return { success: true, userId: userRecord.uid, role: validatedData.role };
+        return { success: true, userId: validatedData.userId, role: validatedData.role };
     } catch (error: any) {
-        console.error("Error signing up:", error);
-        let message = 'Failed to sign up.';
-        if (error.code === 'auth/email-already-exists') {
-            message = 'This email is already in use.';
+        console.error("Error creating user profile:", error);
+        // If profile creation fails, delete the auth user to prevent orphaned accounts
+        try {
+            await getAdminAuth().deleteUser(values.userId);
+        } catch (deleteError) {
+            console.error("Failed to clean up orphaned auth user:", deleteError);
         }
-        return { success: false, message };
+        return { success: false, message: 'Failed to create user profile in database.' };
     }
 }
 
+
 const signInSchema = z.object({
   email: z.string().email("Invalid email address."),
-  password: z.string().min(1, "Password is required."),
 });
 
 
 export async function signInWithEmailAndPasswordAction(values: z.infer<typeof signInSchema>) {
     try {
-        // This function cannot perform client-side sign-in. 
-        // We'll just validate the user exists for now. This should be handled on client.
         const validatedData = signInSchema.parse(values);
         const userRecord = await getAdminAuth().getUserByEmail(validatedData.email);
         
@@ -71,7 +66,8 @@ export async function signInWithEmailAndPasswordAction(values: z.infer<typeof si
         const userDoc = await getDoc(userRef);
         
         if (!userDoc.exists()) {
-           return { success: false, message: 'User profile not found.' };
+           // This case should be rare, but we handle it.
+           return { success: false, message: 'User profile not found. Please sign up.' };
         }
 
         const userRole = userDoc.data()?.role || 'player'; 
@@ -248,8 +244,11 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
     try {
         const workoutsCollection = collection(db, 'workouts');
         
-        // Remove orderBy from the query to prevent index error
-        let q = query(workoutsCollection, where("userId", "==", userId));
+        let q = query(workoutsCollection, where("userId", "==", userId), orderBy("createdAt", "desc"));
+        
+        if (recordLimit) {
+            q = query(q, limit(recordLimit));
+        }
         
         const querySnapshot = await getDocs(q);
 
@@ -263,12 +262,7 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
                 };
             });
         
-        // Sort in code instead of in the query
-        workouts.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
-
-        const finalWorkouts = recordLimit ? workouts.slice(0, recordLimit) : workouts;
-        
-        return { success: true, workouts: JSON.parse(JSON.stringify(finalWorkouts)) };
+        return { success: true, workouts: JSON.parse(JSON.stringify(workouts)) };
     } catch (error: any) {
         console.error(`Error fetching workout history for user ${userId}:`, error);
         return { success: false, workouts: [], message: "Failed to fetch workout history." };
@@ -278,7 +272,6 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
 export async function getAllPlayers() {
     try {
         const usersCollection = collection(db, 'users');
-        // Only get players with status 'active' (no coach)
         const q = query(usersCollection, where("role", "==", "player"), where("status", "==", "active"));
         const querySnapshot = await getDocs(q);
         const players = querySnapshot.docs.map(doc => {
@@ -292,7 +285,6 @@ export async function getAllPlayers() {
         });
 
         const playersWithWorkouts = await Promise.all(players.map(async (player: any) => {
-            // Get the COMPLETE workout history for each player
             const workoutHistory = await getWorkoutHistory(player.id);
             let performanceData = 'No workouts logged.';
             if (workoutHistory.success && workoutHistory.workouts.length > 0) {
@@ -353,7 +345,6 @@ export async function findPlayerByEmail(email: string) {
 export async function sendRecruitInvite(playerId: string, coachId: string) {
     try {
         const inviteRef = collection(db, 'invites');
-        // Check if an invite already exists
         const q = query(inviteRef, where('playerId', '==', playerId), where('coachId', '==', coachId), where('status', '==', 'pending'));
         const existingInvites = await getDocs(q);
         if (!existingInvites.empty) {
@@ -379,33 +370,30 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
 export async function respondToInvite({ inviteId, response, playerId, coachId }: { inviteId: string, response: 'accepted' | 'declined', playerId: string, coachId: string }) {
     try {
         if (response === 'accepted') {
-            // --- Pre-transaction reads ---
             const coachRef = doc(db, 'users', coachId);
             const coachDoc = await getDoc(coachRef);
+            if (!coachDoc.exists()) throw new Error('Coach not found');
             const coachData = coachDoc.data();
-            if (!coachData) throw new Error('Coach not found');
 
             const teamQuery = query(collection(db, 'users'), where('coachId', '==', coachId), where('status', '==', 'recruited'));
             const teamSnapshot = await getDocs(teamQuery);
-            const teamSize = teamSnapshot.docs.length; // Current size, before adding the new player
+            const teamSize = teamSnapshot.docs.length + 1;
 
-            const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
-            const groupChatSnapshot = await getDocs(groupChatQuery);
-            
-            let conversationId: string | null = null;
-            
-            // Generate team name *before* the transaction
-            let teamName = coachData.name ? `${coachData.name}'s Team` : 'The Team'; // Fallback
-            if (teamSize + 1 >= 2 && groupChatSnapshot.empty) {
-                 teamName = await generateTeamName(coachData.name);
+            let teamName = coachData.name ? `${coachData.name}'s Team` : 'The Team';
+            if (teamSize >= 2) {
+                const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
+                const groupChatSnapshot = await getDocs(groupChatQuery);
+                if (groupChatSnapshot.empty) {
+                    teamName = await generateTeamName(coachData.name);
+                }
             }
 
-            // --- Transaction ---
+            let conversationId: string | null = null;
             await runTransaction(db, async (transaction) => {
                 const inviteRef = doc(db, 'invites', inviteId);
                 const playerRef = doc(db, 'users', playerId);
-
-                // Create direct conversation
+                const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
+                
                 const newConvoRef = doc(collection(db, 'conversations'));
                 transaction.set(newConvoRef, {
                     participantIds: [playerId, coachId],
@@ -414,14 +402,12 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 });
                 conversationId = newConvoRef.id;
 
-                // Update player and invite status
                 transaction.update(inviteRef, { status: 'accepted' });
                 transaction.update(playerRef, { status: 'recruited', coachId: coachId });
 
-                // Handle group chat logic
-                if (teamSize + 1 >= 2) { // +1 for the newly accepted player
+                const groupChatSnapshot = await transaction.get(groupChatQuery);
+                if (teamSize >= 2) {
                     if (groupChatSnapshot.empty) {
-                        // Create a new group chat
                         const groupChatRef = doc(collection(db, 'conversations'));
                         const allParticipantIds = [coachId, playerId, ...teamSnapshot.docs.map(d => d.id)];
                         transaction.set(groupChatRef, {
@@ -432,7 +418,6 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                             type: 'group',
                         });
                     } else {
-                        // Add player to existing group chat
                         const groupChatDoc = groupChatSnapshot.docs[0];
                         transaction.update(groupChatDoc.ref, {
                             participantIds: arrayUnion(playerId)
@@ -440,21 +425,22 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                     }
                 }
             });
-             return { success: true, conversationId };
-        } else { // Declined
+            return { success: true, conversationId };
+        } else {
             await runTransaction(db, async (transaction) => {
                 const inviteRef = doc(db, 'invites', inviteId);
                 const playerRef = doc(db, 'users', playerId);
                 transaction.update(inviteRef, { status: 'declined' });
                 transaction.update(playerRef, { status: 'active', coachId: null });
             });
-             return { success: true, conversationId: null };
+            return { success: true, conversationId: null };
         }
     } catch (error) {
         console.error("Error responding to invite:", error);
         return { success: false, message: 'Failed to respond to invite.' };
     }
 }
+
 
 export interface Conversation {
     id: string;
@@ -486,7 +472,6 @@ export async function getConversations(userId: string): Promise<{ success: boole
         const conversations = await Promise.all(snapshot.docs.map(async (d) => {
             const data = d.data();
             const participants = data.participantIds
-                // .filter((id: string) => id !== userId) // Keep all for group context
                 .map((id: string) => ({ id, name: usersMap[id]?.name || 'Unknown' }));
 
             const messagesCol = collection(db, 'conversations', d.id, 'messages');
