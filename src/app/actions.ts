@@ -278,6 +278,7 @@ export async function getAllPlayers() {
         });
 
         const playersWithWorkouts = await Promise.all(players.map(async (player: any) => {
+            // Get workout history
             const workoutHistory = await getWorkoutHistory(player.id);
             let performanceData = 'No workouts logged.';
             if (workoutHistory.success && workoutHistory.workouts.length > 0) {
@@ -291,12 +292,22 @@ export async function getAllPlayers() {
                         return parts.join(' ');
                     }).join('; ');
             }
+
+            // Get user profile string
             const profileParts = [];
             if (player.experience) profileParts.push(player.experience);
             if (player.goals) profileParts.push(player.goals);
             const userProfile = profileParts.length > 0 ? profileParts.join(', ') : 'No profile information available.';
 
-            return { ...player, performanceData, userProfile };
+            // Get latest physique analysis
+            const physiqueHistory = await getPhysiqueHistory(player.id, 1);
+            let physiqueAnalysis = 'No physique data available.';
+            if (physiqueHistory.success && physiqueHistory.analyses.length > 0) {
+                const latestAnalysis = physiqueHistory.analyses[0];
+                physiqueAnalysis = `Summary: ${latestAnalysis.summary} Rating: ${latestAnalysis.rating.score}/100.`;
+            }
+
+            return { ...player, performanceData, userProfile, physiqueAnalysis };
         }));
 
         return { success: true, players: JSON.parse(JSON.stringify(playersWithWorkouts)) };
@@ -361,12 +372,12 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
 }
 
 export async function respondToInvite({ inviteId, response, playerId, coachId }: { inviteId: string, response: 'accepted' | 'declined', playerId: string, coachId: string }) {
+    const batch = writeBatch(db);
+    const inviteRef = doc(db, 'invites', inviteId);
+    const playerRef = doc(db, 'users', playerId);
+    
     try {
         if (response === 'accepted') {
-            const batch = writeBatch(db);
-            const inviteRef = doc(db, 'invites', inviteId);
-            const playerRef = doc(db, 'users', playerId);
-            
             // Update player and invite status
             batch.update(playerRef, { status: 'recruited', coachId: coachId });
             batch.update(inviteRef, { status: 'accepted' });
@@ -415,9 +426,6 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
             return { success: true, conversationId: newConvoRef.id };
 
         } else { // 'declined'
-            const batch = writeBatch(db);
-            const inviteRef = doc(db, 'invites', inviteId);
-            const playerRef = doc(db, 'users', playerId);
             batch.update(playerRef, { status: 'active', coachId: null });
             batch.update(inviteRef, { status: 'declined' });
             await batch.commit();
@@ -594,10 +602,15 @@ export async function logPhysiqueAnalysis(userId: string, summary: string, ratin
     }
 }
 
-export async function getPhysiqueHistory(userId: string) {
+export async function getPhysiqueHistory(userId: string, recordLimit?: number) {
     try {
         const analysesCollection = collection(db, 'users', userId, 'physique_analyses');
-        const q = query(analysesCollection, orderBy("createdAt", "desc"));
+        let q = query(analysesCollection, orderBy("createdAt", "desc"));
+
+        if (recordLimit) {
+            q = query(q, limit(recordLimit));
+        }
+
         const querySnapshot = await getDocs(q);
 
         const analyses = querySnapshot.docs.map(doc => {

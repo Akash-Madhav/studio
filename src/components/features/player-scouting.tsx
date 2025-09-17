@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useForm as useSearchForm } from "react-hook-form";
 import * as z from "zod";
-import { Loader2, UserCheck, Search, Send, FileText, Check, ChevronsUpDown, ShieldCheck, Mail, UserX, UserSearch, Sparkles } from "lucide-react";
+import { Loader2, UserCheck, Search, Send, FileText, Check, ChevronsUpDown, ShieldCheck, Mail, UserX, UserSearch, Sparkles, Scale } from "lucide-react";
 import { useSearchParams } from 'next/navigation';
 import {
   getPlayerRecommendations,
@@ -73,6 +73,7 @@ interface PlayerData {
   name: string;
   performanceData: string;
   userProfile: string;
+  physiqueAnalysis?: string;
   status: string;
   coachId?: string;
 }
@@ -137,7 +138,8 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
             id: p.id,
             name: p.name,
             performanceData: p.performanceData,
-            userProfile: p.userProfile
+            userProfile: p.userProfile,
+            physiqueAnalysis: p.physiqueAnalysis,
         }))
       });
       setRecommendations(result);
@@ -368,8 +370,12 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
                     </AccordionTrigger>
                     <AccordionContent className="space-y-4 pt-2">
                         <div><h4 className="font-semibold text-primary mb-1 flex items-center gap-2"><FileText size={16}/> Mini Profile</h4><p className="text-sm text-muted-foreground pl-6">{getPlayerProfile(rec.playerId)}</p></div>
-                        <div><h4 className="font-semibold text-primary mb-1">Analysis</h4><p className="text-sm text-muted-foreground">{rec.analysis}</p></div>
-                        <div><h4 className="font-semibold text-primary mb-1">Suitability Score</h4><Progress value={rec.suitabilityScore} className="h-2 mb-2" /></div>
+                        <div><h4 className="font-semibold text-primary mb-1">Performance Analysis</h4><p className="text-sm text-muted-foreground">{rec.analysis}</p></div>
+                        <div>
+                            <h4 className="font-semibold text-primary mb-1 flex items-center gap-2"><Scale size={16}/> Physique Assessment</h4>
+                            <p className="text-sm text-muted-foreground mb-2">Score: {rec.physiqueAssessment.score}/100 - {rec.physiqueAssessment.analysis}</p>
+                            <Progress value={rec.physiqueAssessment.score} className="h-2 mb-2" />
+                        </div>
                         <div><h4 className="font-semibold text-primary mb-1">Scouting Report</h4><p className="text-sm text-muted-foreground">{rec.report}</p></div>
                         <div className="pt-2 border-t">
                         <Button size="sm" className="w-full" onClick={() => handleSendInvite(rec.playerId)} disabled={isSendingInvite === rec.playerId || status !== 'active'}>
