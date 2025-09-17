@@ -16,7 +16,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { signInWithEmailAndPasswordAction, signInWithGoogle } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithPopup, GoogleAuthProvider, getAuth } from "firebase/auth";
-import { getApp } from "firebase/app";
+import { app } from "@/lib/firebase";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address."),
@@ -73,7 +73,6 @@ export default function LoginPage() {
     setIsLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-        const app = getApp();
         const authInstance = getAuth(app);
         const result = await signInWithPopup(authInstance, provider);
         const user = result.user;

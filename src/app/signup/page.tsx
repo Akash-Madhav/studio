@@ -18,8 +18,7 @@ import { signUpWithEmailAndPassword, signInWithGoogle } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { signInWithPopup, GoogleAuthProvider, getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import { getApp } from "firebase/app";
-import { auth } from "@/lib/firebase";
+import { app, auth } from "@/lib/firebase";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required."),
@@ -84,7 +83,6 @@ export default function SignUpPage() {
     const provider = new GoogleAuthProvider();
     const selectedRole = form.getValues('role');
     try {
-        const app = getApp();
         const authInstance = getAuth(app);
         const result = await signInWithPopup(authInstance, provider);
         const user = result.user;
