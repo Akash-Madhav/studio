@@ -22,6 +22,10 @@ export type PhysiqueAnalysisInput = z.infer<typeof PhysiqueAnalysisInputSchema>;
 
 const PhysiqueAnalysisOutputSchema = z.object({
     summary: z.string().describe("A concise, paragraph-long summary of the user's physique, highlighting overall development, symmetry, strengths, and areas for improvement."),
+    rating: z.object({
+        score: z.number().int().min(0).max(100).describe("An overall physique score from 0 to 100, based on factors like muscular development, symmetry, and conditioning."),
+        justification: z.string().describe("A brief justification for the assigned score."),
+    }).describe("An overall rating of the user's physique."),
 });
 export type PhysiqueAnalysisOutput = z.infer<typeof PhysiqueAnalysisOutputSchema>;
 
@@ -46,10 +50,12 @@ const prompt = ai.definePrompt({
     -   Key strengths (most developed muscle groups).
     -   Areas for improvement (least developed muscle groups).
     -   An assessment of their symmetry and proportion.
+3.  **Assign a Rating:** Provide an overall physique score from 0 to 100. This score should reflect your expert assessment of their development, symmetry, and conditioning relative to a natural athlete's potential.
+4.  **Justify the Score:** Briefly explain your reasoning for the score you provided.
 
 **Crucial Rule**: If the video is not of a human physique (e.g., it's a landscape, an object, or an animal), or if it is inappropriate, you must throw an error and refuse to analyze it.
 
-Your final output must be structured precisely according to the PhysiqueAnalysisOutputSchema, providing only the summary.
+Your final output must be structured precisely according to the PhysiqueAnalysisOutputSchema.
 
 Video to analyze:
 {{media url=videoDataUri}}

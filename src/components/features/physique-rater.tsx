@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Loader2, Sparkles, Camera, Upload, Video, FileVideo, CheckCircle } from "lucide-react";
+import { Loader2, Sparkles, Camera, Upload, Video, FileVideo, CheckCircle, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { analyzePhysique, PhysiqueAnalysisOutput } from "@/ai/flows/physique-analysis-flow";
 import { logPhysiqueAnalysis } from "@/app/actions";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 
 interface PhysiqueRaterProps {
     userId: string;
@@ -149,7 +150,7 @@ export default function PhysiqueRater({ userId }: PhysiqueRaterProps) {
         if (!analysisResult || !userId) return;
 
         setIsLogging(true);
-        const result = await logPhysiqueAnalysis(userId, analysisResult.summary);
+        const result = await logPhysiqueAnalysis(userId, analysisResult.summary, analysisResult.rating);
         if (result.success) {
             toast({ title: "Analysis Logged", description: "Your physique analysis has been saved." });
             setAnalysisResult(null); // Clear the result after logging
@@ -251,13 +252,24 @@ export default function PhysiqueRater({ userId }: PhysiqueRaterProps) {
             {analysisResult && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Analysis Summary</CardTitle>
+                        <CardTitle>Analysis Results</CardTitle>
                         <CardDescription>
-                            Here's your personalized physique summary. You can log it to track your progress.
+                            Here's your personalized physique summary and rating.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md">{analysisResult.summary}</p>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                             <div className="flex justify-between items-center">
+                                <h4 className="font-semibold flex items-center gap-2"><Star/>Overall Rating</h4>
+                                <span className="font-bold text-lg text-primary">{analysisResult.rating.score}/100</span>
+                            </div>
+                            <Progress value={analysisResult.rating.score} className="h-2" />
+                            <p className="text-xs text-muted-foreground">{analysisResult.rating.justification}</p>
+                        </div>
+                        <div className="space-y-2">
+                             <h4 className="font-semibold">Summary</h4>
+                             <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md">{analysisResult.summary}</p>
+                        </div>
                     </CardContent>
                     <CardFooter>
                         <Button className="w-full" onClick={handleLogAnalysis} disabled={isLogging}>

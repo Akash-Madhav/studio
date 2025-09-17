@@ -576,7 +576,7 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
     }
 }
 
-export async function logPhysiqueAnalysis(userId: string, summary: string) {
+export async function logPhysiqueAnalysis(userId: string, summary: string, rating: { score: number; justification: string }) {
     try {
         if (!userId) {
             throw new Error("User ID is required.");
@@ -584,6 +584,7 @@ export async function logPhysiqueAnalysis(userId: string, summary: string) {
         const analysesCollection = collection(db, 'users', userId, 'physique_analyses');
         await addDoc(analysesCollection, {
             summary,
+            rating,
             createdAt: serverTimestamp(),
         });
         return { success: true, message: "Physique analysis logged successfully!" };

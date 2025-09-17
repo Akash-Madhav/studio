@@ -4,12 +4,13 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, History, MessageSquareQuote } from 'lucide-react';
+import { Loader2, History, MessageSquareQuote, Star } from 'lucide-react';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { onSnapshot, collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ScrollArea } from '../ui/scroll-area';
+import { Badge } from '../ui/badge';
 
 
 dayjs.extend(relativeTime);
@@ -18,6 +19,10 @@ interface Analysis {
     id: string;
     createdAt: string;
     summary: string;
+    rating: {
+        score: number;
+        justification: string;
+    };
 }
 
 interface PhysiqueHistoryProps {
@@ -47,6 +52,7 @@ export default function PhysiqueHistory({ userId }: PhysiqueHistoryProps) {
                 return {
                     id: doc.id,
                     summary: data.summary,
+                    rating: data.rating,
                     createdAt: createdAt ? createdAt.toDate().toISOString() : new Date().toISOString(),
                 } as Analysis;
             });
@@ -85,13 +91,25 @@ export default function PhysiqueHistory({ userId }: PhysiqueHistoryProps) {
                         <div className="space-y-4">
                             {history.map(item => (
                                 <div key={item.id} className="p-4 rounded-lg bg-muted/50 border">
-                                    <p className="text-xs text-muted-foreground mb-2 font-medium">
-                                        {dayjs(item.createdAt).format("MMMM D, YYYY")} - {dayjs(item.createdAt).fromNow()}
-                                    </p>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <p className="text-xs text-muted-foreground font-medium">
+                                            {dayjs(item.createdAt).format("MMMM D, YYYY")} - {dayjs(item.createdAt).fromNow()}
+                                        </p>
+                                        {item.rating && (
+                                            <Badge variant="secondary" className="flex items-center gap-1">
+                                                <Star className="h-3 w-3 text-accent"/> {item.rating.score}/100
+                                            </Badge>
+                                        )}
+                                    </div>
                                     <div className="flex items-start gap-3">
                                         <MessageSquareQuote className="h-5 w-5 text-primary mt-1" />
                                         <p className="text-sm flex-1">{item.summary}</p>
                                     </div>
+                                     {item.rating?.justification && (
+                                        <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-muted-foreground/20">
+                                            <strong>Justification:</strong> {item.rating.justification}
+                                        </p>
+                                     )}
                                 </div>
                             ))}
                         </div>
