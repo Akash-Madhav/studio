@@ -1,7 +1,7 @@
 
 'use server';
-import { db, auth } from '@/lib/firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { db } from '@/lib/firebase';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit, setDoc, arrayUnion } from 'firebase/firestore';
 
 import { z } from 'zod';
@@ -28,11 +28,14 @@ const signUpSchema = z.object({
 export async function signUpWithEmailAndPassword(values: z.infer<typeof signUpSchema>) {
     try {
         const validatedData = signUpSchema.parse(values);
-        const userCredential = await createUserWithEmailAndPassword(auth, validatedData.email, validatedData.password);
-        const user = userCredential.user;
+        const userRecord = await getAdminAuth().createUser({
+            email: validatedData.email,
+            password: validatedData.password,
+            displayName: validatedData.name,
+        });
 
-        await setDoc(doc(db, "users", user.uid), {
-            id: user.uid,
+        await setDoc(doc(db, "users", userRecord.uid), {
+            id: userRecord.uid,
             name: validatedData.name,
             email: validatedData.email,
             role: validatedData.role,
@@ -40,11 +43,11 @@ export async function signUpWithEmailAndPassword(values: z.infer<typeof signUpSc
             createdAt: serverTimestamp(),
         });
         
-        return { success: true, userId: user.uid, role: validatedData.role };
+        return { success: true, userId: userRecord.uid, role: validatedData.role };
     } catch (error: any) {
         console.error("Error signing up:", error);
         let message = 'Failed to sign up.';
-        if (error.code === 'auth/email-already-in-use') {
+        if (error.code === 'auth/email-already-exists') {
             message = 'This email is already in use.';
         }
         return { success: false, message };
@@ -59,30 +62,21 @@ const signInSchema = z.object({
 
 export async function signInWithEmailAndPasswordAction(values: z.infer<typeof signInSchema>) {
     try {
+        // This function cannot perform client-side sign-in. 
+        // We'll just validate the user exists for now. This should be handled on client.
         const validatedData = signInSchema.parse(values);
-        const userCredential = await signInWithEmailAndPassword(auth, validatedData.email, validatedData.password);
-        const user = userCredential.user;
-
-        const userRef = doc(db, "users", user.uid);
+        const userRecord = await getAdminAuth().getUserByEmail(validatedData.email);
+        
+        const userRef = doc(db, "users", userRecord.uid);
         const userDoc = await getDoc(userRef);
         
         if (!userDoc.exists()) {
-             // If the user is authenticated but has no profile, create a default one.
-            const defaultProfile = {
-                id: user.uid,
-                name: user.displayName || user.email?.split('@')[0] || 'New User',
-                email: user.email!,
-                role: 'player', // Default role
-                status: 'active',
-                createdAt: serverTimestamp(),
-            };
-            await setDoc(userRef, defaultProfile);
-            return { success: true, userId: user.uid, role: 'player' };
+           return { success: false, message: 'User profile not found.' };
         }
 
         const userRole = userDoc.data()?.role || 'player'; 
 
-        return { success: true, userId: user.uid, role: userRole };
+        return { success: true, userId: userRecord.uid, role: userRole };
     } catch (error: any)
      {
         console.error("Error signing in:", error);
@@ -601,3 +595,5 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
+
+    

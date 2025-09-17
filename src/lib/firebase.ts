@@ -1,3 +1,4 @@
+
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
@@ -13,13 +14,12 @@ const firebaseConfig = {
   appId: "1:620460614828:web:5adecf67678f4467e7eb09",
 };
 
-// Log the config object to the browser console for debugging
-console.log("Initializing Firebase with config:", firebaseConfig);
-
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
 
-export { db, auth, storage };
+export { db, auth, storage, app };
+
+    

@@ -17,8 +17,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { signUpWithEmailAndPassword, signInWithGoogle } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
-import { signInWithPopup, GoogleAuthProvider, getAuth } from "firebase/auth";
+import { signInWithPopup, GoogleAuthProvider, getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { getApp } from "firebase/app";
+import { auth } from "@/lib/firebase";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required."),
@@ -55,21 +56,26 @@ export default function SignUpPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    const result = await signUpWithEmailAndPassword(values);
-    setIsLoading(false);
-
-    if (result.success) {
-      toast({
-        title: "Account Created",
-        description: "Welcome to OptiFit AI!",
-      });
-      router.push(`/dashboard?role=${result.role}&userId=${result.userId}`);
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Sign Up Failed",
-        description: result.message,
-      });
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const result = await signUpWithEmailAndPassword(values);
+        if (result.success) {
+            toast({
+                title: "Account Created",
+                description: "Welcome to OptiFit AI!",
+            });
+            router.push(`/dashboard?role=${result.role}&userId=${result.userId}`);
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Sign Up Failed",
+            description: error.message || "Could not create account.",
+        });
+    } finally {
+        setIsLoading(false);
     }
   }
 
@@ -245,3 +251,5 @@ export default function SignUpPage() {
     </div>
   );
 }
+
+    
