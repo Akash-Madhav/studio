@@ -18,7 +18,7 @@ import { signUpWithEmailAndPassword, signInWithGoogle } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { signInWithPopup, GoogleAuthProvider, getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import { app, auth } from "@/lib/firebase";
+import { app } from "@/lib/firebase";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required."),
@@ -56,6 +56,7 @@ export default function SignUpPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
+        const auth = getAuth(app);
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const result = await signUpWithEmailAndPassword(values);
         if (result.success) {
@@ -249,3 +250,5 @@ export default function SignUpPage() {
     </div>
   );
 }
+
+    
