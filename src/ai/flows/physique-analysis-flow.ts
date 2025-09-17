@@ -1,8 +1,8 @@
 'use server';
 /**
- * @fileOverview An AI flow to analyze a user's physique from a photo.
+ * @fileOverview An AI flow to analyze a user's physique from a video.
  *
- * - analyzePhysique - A function that takes a photo data URI and returns a detailed physique analysis.
+ * - analyzePhysique - A function that takes a video data URI and returns a detailed physique analysis.
  * - PhysiqueAnalysisInput - The input type for the analyzePhysique function.
  * - PhysiqueAnalysisOutput - The return type for the analyzePhysique function.
  */
@@ -12,10 +12,10 @@ import {z} from 'genkit';
 import { googleAI } from '@genkit-ai/googleai';
 
 const PhysiqueAnalysisInputSchema = z.object({
-  photoDataUri: z
+  videoDataUri: z
     .string()
     .describe(
-      "A photo of a user's physique, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "A video of a user's physique, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
 });
 export type PhysiqueAnalysisInput = z.infer<typeof PhysiqueAnalysisInputSchema>;
@@ -57,20 +57,20 @@ const prompt = ai.definePrompt({
   config: {
     temperature: 0.2,
   },
-  prompt: `You are an expert bodybuilding judge and fitness coach. Your task is to analyze the user's physique from the provided photo.
+  prompt: `You are an expert bodybuilding judge and fitness coach. Your task is to analyze the user's physique from the provided video. The user will likely pose to show different muscle groups.
 
 **Analysis Protocol:**
-1.  **Examine the Photo:** Carefully analyze the provided photo of the user's physique.
-2.  **Rate Muscle Groups:** For each major muscle group (Chest, Back, Shoulders, Biceps, Triceps, Quads, Hamstrings, Calves, Abs), provide a rating from 1 (underdeveloped) to 10 (exceptionally developed). Also, provide a brief, constructive comment on each group.
+1.  **Examine the Video:** Carefully analyze the entire video of the user's physique. Pay attention to different angles and poses.
+2.  **Rate Muscle Groups:** For each major muscle group (Chest, Back, Shoulders, Biceps, Triceps, Quads, Hamstrings, Calves, Abs), provide a rating from 1 (underdeveloped) to 10 (exceptionally developed). Also, provide a brief, constructive comment on each group based on what you can see in the video.
 3.  **Assess Symmetry:** Evaluate the overall balance and proportion of the physique. Rate the symmetry from 1 (very unbalanced) to 10 (perfectly symmetrical) and provide comments.
 4.  **Provide Recommendations:** Based on your analysis, provide a list of 3-5 specific and actionable recommendations for improvement. These should target the weakest areas and suggest exercises or training principles.
 
-**Crucial Rule**: If the image is not a photo of a human physique (e.g., it's a landscape, an object, or an animal), or if it is inappropriate, you must throw an error and refuse to analyze it.
+**Crucial Rule**: If the video is not of a human physique (e.g., it's a landscape, an object, or an animal), or if it is inappropriate, you must throw an error and refuse to analyze it.
 
 Your final output must be structured precisely according to the PhysiqueAnalysisOutputSchema.
 
-Photo to analyze:
-{{media url=photoDataUri}}
+Video to analyze:
+{{media url=videoDataUri}}
   `,
 });
 

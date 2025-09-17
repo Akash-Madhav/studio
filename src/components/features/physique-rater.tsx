@@ -2,13 +2,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Loader2, Sparkles, Image as ImageIcon, Camera, Upload } from "lucide-react";
+import { Loader2, Sparkles, Camera, Upload, Video, FileVideo } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { analyzePhysique, PhysiqueAnalysisOutput } from "@/ai/flows/physique-analysis-flow";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import Image from "next/image";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,15 +17,17 @@ export default function PhysiqueRater() {
     const { toast } = useToast();
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisResult, setAnalysisResult] = useState<PhysiqueAnalysisOutput | null>(null);
-    const [imageFile, setImageFile] = useState<File | null>(null);
-    const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-    const [imageDataUri, setImageDataUri] = useState<string | null>(null);
-
     const [activeTab, setActiveTab] = useState("live");
+    
+    // Video state
+    const [videoFile, setVideoFile] = useState<File | null>(null);
+    const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
     
     const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const recordedChunksRef = useRef<Blob[]>([]);
 
     useEffect(() => {
         const getCameraPermission = async () => {
@@ -54,40 +55,65 @@ export default function PhysiqueRater() {
         };
     }, [activeTab]);
 
+    const handleStartRecording = () => {
+        if (videoRef.current?.srcObject) {
+            setAnalysisResult(null);
+            const stream = videoRef.current.srcObject as MediaStream;
+            mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            recordedChunksRef.current = [];
+
+            mediaRecorderRef.current.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorderRef.current.onstop = () => {
+                const videoBlob = new Blob(recordedChunksRef.current, { type: 'video/mp4' });
+                const reader = new FileReader();
+                reader.readAsDataURL(videoBlob);
+                reader.onloadend = async () => {
+                    const base64data = reader.result as string;
+                    await handleAnalyzePhysique(base64data);
+                };
+            };
+
+            mediaRecorderRef.current.start();
+            setIsRecording(true);
+        }
+    };
+
+    const handleStopRecording = () => {
+        if (mediaRecorderRef.current) {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+        }
+    };
+
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
             setAnalysisResult(null);
-            setImageFile(file);
+            setVideoFile(file);
             const url = URL.createObjectURL(file);
-            setImagePreviewUrl(url);
-
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onloadend = () => {
-                setImageDataUri(reader.result as string);
-            };
+            setVideoPreviewUrl(url);
         }
     };
+    
+    const handleAnalyzeUpload = () => {
+        if (!videoFile) return;
+        
+        const reader = new FileReader();
+        reader.readAsDataURL(videoFile);
+        reader.onloadend = async () => {
+            const base64data = reader.result as string;
+            await handleAnalyzePhysique(base64data);
+        };
+    }
 
-    const handleCapturePhoto = () => {
-        if (videoRef.current && canvasRef.current) {
-            setAnalysisResult(null);
-            const video = videoRef.current;
-            const canvas = canvasRef.current;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const context = canvas.getContext('2d');
-            context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const dataUri = canvas.toDataURL('image/jpeg');
-            setImagePreviewUrl(dataUri);
-            setImageDataUri(dataUri);
-        }
-    };
-
-    const handleAnalyzePhysique = async () => {
-        if (!imageDataUri) {
-            toast({ variant: "destructive", title: "No Image", description: "Please upload or capture a photo first." });
+    const handleAnalyzePhysique = async (videoDataUri: string) => {
+        if (!videoDataUri) {
+            toast({ variant: "destructive", title: "No Video", description: "Please record or upload a video first." });
             return;
         }
 
@@ -95,11 +121,11 @@ export default function PhysiqueRater() {
         setAnalysisResult(null);
         
         try {
-            const result = await analyzePhysique({ photoDataUri: imageDataUri });
+            const result = await analyzePhysique({ videoDataUri });
             setAnalysisResult(result);
         } catch (error: any) {
             console.error("Error analyzing physique:", error);
-            let errorDescription = "Could not analyze the photo. Please try again.";
+            let errorDescription = "Could not analyze the video. Please try again.";
              if (error.message?.includes("503") || error.message?.includes("overloaded")) {
                 errorDescription = "The AI model is currently busy. Please wait a moment and try again.";
             } else if (error.message) {
@@ -115,11 +141,6 @@ export default function PhysiqueRater() {
         }
     };
 
-    const clearPreview = () => {
-        setImagePreviewUrl(null);
-        setImageDataUri(null);
-        setImageFile(null);
-    }
 
     return (
         <div className="grid md:grid-cols-2 gap-8">
@@ -127,7 +148,7 @@ export default function PhysiqueRater() {
                 <CardHeader>
                     <CardTitle>AI Physique Analysis</CardTitle>
                     <CardDescription>
-                        Use your camera or upload a photo to get an AI-powered analysis of your physique.
+                        Record or upload a short video of your physique to get an AI-powered analysis.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -138,18 +159,18 @@ export default function PhysiqueRater() {
                         </TabsList>
                         <TabsContent value="live" className="mt-4">
                             <div className="relative aspect-video bg-muted rounded-md overflow-hidden border">
-                                {imagePreviewUrl && activeTab === 'live' ? (
-                                    <Image src={imagePreviewUrl} alt="Physique preview" layout="fill" objectFit="contain" />
-                                ): (
-                                    <>
-                                        <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                                        {hasCameraPermission === false && (
-                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-4">
-                                                <Camera className="h-12 w-12 mb-4" />
-                                                <p className="text-center font-semibold">Camera access is required.</p>
-                                            </div>
-                                        )}
-                                    </>
+                                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                                {hasCameraPermission === false && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-4">
+                                        <Camera className="h-12 w-12 mb-4" />
+                                        <p className="text-center font-semibold">Camera access is required.</p>
+                                    </div>
+                                )}
+                                {isAnalyzing && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-white p-4">
+                                        <Loader2 className="h-12 w-12 animate-spin mb-4" />
+                                        <p className="text-center font-semibold">Analyzing your physique...</p>
+                                    </div>
                                 )}
                             </div>
                             {hasCameraPermission === false && (
@@ -159,49 +180,52 @@ export default function PhysiqueRater() {
                                 </Alert>
                             )}
                             <div className="grid gap-2 mt-4">
-                                <Button onClick={handleCapturePhoto} disabled={!hasCameraPermission || isAnalyzing}>
-                                    <Camera className="mr-2" /> Capture Photo
-                                </Button>
+                               {isRecording ? (
+                                    <Button onClick={handleStopRecording} className="w-full mt-4" variant="destructive">
+                                        <Video className="mr-2" /> Stop Recording & Analyze
+                                    </Button>
+                                    ) : (
+                                    <Button onClick={handleStartRecording} className="w-full mt-4" disabled={!hasCameraPermission || isAnalyzing}>
+                                        <Camera className="mr-2" /> Start Recording
+                                    </Button>
+                                )}
                             </div>
                         </TabsContent>
                         <TabsContent value="upload" className="mt-4">
                             <div className="relative aspect-video bg-muted rounded-md overflow-hidden border">
-                                {imagePreviewUrl && activeTab === 'upload' ? (
-                                    <Image src={imagePreviewUrl} alt="Physique preview" layout="fill" objectFit="contain" />
+                                {videoPreviewUrl ? (
+                                    <video src={videoPreviewUrl} className="w-full h-full object-cover" controls />
                                 ) : (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-4">
-                                        <ImageIcon className="h-12 w-12 mb-4" />
-                                        <p className="text-center font-semibold">Upload a photo to get started</p>
+                                        <FileVideo className="h-12 w-12 mb-4" />
+                                        <p className="text-center font-semibold">Upload a video to analyze</p>
+                                    </div>
+                                )}
+                                {isAnalyzing && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-white p-4">
+                                        <Loader2 className="h-12 w-12 animate-spin mb-4" />
+                                        <p className="text-center font-semibold">Analyzing your physique...</p>
                                     </div>
                                 )}
                             </div>
                             <div className="grid gap-2 mt-4">
-                                <Input id="physique-upload" type="file" accept="image/*" onChange={handleFileChange} disabled={isAnalyzing}/>
+                                <Input id="physique-upload" type="file" accept="video/*" onChange={handleFileChange} disabled={isAnalyzing}/>
+                                <Button onClick={handleAnalyzeUpload} disabled={!videoFile || isAnalyzing}>
+                                    {isAnalyzing ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Analyzing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="mr-2" />
+                                            Analyze Uploaded Video
+                                        </>
+                                    )}
+                                </Button>
                             </div>
                         </TabsContent>
                     </Tabs>
-                    
-                    <canvas ref={canvasRef} className="hidden"></canvas>
-
-                    <div className="flex gap-2 pt-4 border-t">
-                        {imagePreviewUrl && 
-                            <Button onClick={clearPreview} variant="ghost" className="w-full" disabled={isAnalyzing}>Clear Photo</Button>
-                        }
-                        <Button onClick={handleAnalyzePhysique} className="w-full" disabled={!imageDataUri || isAnalyzing}>
-                            {isAnalyzing ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Analyzing...
-                                </>
-                            ) : (
-                                <>
-                                    <Sparkles className="mr-2" />
-                                    Analyze My Physique
-                                </>
-                            )}
-                        </Button>
-                    </div>
-
                 </CardContent>
             </Card>
 
