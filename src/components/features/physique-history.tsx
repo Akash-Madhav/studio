@@ -12,6 +12,9 @@ import { Badge } from '../ui/badge';
 import dayjs from 'dayjs';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { onSnapshot, collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 
 interface Analysis {
     id: string;
@@ -46,23 +49,40 @@ export default function PhysiqueHistory({ userId }: PhysiqueHistoryProps) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const fetchHistory = async () => {
-            if (!userId) return;
-            setIsLoading(true);
-            const result = await getPhysiqueHistory(userId);
-            if (result.success) {
-                setHistory(result.analyses as Analysis[]);
-            } else {
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not load physique history.' });
-            }
+        if (!userId) {
             setIsLoading(false);
-        };
-        fetchHistory();
+            return;
+        }
 
-        // Set up a polling mechanism to refresh data, as a simple alternative to real-time listeners
-        const interval = setInterval(fetchHistory, 30000); // Refresh every 30 seconds
-        return () => clearInterval(interval);
+        const analysesQuery = query(
+            collection(db, 'physique_analyses'),
+            where("userId", "==", userId),
+            orderBy("createdAt", "desc")
+        );
 
+        const unsubscribe = onSnapshot(analysesQuery, (snapshot) => {
+            const analysesData = snapshot.docs.map(doc => {
+                const data = doc.data();
+                const createdAt = data.createdAt as Timestamp;
+                return {
+                    ...data,
+                    id: doc.id,
+                    createdAt: createdAt ? createdAt.toDate().toISOString() : new Date().toISOString(),
+                } as Analysis;
+            });
+            setHistory(analysesData);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching physique history:", error);
+            let description = 'Could not load physique history.';
+            if (error.message.includes("indexes")) {
+                description = "A database index is required. Please check the server logs for a link to create it.";
+            }
+            toast({ variant: 'destructive', title: 'Error', description });
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
     }, [userId, toast]);
 
     const chartData = React.useMemo(() => {
