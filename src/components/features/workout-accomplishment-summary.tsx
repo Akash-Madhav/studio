@@ -62,18 +62,8 @@ export default function WorkoutAccomplishmentSummary({ workouts, isLoading: isFe
     setIsLoading(true);
     setSummary(null);
 
-    if (workouts.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "No Workouts Found",
-        description: "Log some workouts before generating a summary.",
-      });
-      setIsLoading(false);
-      return;
-    }
-
     const formattedHistory = formatWorkoutHistory(workouts);
-    if (!formattedHistory) {
+    if (!formattedHistory || formattedHistory.trim() === "") {
       toast({
         variant: "destructive",
         title: "No Workouts Found",
