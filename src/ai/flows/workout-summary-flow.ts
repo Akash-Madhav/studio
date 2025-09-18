@@ -60,7 +60,7 @@ const workoutSummaryFlow = ai.defineFlow(
     outputSchema: WorkoutSummaryOutputSchema,
   },
   async (input) => {
-    // This check ensures we don't call the AI with empty data, which can cause it to return null.
+    // This pre-emptive check prevents us from calling the AI with empty data.
     if (!input.workoutHistory || input.workoutHistory.trim() === "") {
         return "No workout history available to summarize. Please log some workouts first!";
     }
