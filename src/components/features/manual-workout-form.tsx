@@ -75,7 +75,7 @@ export default function ManualWorkoutForm({ userId, onWorkoutLogged }: ManualWor
         description: result.message,
       });
       form.reset();
-      // onWorkoutLogged is now handled by the real-time listener on the dashboard
+      // The dashboard will update automatically via its real-time listener
     } else {
       toast({
         variant: "destructive",
@@ -177,3 +177,5 @@ export default function ManualWorkoutForm({ userId, onWorkoutLogged }: ManualWor
     </Card>
   );
 }
+
+    

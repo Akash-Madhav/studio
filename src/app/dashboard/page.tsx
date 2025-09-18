@@ -1,7 +1,8 @@
 
 'use client';
 
-import React, { Suspense, useState, useEffect, useCallback } from 'react';
+import React, 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -98,32 +99,6 @@ function DashboardContent() {
   const [workoutHistory, setWorkoutHistory] = useState<Workout[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(!isCoach);
   
-  const fetchWorkoutHistory = useCallback(async () => {
-      // This function is now only used for manual refreshes if needed,
-      // as real-time updates are handled by the listener.
-      if (!initialUserId || role !== 'player') return;
-      setIsLoadingHistory(true);
-      const workoutsQuery = query(collection(db, 'users', initialUserId, 'workouts'), orderBy("createdAt", "desc"));
-      try {
-        const querySnapshot = await getDocs(workoutsQuery);
-        const history = querySnapshot.docs.map(doc => {
-              const data = doc.data();
-              const createdAt = data.createdAt as Timestamp;
-              return {
-                  ...data,
-                  _id: doc.id,
-                  createdAt: createdAt ? createdAt.toDate() : new Date(),
-              } as Workout;
-          });
-        setWorkoutHistory(history);
-      } catch (error) {
-         console.error("Error fetching workout history manually:", error);
-         toast({ variant: 'destructive', title: 'Error', description: 'Could not refresh workout history.' });
-      } finally {
-        setIsLoadingHistory(false);
-      }
-  }, [initialUserId, role, toast]);
-
   useEffect(() => {
     if (!initialUserId) {
       setIsLoading(false);
@@ -173,7 +148,7 @@ function DashboardContent() {
     }
   }, [initialUserId, role, toast, router]);
 
-  const fetchAllPlayersForScouting = useCallback(async () => {
+  const fetchAllPlayersForScouting = async () => {
      if (!isCoach) return;
      try {
         const playersRes = await getAllPlayers();
@@ -185,13 +160,13 @@ function DashboardContent() {
      } catch(e) {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch player data for scouting.' });
      }
-  }, [isCoach, toast]);
+  };
   
   useEffect(() => {
     if (isCoach) {
       fetchAllPlayersForScouting();
     }
-  }, [fetchAllPlayersForScouting, isCoach]);
+  }, [isCoach]);
 
   useEffect(() => {
     if (!isCoach || !initialUserId) {
@@ -354,158 +329,162 @@ function DashboardContent() {
   );
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-background">
-      <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 z-50">
-        <div className="flex items-center gap-2 text-lg font-semibold text-primary">
-          <Dumbbell className="h-6 w-6" />
-          <span className="font-bold">OptiFit AI</span>
-        </div>
-        <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-          <div className="ml-auto flex-1 sm:flex-initial"></div>
-          <div className="flex items-center gap-3">
-             <ThemeToggle />
-             <span className="hidden sm:inline-block text-sm font-medium text-right">{displayName}</span>
-             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="icon" className="rounded-full">
-                  <Avatar>
-                    <AvatarFallback>{(currentUser?.name || '').charAt(0).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <span className="sr-only">Toggle user menu</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                 <Link href={`/dashboard/settings?role=${role}&userId=${userId}`}>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Settings</DropdownMenuItem>
-                 </Link>
-                <a href="mailto:support@optifit.ai?subject=OptiFit AI Support Request"><DropdownMenuItem>Support</DropdownMenuItem></a>
-                <DropdownMenuSeparator />
-                <Link href="/"><DropdownMenuItem>Logout</DropdownMenuItem></Link>
-              </DropdownMenuContent>
-            </DropdownMenu>
+    <Suspense fallback={<div className="flex h-screen w-full items-center justify-center">Loading...</div>}>
+      <div className="flex min-h-screen w-full flex-col bg-background">
+        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 z-50">
+          <div className="flex items-center gap-2 text-lg font-semibold text-primary">
+            <Dumbbell className="h-6 w-6" />
+            <span className="font-bold">OptiFit AI</span>
           </div>
-        </div>
-      </header>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-        <div className="grid gap-2">
-          <h1 className="text-3xl font-bold tracking-tight text-primary">
-            {isCoach ? 'Coach Dashboard' : 'Fitness Dashboard'}
-          </h1>
-          <p className="text-muted-foreground">
-             {isCoach
-              ? 'Oversee your team, scout new talent, and manage communications.'
-              : 'Your central hub for tracking, analyzing, and optimizing your fitness journey.'}
-          </p>
-        </div>
-        
-        <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-             <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-5 sm:grid-cols-11'}`}>
+          <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
+            <div className="ml-auto flex-1 sm:flex-initial"></div>
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <span className="hidden sm:inline-block text-sm font-medium text-right">{displayName}</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="icon" className="rounded-full">
+                    <Avatar>
+                      <AvatarFallback>{(currentUser?.name || '').charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="sr-only">Toggle user menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <Link href={`/dashboard/settings?role=${role}&userId=${userId}`}>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Settings</DropdownMenuItem>
+                  </Link>
+                  <a href="mailto:support@optifit.ai?subject=OptiFit AI Support Request"><DropdownMenuItem>Support</DropdownMenuItem></a>
+                  <DropdownMenuSeparator />
+                  <Link href="/"><DropdownMenuItem>Logout</DropdownMenuItem></Link>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </header>
+        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+          <div className="grid gap-2">
+            <h1 className="text-3xl font-bold tracking-tight text-primary">
+              {isCoach ? 'Coach Dashboard' : 'Fitness Dashboard'}
+            </h1>
+            <p className="text-muted-foreground">
+              {isCoach
+                ? 'Oversee your team, scout new talent, and manage communications.'
+                : 'Your central hub for tracking, analyzing, and optimizing your fitness journey.'}
+            </p>
+          </div>
+          
+          <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
+              <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-5 sm:grid-cols-11'}`}>
+                {isCoach ? (
+                    <>
+                        <TabsTrigger value="team"><Users className="mr-2"/>Team</TabsTrigger>
+                        <TabsTrigger value="scouting"><UserPlus className="mr-2"/>Scouting</TabsTrigger>
+                        <TabsTrigger value="messages"><MessageSquare className="mr-2"/>Messages</TabsTrigger>
+                        <TabsTrigger value="community"><UsersRound className="mr-2"/>Community</TabsTrigger>
+                    </>
+                ) : (
+                    <>
+                        {commonPlayerTabs}
+                        <TabsTrigger value="messages"><MessageSquare className="mr-2"/>Messages</TabsTrigger>
+                        <TabsTrigger value="community"><UsersRound className="mr-2"/>Community</TabsTrigger>
+                    </>
+                )}
+              </TabsList>
+
               {isCoach ? (
                   <>
-                      <TabsTrigger value="team"><Users className="mr-2"/>Team</TabsTrigger>
-                      <TabsTrigger value="scouting"><UserPlus className="mr-2"/>Scouting</TabsTrigger>
-                      <TabsTrigger value="messages"><MessageSquare className="mr-2"/>Messages</TabsTrigger>
-                      <TabsTrigger value="community"><UsersRound className="mr-2"/>Community</TabsTrigger>
+                      <TabsContent value="team" className="mt-4 space-y-8">
+                          <PlayerStats players={recruitedPlayers} isLoading={isLoadingCoachData} />
+                          <PendingInvites invites={pendingInvites} isLoading={isLoadingCoachData} />
+                      </TabsContent>
+                      <TabsContent value="scouting" className="mt-4">
+                          <PlayerScouting 
+                              players={players} 
+                              isLoading={isLoadingCoachData} 
+                              onInviteSent={fetchAllPlayersForScouting} 
+                          />
+                      </TabsContent>
+                      <TabsContent value="messages" className="mt-4">
+                          <Messages userId={userId} />
+                      </TabsContent>
+                      <TabsContent value="community" className="mt-4">
+                          <CommunityHub userId={userId} userName={userName} />
+                      </TabsContent>
                   </>
               ) : (
                   <>
-                      {commonPlayerTabs}
-                      <TabsTrigger value="messages"><MessageSquare className="mr-2"/>Messages</TabsTrigger>
-                      <TabsTrigger value="community"><UsersRound className="mr-2"/>Community</TabsTrigger>
+                      <TabsContent value="dashboard" className="mt-4">
+                        <ProgressVisualization 
+                          workouts={workoutHistory} 
+                          isLoading={isLoadingHistory} 
+                        />
+                      </TabsContent>
+                      <TabsContent value="analysis" className="mt-4">
+                          <WorkoutAnalysis userId={userId} />
+                      </TabsContent>
+                      <TabsContent value="history" className="mt-4">
+                          <WorkoutHistory 
+                            workouts={workoutHistory} 
+                            isLoading={isLoadingHistory}
+                            user={currentUser}
+                          />
+                      </TabsContent>
+                      <TabsContent value="summary" className="mt-4">
+                          <WorkoutAccomplishmentSummary 
+                            workouts={workoutHistory} 
+                            isLoading={isLoadingHistory}
+                          />
+                      </TabsContent>
+                      <TabsContent value="ai-insights" className="mt-4">
+                          <AiInsights userId={userId} />
+                      </TabsContent>
+                      <TabsContent value="recommendations" className="mt-4">
+                          <PersonalizedRecommendations 
+                            userId={userId} 
+                            workouts={workoutHistory}
+                            isLoading={isLoadingHistory}
+                          />
+                      </TabsContent>
+                      <TabsContent value="physique" className="mt-4">
+                          <div className="grid lg:grid-cols-2 gap-8">
+                              <PhysiqueRater userId={userId}/>
+                              <PhysiqueHistory userId={userId} />
+                          </div>
+                      </TabsContent>
+                      <TabsContent value="find-sport" className="mt-4">
+                          <SportMatch 
+                            userId={userId} 
+                            workouts={workoutHistory}
+                            isLoading={isLoadingHistory}
+                          />
+                      </TabsContent>
+                      <TabsContent value="invites" className="mt-4">
+                          <PlayerInvites userId={userId} />
+                      </TabsContent>
+                      <TabsContent value="messages" className="mt-4">
+                          <Messages userId={userId} />
+                      </TabsContent>
+                      <TabsContent value="community" className="mt-4">
+                          <CommunityHub userId={userId} userName={userName} />
+                      </TabsContent>
                   </>
               )}
-            </TabsList>
-
-            {isCoach ? (
-                <>
-                    <TabsContent value="team" className="mt-4 space-y-8">
-                        <PlayerStats players={recruitedPlayers} isLoading={isLoadingCoachData} />
-                        <PendingInvites invites={pendingInvites} isLoading={isLoadingCoachData} />
-                    </TabsContent>
-                    <TabsContent value="scouting" className="mt-4">
-                        <PlayerScouting 
-                            players={players} 
-                            isLoading={isLoadingCoachData} 
-                            onInviteSent={fetchAllPlayersForScouting} 
-                        />
-                    </TabsContent>
-                    <TabsContent value="messages" className="mt-4">
-                        <Messages userId={userId} />
-                    </TabsContent>
-                    <TabsContent value="community" className="mt-4">
-                        <CommunityHub userId={userId} userName={userName} />
-                    </TabsContent>
-                </>
-            ) : (
-                <>
-                    <TabsContent value="dashboard" className="mt-4">
-                      <ProgressVisualization 
-                        workouts={workoutHistory} 
-                        isLoading={isLoadingHistory} 
-                      />
-                    </TabsContent>
-                     <TabsContent value="analysis" className="mt-4">
-                        <WorkoutAnalysis userId={userId} onWorkoutLogged={fetchWorkoutHistory} />
-                    </TabsContent>
-                     <TabsContent value="history" className="mt-4">
-                        <WorkoutHistory 
-                          workouts={workoutHistory} 
-                          isLoading={isLoadingHistory}
-                          user={currentUser}
-                        />
-                    </TabsContent>
-                     <TabsContent value="summary" className="mt-4">
-                        <WorkoutAccomplishmentSummary 
-                          workouts={workoutHistory} 
-                          isLoading={isLoadingHistory}
-                        />
-                    </TabsContent>
-                    <TabsContent value="ai-insights" className="mt-4">
-                        <AiInsights userId={userId} />
-                    </TabsContent>
-                    <TabsContent value="recommendations" className="mt-4">
-                        <PersonalizedRecommendations 
-                          userId={userId} 
-                          workouts={workoutHistory}
-                          isLoading={isLoadingHistory}
-                        />
-                    </TabsContent>
-                    <TabsContent value="physique" className="mt-4">
-                        <div className="grid lg:grid-cols-2 gap-8">
-                            <PhysiqueRater userId={userId}/>
-                            <PhysiqueHistory userId={userId} />
-                        </div>
-                    </TabsContent>
-                    <TabsContent value="find-sport" className="mt-4">
-                        <SportMatch 
-                          userId={userId} 
-                          workouts={workoutHistory}
-                          isLoading={isLoadingHistory}
-                        />
-                    </TabsContent>
-                    <TabsContent value="invites" className="mt-4">
-                        <PlayerInvites userId={userId} />
-                    </TabsContent>
-                    <TabsContent value="messages" className="mt-4">
-                        <Messages userId={userId} />
-                    </TabsContent>
-                     <TabsContent value="community" className="mt-4">
-                        <CommunityHub userId={userId} userName={userName} />
-                    </TabsContent>
-                </>
-            )}
-          </Tabs>
-      </main>
-    </div>
+            </Tabs>
+        </main>
+      </div>
+    </Suspense>
   );
 }
 
 export default function Dashboard() {
-  return (
-    <Suspense fallback={<div className="flex h-screen w-full items-center justify-center">Loading...</div>}>
-      <DashboardContent />
-    </Suspense>
-  );
-}
+    return (
+      <Suspense fallback={<div className="flex h-screen w-full items-center justify-center">Loading...</div>}>
+        <DashboardContent />
+      </Suspense>
+    );
+  }
+
+    

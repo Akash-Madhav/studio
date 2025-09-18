@@ -23,10 +23,9 @@ import ManualWorkoutForm from "./manual-workout-form";
 
 interface WorkoutAnalysisProps {
     userId?: string;
-    onWorkoutLogged: () => void;
 }
 
-export default function WorkoutAnalysis({ userId, onWorkoutLogged }: WorkoutAnalysisProps) {
+export default function WorkoutAnalysis({ userId }: WorkoutAnalysisProps) {
   const { toast } = useToast();
   const [isLogging, setIsLogging] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -169,7 +168,7 @@ export default function WorkoutAnalysis({ userId, onWorkoutLogged }: WorkoutAnal
       setAnalysisResult(null);
       setVideoFile(null);
       setVideoPreviewUrl(null);
-      // onWorkoutLogged() is no longer needed here as the dashboard now listens in real-time
+      // The dashboard will update automatically via its real-time listener
     } else {
       toast({
         variant: "destructive",
@@ -181,7 +180,7 @@ export default function WorkoutAnalysis({ userId, onWorkoutLogged }: WorkoutAnal
 
   return (
     <div className="grid lg:grid-cols-2 gap-8">
-      <ManualWorkoutForm userId={userId} onWorkoutLogged={onWorkoutLogged} />
+      <ManualWorkoutForm userId={userId} onWorkoutLogged={() => {}} />
       <Card>
         <CardHeader>
           <CardTitle>AI-Powered Video Analysis</CardTitle>
@@ -305,3 +304,5 @@ export default function WorkoutAnalysis({ userId, onWorkoutLogged }: WorkoutAnal
     </div>
   );
 }
+
+    
