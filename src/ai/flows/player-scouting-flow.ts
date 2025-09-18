@@ -58,19 +58,20 @@ const prompt = ai.definePrompt({
 First, identify and list the most crucial physical attributes and skills required to excel in **{{{sport}}}**. For example, for Basketball, this might include 'Explosive Power', 'Agility', 'Vertical Leap', and 'Lean Frame'.
 
 **Step 2: Evaluate Each Player Against Key Attributes**
-Analyze the following list of players. For each player, meticulously evaluate their performance data, profile, and physique analysis.
+Analyze the following list of players. For each player, meticulously evaluate their performance data, profile, and physique analysis against the key attributes you defined in Step 1.
 
--   **Performance Analysis**: Evaluate how their logged workouts translate to the key attributes. A high squat weight for Football indicates 'Raw Strength'. Long cardio sessions for Marathon Running indicate 'High Endurance'.
--   **Physique Analysis**: Evaluate their physique analysis in the context of **{{{sport}}}**. A high physique score for bodybuilding does not automatically mean it's ideal for a marathon runner. Assess their build (e.g., lean, muscular, tall) and determine its suitability for the sport. For example, a tall, lean build is advantageous in Basketball, while a dense, powerful build is better for a Football lineman. Generate a sport-specific physique score and analysis.
+**Scoring Rubric (Crucial):**
+-   **Performance Analysis & Suitability Score**: Your `suitabilityScore` must be evidence-based. Evaluate how the player's logged workouts (e.g., high squat weights, fast sprint times, long-distance runs) directly translate to the key attributes. The score should reflect how many key attributes are clearly demonstrated in their training data. A player with a history of heavy lifting and plyometrics is a better fit for Football (Raw Strength, Explosive Power) than a player who only logs long-distance runs.
+-   **Physique Analysis & Assessment Score**: Your `physiqueAssessment.score` must be sport-specific. A high bodybuilding score is irrelevant for a marathon runner. Assess their build (e.g., lean, muscular, tall) and determine its suitability for the sport's demands. A tall, lean build is advantageous in Basketball, while a dense, powerful build is better for a Football lineman. The score should reflect how closely their physique matches the ideal for an elite athlete in that sport.
 
-**Crucial Rule**: If a player's performance data, user profile, or physique analysis is insufficient for a meaningful assessment (e.g., "No recent workouts" or "No physique data"), you MUST assign a **suitability score of 0**. Your analysis and report should state that an assessment is not possible due to a lack of data. Do not speculate.
+**Crucial Rule**: If a player's performance data or physique analysis is clearly insufficient for a meaningful assessment (e.g., "No workout data available" or "No physique data loaded"), you MUST assign a **suitability score of 0**. Your analysis and report must explicitly state that an assessment is not possible due to a lack of data. Do not speculate.
 
 **Step 3: Generate Recommendations**
-Based on your deep analysis, provide a comprehensive report for only the **top 3** most suitable players.
+Based on your deep analysis using the scoring rubric, provide a comprehensive report for only the **top 3** most suitable players.
 -   **Suitability Score**: A quantitative measure of their fit based on performance data.
 -   **Physique Assessment**: A specific score and analysis for their physique's suitability for the sport.
 -   **Analysis**: A brief summary of their strengths and weaknesses.
--   **Report**: A detailed report explaining *why* their training and physique make them a good candidate. Connect the dots between their workouts, their build, and the demands of the sport.
+-   **Report**: A detailed report explaining *why* their training and physique make them a good candidate. Synthesize your findings from the scoring rubric, connecting the dots between their workouts, their build, and the demands of the sport.
 
 **Player Data:**
 {{#each playersData}}
