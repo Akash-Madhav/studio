@@ -14,15 +14,17 @@ const WorkoutSummaryInputSchema = z.object({
     .describe('A string containing the recent workout history of the user.'),
   physiqueAnalysis: z
     .string()
-
     .optional()
     .describe('The most recent physique analysis summary for the user.'),
 });
 
 const WorkoutSummaryOutputSchema = z
   .string()
+//  .describe(
+//    "A motivational and insightful summary of the user's workout accomplishments and physique, highlighting progress, personal bests, and consistency."
+//  );
   .describe(
-    "A motivational and insightful summary of the user's workout accomplishments and physique, highlighting progress, personal bests, and consistency."
+    "A motivational and insightful summary of the user's workout accomplishments and physique, highlighting progress, personal bests, and consistency. This CANNOT be null."
   );
 export type WorkoutSummaryInput = z.infer<typeof WorkoutSummaryInputSchema>;
 
@@ -36,6 +38,26 @@ const prompt = ai.definePrompt({
   name: 'workoutSummaryPrompt',
   input: {schema: WorkoutSummaryInputSchema},
   output: {schema: WorkoutSummaryOutputSchema},
+  config: {
+    safetySettings: [
+      {
+        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_HARASSMENT',
+        threshold: 'BLOCK_NONE',
+      },
+       {
+        category: 'HARM_CATEGORY_HATE_SPEECH',
+        threshold: 'BLOCK_NONE',
+      },
+       {
+        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+        threshold: 'BLOCK_NONE',
+      },
+    ],
+  },
   prompt: `You are a motivating fitness coach. Your task is to provide a concise, insightful, and encouraging summary of a user's recent progress based on their workout logs and, if available, their latest physique analysis.
 
 **Analysis Protocol:**
