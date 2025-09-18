@@ -269,17 +269,11 @@ export async function getAllPlayers() {
         const usersCollection = collection(db, 'users');
         const q = query(usersCollection, where("role", "==", "player"), where("status", "==", "active"));
         const querySnapshot = await getDocs(q);
-        const players = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            return { 
-                id: doc.id, 
-                ...data,
-                dob: formatTimestamp(data.dob),
-                createdAt: formatTimestamp(data.createdAt),
-            };
-        });
 
-        const playersWithWorkouts = await Promise.all(players.map(async (player: any) => {
+        const playersPromises = querySnapshot.docs.map(async (playerDoc) => {
+            const player: any = { id: playerDoc.id, ...playerDoc.data() };
+            
+            // Get workout history string
             const workoutsCollection = collection(db, 'users', player.id, 'workouts');
             const workoutsQuery = query(workoutsCollection, orderBy("createdAt", "asc"));
             const workoutsSnapshot = await getDocs(workoutsQuery);
@@ -313,8 +307,18 @@ export async function getAllPlayers() {
                 physiqueAnalysis = `Summary: ${latestAnalysis.summary} Rating: ${latestAnalysis.rating.score}/100.`;
             }
 
-            return { ...player, performanceData, userProfile, physiqueAnalysis };
-        }));
+            return { 
+                id: player.id, 
+                name: player.name,
+                status: player.status,
+                coachId: player.coachId,
+                performanceData, 
+                userProfile, 
+                physiqueAnalysis 
+            };
+        });
+
+        const playersWithWorkouts = await Promise.all(playersPromises);
 
         return { success: true, players: JSON.parse(JSON.stringify(playersWithWorkouts)) };
     } catch (error) {
@@ -322,6 +326,7 @@ export async function getAllPlayers() {
         return { success: false, players: [] };
     }
 }
+
 
 export async function findPlayerByEmail(email: string) {
     try {

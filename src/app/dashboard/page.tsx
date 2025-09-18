@@ -119,7 +119,7 @@ function DashboardContent() {
     // Fetch workout history for players
     let unsubscribeHistory: () => void = () => {};
     if (role === 'player') {
-      const q = query(collection(db, 'workouts'), where("userId", "==", initialUserId));
+      const q = query(collection(db, 'users', initialUserId, 'workouts'), orderBy("createdAt", "desc"));
       unsubscribeHistory = onSnapshot(q, (snapshot) => {
           const workoutsData = snapshot.docs.map(doc => {
               const data = doc.data();
@@ -130,7 +130,6 @@ function DashboardContent() {
                   createdAt: createdAt ? createdAt.toDate() : new Date(),
               } as Workout;
           });
-          workoutsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
           setWorkoutHistory(workoutsData);
           setIsLoadingHistory(false);
       }, (error) => {
@@ -180,14 +179,11 @@ function DashboardContent() {
         const recruitedDataPromises = snapshot.docs.map(async (d) => {
             const player: any = { id: d.id, ...d.data() };
             
-            const workoutsCollection = collection(db, 'workouts');
-            const q = query(workoutsCollection, where("userId", "==", d.id));
+            const workoutsCollection = collection(db, 'users', d.id, 'workouts');
+            const q = query(workoutsCollection, orderBy("createdAt", "desc"), limit(3));
             const querySnapshot = await getDocs(q);
             
-            const workouts = querySnapshot.docs.map(doc => ({ ...doc.data(), createdAt: (doc.data().createdAt as Timestamp).toDate() }));
-            workouts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-            const recentWorkouts = workouts.slice(0, 3);
-
+            const recentWorkouts = querySnapshot.docs.map(doc => ({ ...doc.data(), createdAt: (doc.data().createdAt as Timestamp).toDate() }));
 
             let performanceData = 'No recent workouts logged.';
             if (recentWorkouts.length > 0) {
@@ -212,7 +208,8 @@ function DashboardContent() {
                 name: player.name,
                 userProfile: userProfile,
                 performanceData: performanceData,
-                status: player.status
+                status: player.status,
+                coachId: player.coachId
             };
         });
         const recruitedData = await Promise.all(recruitedDataPromises);
