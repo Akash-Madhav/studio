@@ -270,28 +270,8 @@ export async function getAllPlayers() {
         const q = query(usersCollection, where("role", "==", "player"), where("status", "==", "active"));
         const querySnapshot = await getDocs(q);
 
-        const playersPromises = querySnapshot.docs.map(async (playerDoc) => {
+        const players = querySnapshot.docs.map((playerDoc) => {
             const player: any = { id: playerDoc.id, ...playerDoc.data() };
-            
-            // Get workout history string
-            const workoutsCollection = collection(db, 'users', player.id, 'workouts');
-            const workoutsQuery = query(workoutsCollection, orderBy("createdAt", "asc"));
-            const workoutsSnapshot = await getDocs(workoutsQuery);
-            
-            let performanceData = 'No workouts logged.';
-            if (!workoutsSnapshot.empty) {
-                performanceData = workoutsSnapshot.docs
-                    .map(doc => {
-                        const w = doc.data();
-                        const createdAt = formatTimestamp(w.createdAt);
-                        const parts = [`${dayjs(createdAt).format('YYYY-MM-DD')} - ${w.exercise}`];
-                        if (w.reps) parts.push(`${w.reps} reps`);
-                        if (w.weight) parts.push(`@ ${w.weight}kg`);
-                        if (w.distance) parts.push(`${w.distance}km`);
-                        if (w.time) parts.push(`in ${w.time}`);
-                        return parts.join(' ');
-                    }).join('; ');
-            }
 
             // Get user profile string
             const profileParts = [];
@@ -299,28 +279,18 @@ export async function getAllPlayers() {
             if (player.goals) profileParts.push(player.goals);
             const userProfile = profileParts.length > 0 ? profileParts.join(', ') : 'No profile information available.';
 
-            // Get latest physique analysis
-            const physiqueHistory = await getPhysiqueHistory(player.id, 1);
-            let physiqueAnalysis = 'No physique data available.';
-            if (physiqueHistory.success && physiqueHistory.analyses.length > 0) {
-                const latestAnalysis = physiqueHistory.analyses[0];
-                physiqueAnalysis = `Summary: ${latestAnalysis.summary} Rating: ${latestAnalysis.rating.score}/100.`;
-            }
-
             return { 
                 id: player.id, 
                 name: player.name,
                 status: player.status,
                 coachId: player.coachId,
-                performanceData, 
+                performanceData: "No workout data loaded for performance.", // Placeholder
                 userProfile, 
-                physiqueAnalysis 
+                physiqueAnalysis: "No physique data loaded for performance." // Placeholder
             };
         });
 
-        const playersWithWorkouts = await Promise.all(playersPromises);
-
-        return { success: true, players: JSON.parse(JSON.stringify(playersWithWorkouts)) };
+        return { success: true, players: JSON.parse(JSON.stringify(players)) };
     } catch (error) {
         console.error("Error getting all players:", error);
         return { success: false, players: [] };
