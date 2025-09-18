@@ -43,7 +43,7 @@ import PlayerInvites from '@/components/features/player-invites';
 import Messages from '@/components/features/messages';
 import SportMatch from '@/components/features/sport-match';
 import CommunityHub from '@/components/features/community-hub';
-import { getAllPlayers, getUsersByIds, getUser } from '@/app/actions';
+import { getAllPlayers, getUsersByIds, getUser, getWorkoutHistory } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -98,6 +98,18 @@ function DashboardContent() {
   const [workoutHistory, setWorkoutHistory] = useState<Workout[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(!isCoach);
   
+  const fetchWorkoutHistory = useCallback(async () => {
+      if (!initialUserId || role !== 'player') return;
+      setIsLoadingHistory(true);
+      const historyResult = await getWorkoutHistory(initialUserId);
+      if (historyResult.success) {
+          setWorkoutHistory(historyResult.workouts as Workout[]);
+      } else {
+          toast({ variant: 'destructive', title: 'Error', description: historyResult.message });
+      }
+      setIsLoadingHistory(false);
+  }, [initialUserId, role, toast]);
+
   useEffect(() => {
     if (!initialUserId) {
       setIsLoading(false);
@@ -116,35 +128,14 @@ function DashboardContent() {
         setIsLoading(false);
     });
 
-    // Fetch workout history for players
-    let unsubscribeHistory: () => void = () => {};
     if (role === 'player') {
-      const q = query(collection(db, 'users', initialUserId, 'workouts'), orderBy("createdAt", "desc"));
-      unsubscribeHistory = onSnapshot(q, (snapshot) => {
-          const workoutsData = snapshot.docs.map(doc => {
-              const data = doc.data();
-              const createdAt = data.createdAt as Timestamp;
-              return {
-                  ...data,
-                  _id: doc.id,
-                  createdAt: createdAt ? createdAt.toDate() : new Date(),
-              } as Workout;
-          });
-          setWorkoutHistory(workoutsData);
-          setIsLoadingHistory(false);
-      }, (error) => {
-          console.error("Error fetching workout history:", error);
-          toast({ variant: "destructive", title: "Error", description: "Could not load workout history." });
-          setIsLoadingHistory(false);
-      });
+        fetchWorkoutHistory();
     }
 
     return () => {
       unsubscribeUser();
-      unsubscribeHistory();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialUserId, role, toast]);
+  }, [initialUserId, role, toast, fetchWorkoutHistory]);
 
   const fetchAllPlayersForScouting = useCallback(async () => {
      if (!isCoach) return;
@@ -482,3 +473,5 @@ export default function Dashboard() {
     </Suspense>
   );
 }
+
+    
