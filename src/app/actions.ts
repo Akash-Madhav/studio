@@ -180,9 +180,10 @@ const logWorkoutSchema = z.object({
 export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
     try {
         const validatedData = logWorkoutSchema.parse(values);
-        const workoutsCollection = collection(db, 'workouts');
+        const { userId, ...workoutData } = validatedData;
+        const workoutsCollection = collection(db, 'users', userId, 'workouts');
         await addDoc(workoutsCollection, {
-            ...validatedData,
+            ...workoutData,
             createdAt: serverTimestamp(),
         });
 
@@ -236,9 +237,9 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
 
 export async function getWorkoutHistory(userId: string, recordLimit?: number) {
     try {
-        const workoutsCollection = collection(db, 'workouts');
+        const workoutsCollection = collection(db, 'users', userId, 'workouts');
         
-        let q = query(workoutsCollection, where("userId", "==", userId), orderBy("createdAt", "desc"));
+        let q = query(workoutsCollection, orderBy("createdAt", "desc"));
         
         if (recordLimit) {
             q = query(q, limit(recordLimit));
@@ -279,8 +280,8 @@ export async function getAllPlayers() {
         });
 
         const playersWithWorkouts = await Promise.all(players.map(async (player: any) => {
-            const workoutsCollection = collection(db, 'workouts');
-            const workoutsQuery = query(workoutsCollection, where("userId", "==", player.id), orderBy("createdAt", "asc"));
+            const workoutsCollection = collection(db, 'users', player.id, 'workouts');
+            const workoutsQuery = query(workoutsCollection, orderBy("createdAt", "asc"));
             const workoutsSnapshot = await getDocs(workoutsQuery);
             
             let performanceData = 'No workouts logged.';
