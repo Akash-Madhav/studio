@@ -33,7 +33,7 @@ export async function generateWorkoutSummary(
 
 const prompt = ai.definePrompt({
   name: 'workoutSummaryPrompt',
-  input: {schema: WorkoutSummaryInputSchema},
+  input: {schema: z.string()},
   output: {schema: WorkoutSummaryOutputSchema},
   config: {
     safetySettings: [
@@ -55,7 +55,7 @@ const prompt = ai.definePrompt({
       },
     ],
   },
-  prompt: `You are a motivating fitness coach. Your task is to provide a concise, insightful, and encouraging summary of a user's recent progress based on their workout logs and, if available, their latest physique analysis.
+  prompt: `You are a motivating fitness coach. Your task is to provide a concise, insightful, and encouraging summary of a user's recent progress based on their provided data.
 
 **Analysis Protocol:**
 1.  **Review Workout History:** Analyze the provided workout logs. Look for trends, improvements in weight or reps, consistency, and variety.
@@ -65,8 +65,7 @@ const prompt = ai.definePrompt({
 **Crucial Rule:** If the workout history is empty, contains "No workouts logged yet," or is otherwise nonsensical, you MUST return the exact phrase: "No workout history available to summarize. Log some workouts to get started!" Do not try to invent a summary.
 
 **User Data:**
--   **Workout History:** {{{workoutHistory}}}
--   **Latest Physique Analysis:** {{#if physiqueAnalysis}} {{{physiqueAnalysis}}} {{else}} Not available {{/if}}
+{{{input}}}
 `,
 });
 
@@ -81,8 +80,14 @@ const workoutSummaryFlow = ai.defineFlow(
     if (!input.workoutHistory || input.workoutHistory.trim() === '' || input.workoutHistory.includes("No workouts logged")) {
       return "No workout history available to summarize. Log some workouts to get started!";
     }
+
+    // Convert the input object to a single string for the prompt.
+    const promptInputString = `
+      - Workout History: ${input.workoutHistory}
+      - Latest Physique Analysis: ${input.physiqueAnalysis || "Not available"}
+    `;
     
-    const { output } = await prompt(input);
+    const { output } = await prompt(promptInputString);
 
     // This is the definitive fail-safe. If the model returns null for any reason,
     // we return a valid string to prevent the schema validation error.
