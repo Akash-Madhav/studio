@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -52,16 +53,6 @@ export default function WorkoutAccomplishmentSummary({ userId, workouts, isLoadi
         setIsGenerating(true);
         setSummary(null);
 
-        if (workouts.length === 0) {
-            toast({
-                variant: 'destructive',
-                title: 'No Workouts Found',
-                description: 'Please log some workouts before generating a summary.',
-            });
-            setIsGenerating(false);
-            return;
-        }
-
         try {
             // 1. Fetch the latest physique analysis
             const physiqueRes = await getPhysiqueHistory(userId, 1);
@@ -80,13 +71,15 @@ export default function WorkoutAccomplishmentSummary({ userId, workouts, isLoadi
                 physiqueAnalysis: latestPhysique,
             });
             
-            setSummary(result);
+            setSummary(result.summary);
 
         } catch (error: any) {
             console.error("Error generating summary:", error);
             let errorDescription = "An unexpected error occurred. Please try again.";
             if (error.message?.includes("503") || error.message?.includes("overloaded")) {
                 errorDescription = "The AI model is currently busy. Please wait a moment and try again.";
+            } else if (error.message) {
+                errorDescription = error.message;
             }
             toast({
                 variant: 'destructive',
