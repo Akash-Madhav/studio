@@ -14,6 +14,7 @@ const WorkoutSummaryInputSchema = z.object({
     .describe('A string containing the recent workout history of the user.'),
   physiqueAnalysis: z
     .string()
+
     .optional()
     .describe('The most recent physique analysis summary for the user.'),
 });
