@@ -43,7 +43,7 @@ import PlayerInvites from '@/components/features/player-invites';
 import Messages from '@/components/features/messages';
 import SportMatch from '@/components/features/sport-match';
 import CommunityHub from '@/components/features/community-hub';
-import { getAllPlayers, getUsersByIds, getUser, getWorkoutHistory } from '@/app/actions';
+import { getAllPlayers, getUsersByIds } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -99,16 +99,23 @@ function DashboardContent() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(!isCoach);
   
   const fetchWorkoutHistory = useCallback(async () => {
+      // This function can be used to manually refresh data if needed in the future.
       if (!initialUserId || role !== 'player') return;
       setIsLoadingHistory(true);
-      const historyResult = await getWorkoutHistory(initialUserId);
-      if (historyResult.success) {
-          setWorkoutHistory(historyResult.workouts as Workout[]);
-      } else {
-          toast({ variant: 'destructive', title: 'Error', description: historyResult.message });
-      }
+      const workoutsQuery = query(collection(db, 'users', initialUserId, 'workouts'), orderBy("createdAt", "desc"));
+      const querySnapshot = await getDocs(workoutsQuery);
+      const history = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            const createdAt = data.createdAt as Timestamp;
+            return {
+                ...data,
+                _id: doc.id,
+                createdAt: createdAt ? createdAt.toDate() : new Date(),
+            } as Workout;
+        });
+      setWorkoutHistory(history);
       setIsLoadingHistory(false);
-  }, [initialUserId, role, toast]);
+  }, [initialUserId, role]);
 
   useEffect(() => {
     if (!initialUserId) {
@@ -117,6 +124,7 @@ function DashboardContent() {
       return;
     }
 
+    // Listener for current user data
     const userRef = doc(db, "users", initialUserId);
     const unsubscribeUser = onSnapshot(userRef, (doc) => {
         if (doc.exists()) {
@@ -127,15 +135,36 @@ function DashboardContent() {
         }
         setIsLoading(false);
     });
-
+    
+    // Listener for workout history for players
+    let unsubscribeWorkouts = () => {};
     if (role === 'player') {
-        fetchWorkoutHistory();
+        setIsLoadingHistory(true);
+        const workoutsQuery = query(collection(db, 'users', initialUserId, 'workouts'), orderBy("createdAt", "desc"));
+        unsubscribeWorkouts = onSnapshot(workoutsQuery, (snapshot) => {
+            const history = snapshot.docs.map(doc => {
+                const data = doc.data();
+                const createdAt = data.createdAt as Timestamp;
+                return {
+                    ...data,
+                    _id: doc.id,
+                    createdAt: createdAt ? createdAt.toDate() : new Date(),
+                } as Workout;
+            });
+            setWorkoutHistory(history);
+            setIsLoadingHistory(false);
+        }, (error) => {
+            console.error("Error fetching workout history:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load workout history.' });
+            setIsLoadingHistory(false);
+        });
     }
 
     return () => {
       unsubscribeUser();
+      unsubscribeWorkouts();
     }
-  }, [initialUserId, role, toast, fetchWorkoutHistory]);
+  }, [initialUserId, role, toast]);
 
   const fetchAllPlayersForScouting = useCallback(async () => {
      if (!isCoach) return;
@@ -411,7 +440,7 @@ function DashboardContent() {
                       />
                     </TabsContent>
                      <TabsContent value="analysis" className="mt-4">
-                        <WorkoutAnalysis userId={userId} onWorkoutLogged={() => {}} />
+                        <WorkoutAnalysis userId={userId} onWorkoutLogged={fetchWorkoutHistory} />
                     </TabsContent>
                      <TabsContent value="history" className="mt-4">
                         <WorkoutHistory 

@@ -180,7 +180,7 @@ export default function WorkoutAnalysis({ userId, onWorkoutLogged }: WorkoutAnal
       setAnalysisResult(null);
       setVideoFile(null);
       setVideoPreviewUrl(null);
-      onWorkoutLogged();
+      // onWorkoutLogged() is no longer needed here as the dashboard now listens in real-time
     } else {
       toast({
         variant: "destructive",
@@ -313,3 +313,5 @@ export default function WorkoutAnalysis({ userId, onWorkoutLogged }: WorkoutAnal
     </Card>
   );
 }
+
+    
