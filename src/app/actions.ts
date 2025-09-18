@@ -270,8 +270,36 @@ export async function getAllPlayers() {
         const q = query(usersCollection, where("role", "==", "player"), where("status", "==", "active"));
         const querySnapshot = await getDocs(q);
 
-        const players = querySnapshot.docs.map((playerDoc) => {
+        const playersPromises = querySnapshot.docs.map(async (playerDoc) => {
             const player: any = { id: playerDoc.id, ...playerDoc.data() };
+
+            // Fetch full workout history
+            const workoutsCollection = collection(db, 'users', player.id, 'workouts');
+            const workoutsQuery = query(workoutsCollection, orderBy("createdAt", "desc"));
+            const workoutsSnapshot = await getDocs(workoutsQuery);
+            const workouts = workoutsSnapshot.docs.map(doc => ({ ...doc.data(), createdAt: formatTimestamp(doc.data().createdAt) }));
+
+            let performanceData = "No workout data or physique analysis available.";
+            if (workouts.length > 0) {
+                performanceData = workouts.map(w => {
+                    const parts = [dayjs(w.createdAt).format("YYYY-MM-DD"), w.exercise];
+                    if (w.reps) parts.push(`${w.reps} reps`);
+                    if (w.weight) parts.push(`@ ${w.weight}kg`);
+                    if (w.distance) parts.push(`${w.distance}km`);
+                    if (w.time) parts.push(`in ${w.time}`);
+                    return parts.join(' ');
+                }).join('; ');
+            }
+
+            // Fetch most recent physique analysis
+            const physiqueCollection = collection(db, 'users', player.id, 'physique_analyses');
+            const physiqueQuery = query(physiqueCollection, orderBy("createdAt", "desc"), limit(1));
+            const physiqueSnapshot = await getDocs(physiqueQuery);
+            let physiqueAnalysis = "No physique data loaded.";
+            if (!physiqueSnapshot.empty) {
+                const analysis = physiqueSnapshot.docs[0].data();
+                physiqueAnalysis = `Score: ${analysis.rating.score}/100. Summary: ${analysis.summary}`;
+            }
 
             // Get user profile string
             const profileParts = [];
@@ -284,11 +312,13 @@ export async function getAllPlayers() {
                 name: player.name,
                 status: player.status,
                 coachId: player.coachId,
-                performanceData: "No workout data loaded for performance.", // Placeholder
+                performanceData: performanceData,
                 userProfile, 
-                physiqueAnalysis: "No physique data loaded for performance." // Placeholder
+                physiqueAnalysis: physiqueAnalysis
             };
         });
+
+        const players = await Promise.all(playersPromises);
 
         return { success: true, players: JSON.parse(JSON.stringify(players)) };
     } catch (error) {
