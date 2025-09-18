@@ -42,6 +42,11 @@ const workoutSummaryFlow = ai.defineFlow(
     outputSchema: WorkoutSummaryOutputSchema,
   },
   async (input) => {
+    // Add a guard to prevent calling the model with empty or invalid input.
+    if (!input || input.trim() === "") {
+        return "No workout history available to summarize. Please log some workouts first!";
+    }
+    
     const { output } = await prompt(input);
     return output!;
   }
