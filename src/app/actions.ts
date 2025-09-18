@@ -2,7 +2,7 @@
 'use server';
 import { db } from '@/lib/firebase';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
-import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit, setDoc, arrayUnion } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit, setDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 import { z } from 'zod';
 import { generateTeamName } from '@/ai/flows/generate-team-name';
@@ -626,5 +626,32 @@ export async function getPhysiqueHistory(userId: string, recordLimit?: number) {
     } catch (error: any) {
         console.error(`Error fetching physique history for user ${userId}:`, error);
         return { success: false, analyses: [], message: "Failed to fetch physique history." };
+    }
+}
+
+export async function endPartnership({ playerId, coachId }: { playerId: string, coachId: string }) {
+    const batch = writeBatch(db);
+    const playerRef = doc(db, 'users', playerId);
+    
+    try {
+        // 1. Update player status
+        batch.update(playerRef, { status: 'active', coachId: null });
+
+        // 2. Remove player from team group chat
+        const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
+        const groupChatSnapshot = await getDocs(groupChatQuery);
+        
+        if (!groupChatSnapshot.empty) {
+            const groupChatDoc = groupChatSnapshot.docs[0];
+            batch.update(groupChatDoc.ref, {
+                participantIds: arrayRemove(playerId)
+            });
+        }
+        
+        await batch.commit();
+        return { success: true, message: 'Partnership ended successfully.' };
+    } catch (error) {
+        console.error("Error ending partnership:", error);
+        return { success: false, message: 'Failed to end partnership.' };
     }
 }
