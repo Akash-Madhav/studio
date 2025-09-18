@@ -410,21 +410,19 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
             const groupChatSnapshot = await getDocs(groupChatQuery);
             
             if (groupChatSnapshot.empty) {
-                // Create new group chat if there's at least one other team member
-                if (teamMembers.length > 0) {
-                    const coachSnap = await getDoc(doc(db, 'users', coachId));
-                    const coachData = coachSnap.data();
-                    let teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
-                    
-                    const groupChatRef = doc(collection(db, 'conversations'));
-                    batch.set(groupChatRef, {
-                        coachId: coachId,
-                        name: teamName,
-                        participantIds: [...teamMembers, coachId, playerId],
-                        createdAt: serverTimestamp(),
-                        type: 'group',
-                    });
-                }
+                // Create new group chat, even if the new player is the first member
+                const coachSnap = await getDoc(doc(db, 'users', coachId));
+                const coachData = coachSnap.data();
+                let teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
+                
+                const groupChatRef = doc(collection(db, 'conversations'));
+                batch.set(groupChatRef, {
+                    coachId: coachId,
+                    name: teamName,
+                    participantIds: [...teamMembers, coachId, playerId], // teamMembers might be empty, which is fine
+                    createdAt: serverTimestamp(),
+                    type: 'group',
+                });
             } else {
                 // Add player to existing group chat
                 const groupChatDoc = groupChatSnapshot.docs[0];
