@@ -119,10 +119,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     setIsScouting(true);
     setRecommendations(null);
 
-    // Filter out players already recruited by the current coach or any other coach
-    const scoutablePlayers = players.filter(p => p.status === 'active');
-
-    if (scoutablePlayers.length === 0) {
+    if (players.length === 0) {
         toast({
             title: "No available players to scout.",
             description: "New players will appear here once they sign up and log a workout.",
@@ -134,7 +131,7 @@ export default function PlayerScouting({ players, isLoading: isFetchingPlayers, 
     try {
       const result = await getPlayerRecommendations({
         sport: values.sport,
-        playersData: scoutablePlayers.map(p => ({
+        playersData: players.map(p => ({
             id: p.id,
             name: p.name,
             performanceData: p.performanceData,

@@ -6,6 +6,7 @@ import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimes
 
 import { z } from 'zod';
 import { generateTeamName } from '@/ai/flows/generate-team-name';
+import dayjs from 'dayjs';
 
 // Helper to convert Firestore Timestamp to a serializable format
 const formatTimestamp = (timestamp: any): Date | null => {
@@ -282,9 +283,11 @@ export async function getAllPlayers() {
             const workoutHistory = await getWorkoutHistory(player.id);
             let performanceData = 'No workouts logged.';
             if (workoutHistory.success && workoutHistory.workouts.length > 0) {
-                performanceData = workoutHistory.workouts
+                // Sort from oldest to newest for chronological story
+                const sortedWorkouts = workoutHistory.workouts.sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                performanceData = sortedWorkouts
                     .map(w => {
-                        const parts = [w.exercise];
+                        const parts = [`${dayjs(w.createdAt).format('YYYY-MM-DD')} - ${w.exercise}`];
                         if (w.reps) parts.push(`${w.reps} reps`);
                         if (w.weight) parts.push(`@ ${w.weight}kg`);
                         if (w.distance) parts.push(`${w.distance}km`);
