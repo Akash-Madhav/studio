@@ -82,6 +82,14 @@ export default function WorkoutAnalysis({ userId }: WorkoutAnalysisProps) {
       };
 
       mediaRecorderRef.current.onstop = async () => {
+        if (recordedChunksRef.current.length === 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Recording Error',
+                description: 'The recording was too short. Please try again.',
+            });
+            return;
+        }
         const videoBlob = new Blob(recordedChunksRef.current, { type: 'video/mp4' });
         const reader = new FileReader();
         reader.readAsDataURL(videoBlob);
@@ -304,5 +312,3 @@ export default function WorkoutAnalysis({ userId }: WorkoutAnalysisProps) {
     </div>
   );
 }
-
-    
