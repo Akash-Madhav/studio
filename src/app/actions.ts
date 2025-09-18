@@ -279,15 +279,17 @@ export async function getAllPlayers() {
         });
 
         const playersWithWorkouts = await Promise.all(players.map(async (player: any) => {
-            // Get workout history
-            const workoutHistory = await getWorkoutHistory(player.id);
+            const workoutsCollection = collection(db, 'workouts');
+            const workoutsQuery = query(workoutsCollection, where("userId", "==", player.id), orderBy("createdAt", "asc"));
+            const workoutsSnapshot = await getDocs(workoutsQuery);
+            
             let performanceData = 'No workouts logged.';
-            if (workoutHistory.success && workoutHistory.workouts.length > 0) {
-                // Sort from oldest to newest for chronological story
-                const sortedWorkouts = workoutHistory.workouts.sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-                performanceData = sortedWorkouts
-                    .map(w => {
-                        const parts = [`${dayjs(w.createdAt).format('YYYY-MM-DD')} - ${w.exercise}`];
+            if (!workoutsSnapshot.empty) {
+                performanceData = workoutsSnapshot.docs
+                    .map(doc => {
+                        const w = doc.data();
+                        const createdAt = formatTimestamp(w.createdAt);
+                        const parts = [`${dayjs(createdAt).format('YYYY-MM-DD')} - ${w.exercise}`];
                         if (w.reps) parts.push(`${w.reps} reps`);
                         if (w.weight) parts.push(`@ ${w.weight}kg`);
                         if (w.distance) parts.push(`${w.distance}km`);
