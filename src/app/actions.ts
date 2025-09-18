@@ -389,11 +389,9 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
     
     try {
         if (response === 'accepted') {
-            // Update player and invite status first
             batch.update(playerRef, { status: 'recruited', coachId: coachId });
             batch.update(inviteRef, { status: 'accepted' });
 
-            // Create a new direct conversation
             const newConvoRef = doc(collection(db, 'conversations'));
             batch.set(newConvoRef, {
                 participantIds: [playerId, coachId],
@@ -401,32 +399,23 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 type: 'direct',
             });
             
-            // Handle group chat logic
             const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
             const groupChatSnapshot = await getDocs(groupChatQuery);
             
             if (groupChatSnapshot.empty) {
-                // No group chat exists, so create a new one.
                 const coachSnap = await getDoc(doc(db, 'users', coachId));
                 const coachData = coachSnap.data();
                 let teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
                 
-                // Fetch all players who are *already* on the team
-                const teamQuery = query(collection(db, 'users'), where('coachId', '==', coachId), where('status', '==', 'recruited'));
-                const teamSnapshot = await getDocs(teamQuery);
-                const teamMemberIds = teamSnapshot.docs.map(d => d.id);
-
                 const groupChatRef = doc(collection(db, 'conversations'));
                 batch.set(groupChatRef, {
                     coachId: coachId,
                     name: teamName,
-                    // The new participant list includes existing members, the new player, and the coach
-                    participantIds: [...teamMemberIds, playerId, coachId],
+                    participantIds: [playerId, coachId],
                     createdAt: serverTimestamp(),
                     type: 'group',
                 });
             } else {
-                // Group chat already exists, just add the new player to it.
                 const groupChatDoc = groupChatSnapshot.docs[0];
                 batch.update(groupChatDoc.ref, {
                     participantIds: arrayUnion(playerId)
