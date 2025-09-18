@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { generateWorkoutSummary } from "@/ai/flows/workout-summary-flow";
+import { getPhysiqueHistory } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,6 +29,7 @@ interface Workout {
 }
 
 interface WorkoutAccomplishmentSummaryProps {
+  userId: string;
   workouts: Workout[];
   isLoading: boolean;
 }
@@ -53,7 +55,7 @@ function formatWorkoutHistory(workouts: Workout[]): string {
       .join("\n");
 }
 
-export default function WorkoutAccomplishmentSummary({ workouts, isLoading: isFetchingData }: WorkoutAccomplishmentSummaryProps) {
+export default function WorkoutAccomplishmentSummary({ userId, workouts, isLoading: isFetchingData }: WorkoutAccomplishmentSummaryProps) {
   const { toast } = useToast();
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +65,7 @@ export default function WorkoutAccomplishmentSummary({ workouts, isLoading: isFe
     setSummary(null);
 
     const formattedHistory = formatWorkoutHistory(workouts);
-    if (!formattedHistory || formattedHistory.trim() === "") {
+    if (!formattedHistory.trim()) {
       toast({
         variant: "destructive",
         title: "No Workouts Found",
@@ -74,7 +76,18 @@ export default function WorkoutAccomplishmentSummary({ workouts, isLoading: isFe
     }
 
     try {
-      const result = await generateWorkoutSummary(formattedHistory);
+      // Fetch the latest physique analysis
+      const physiqueRes = await getPhysiqueHistory(userId, 1);
+      let formattedPhysique = "";
+      if (physiqueRes.success && physiqueRes.analyses.length > 0) {
+        const latestPhysique = physiqueRes.analyses[0];
+        formattedPhysique = `Score: ${latestPhysique.rating.score}/100. Summary: ${latestPhysique.summary}`;
+      }
+
+      const result = await generateWorkoutSummary({
+        workoutHistory: formattedHistory,
+        physiqueAnalysis: formattedPhysique || undefined,
+      });
       setSummary(result);
     } catch (error: any) {
       console.error("Failed to get workout summary:", error);
@@ -97,7 +110,7 @@ export default function WorkoutAccomplishmentSummary({ workouts, isLoading: isFe
         <CardHeader>
           <CardTitle>Workout Accomplishment Summary</CardTitle>
           <CardDescription>
-            Get a detailed AI-powered summary of your entire fitness journey so far.
+            Get a detailed AI-powered summary of your entire fitness journey and latest physique analysis.
           </CardDescription>
         </CardHeader>
         <CardContent>
