@@ -637,21 +637,30 @@ export async function endPartnership({ playerId, coachId }: { playerId: string, 
         // 1. Update player status
         batch.update(playerRef, { status: 'active', coachId: null });
 
-        // 2. Remove player from team group chat
-        const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
-        const groupChatSnapshot = await getDocs(groupChatQuery);
-        
-        if (!groupChatSnapshot.empty) {
-            const groupChatDoc = groupChatSnapshot.docs[0];
-            batch.update(groupChatDoc.ref, {
-                participantIds: arrayRemove(playerId)
-            });
-        }
+        // 2. Find all conversations involving the player to either delete or modify
+        const conversationsQuery = query(collection(db, 'conversations'), where('participantIds', 'array-contains', playerId));
+        const conversationsSnapshot = await getDocs(conversationsQuery);
+
+        conversationsSnapshot.forEach(convoDoc => {
+            const convoData = convoDoc.data();
+            const isDirectChatWithCoach = convoData.type === 'direct' && convoData.participantIds.includes(coachId);
+            const isGroupChatWithCoach = convoData.type === 'group' && convoData.coachId === coachId;
+
+            if (isDirectChatWithCoach) {
+                // Delete direct conversations between the player and the coach
+                batch.delete(convoDoc.ref);
+            } else if (isGroupChatWithCoach) {
+                // Remove the player from the team's group chat
+                batch.update(convoDoc.ref, {
+                    participantIds: arrayRemove(playerId)
+                });
+            }
+        });
         
         await batch.commit();
         return { success: true, message: 'Partnership ended successfully.' };
-    } catch (error) {
-        console.error("Error ending partnership:", error);
+    } catch (error: any) {
+        console.error("Error ending partnership:", error.message);
         return { success: false, message: 'Failed to end partnership.' };
     }
 }
