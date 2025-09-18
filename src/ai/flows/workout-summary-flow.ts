@@ -36,6 +36,8 @@ const prompt = ai.definePrompt({
     -   **Physique Strengths:** Mention the positive aspects from their physique analysis.
 4.  **Motivate for the Future:** Conclude with an encouraging statement that looks forward, perhaps suggesting they can improve on areas mentioned in the physique analysis.
 
+**Crucial Rule**: If the workout history is empty, brief, or contains no actual workout data, you MUST return the exact phrase: "No workout history available to summarize. Please log some workouts first!" Do not attempt to analyze it.
+
 The tone should be positive, encouraging, and celebratory. Frame their journey as a story of achievement.
 
 **Workout History:**
