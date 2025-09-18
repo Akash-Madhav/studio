@@ -32,12 +32,12 @@ const formSchema = z.object({
   distance: z.coerce.number().min(0).optional(),
 });
 
-interface PerformanceLoggingProps {
+interface WorkoutAnalysisProps {
     userId?: string;
     onWorkoutLogged: () => void;
 }
 
-export default function PerformanceLogging({ userId, onWorkoutLogged }: PerformanceLoggingProps) {
+export default function WorkoutAnalysis({ userId, onWorkoutLogged }: WorkoutAnalysisProps) {
   const { toast } = useToast();
   const [isLogging, setIsLogging] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);

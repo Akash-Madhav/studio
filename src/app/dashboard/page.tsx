@@ -8,7 +8,7 @@ import {
   BarChart3,
   BrainCircuit,
   Dumbbell,
-  LogIn,
+  FileText,
   Search,
   Target,
   History,
@@ -18,6 +18,7 @@ import {
   Mail,
   UsersRound,
   Scan,
+  Bot,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AiInsights from "@/components/features/ai-insights";
-import PerformanceLogging from "@/components/features/performance-logging";
+import WorkoutAnalysis from "@/components/features/workout-analysis";
 import PersonalizedRecommendations from "@/components/features/personalized-recommendations";
 import ProgressVisualization from "@/components/features/progress-visualization";
 import WorkoutHistory from '@/components/features/workout-history';
@@ -50,6 +51,7 @@ import { onSnapshot, collection, query, where, doc, getDoc, Timestamp, getDocs, 
 import { db } from '@/lib/firebase';
 import PhysiqueRater from '@/components/features/physique-rater';
 import PhysiqueHistory from '@/components/features/physique-history';
+import WorkoutAccomplishmentSummary from '@/components/features/workout-accomplishment-summary';
 
 
 interface User {
@@ -316,8 +318,9 @@ function DashboardContent() {
   const commonPlayerTabs = (
       <>
         <TabsTrigger value="dashboard"><BarChart3 className="mr-2" />Dashboard</TabsTrigger>
-        <TabsTrigger value="log-performance"><LogIn className="mr-2" />Log</TabsTrigger>
         <TabsTrigger value="history"><History className="mr-2" />History</TabsTrigger>
+        <TabsTrigger value="analysis"><Bot className="mr-2" />Analysis</TabsTrigger>
+        <TabsTrigger value="summary"><FileText className="mr-2" />Summary</TabsTrigger>
         <TabsTrigger value="ai-insights"><BrainCircuit className="mr-2" />Insights</TabsTrigger>
         <TabsTrigger value="recommendations"><Target className="mr-2" />Recs</TabsTrigger>
         <TabsTrigger value="physique"><Scan className="mr-2" />Physique</TabsTrigger>
@@ -374,7 +377,7 @@ function DashboardContent() {
         </div>
         
         <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-             <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-5 sm:grid-cols-10'}`}>
+             <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-5 sm:grid-cols-11'}`}>
               {isCoach ? (
                   <>
                       <TabsTrigger value="team"><Users className="mr-2"/>Team</TabsTrigger>
@@ -419,14 +422,20 @@ function DashboardContent() {
                         isLoading={isLoadingHistory} 
                       />
                     </TabsContent>
-                     <TabsContent value="log-performance" className="mt-4">
-                        <PerformanceLogging userId={userId} onWorkoutLogged={() => {}} />
+                     <TabsContent value="analysis" className="mt-4">
+                        <WorkoutAnalysis userId={userId} onWorkoutLogged={() => {}} />
                     </TabsContent>
                      <TabsContent value="history" className="mt-4">
                         <WorkoutHistory 
                           workouts={workoutHistory} 
                           isLoading={isLoadingHistory}
                           user={currentUser}
+                        />
+                    </TabsContent>
+                     <TabsContent value="summary" className="mt-4">
+                        <WorkoutAccomplishmentSummary 
+                          workouts={workoutHistory} 
+                          isLoading={isLoadingHistory}
                         />
                     </TabsContent>
                     <TabsContent value="ai-insights" className="mt-4">
@@ -476,5 +485,3 @@ export default function Dashboard() {
     </Suspense>
   );
 }
-
-    
