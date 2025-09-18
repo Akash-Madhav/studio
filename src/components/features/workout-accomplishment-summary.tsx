@@ -34,7 +34,7 @@ interface WorkoutAccomplishmentSummaryProps {
 
 function formatWorkoutHistory(workouts: Workout[]): string {
     if (workouts.length === 0) {
-        return "No workouts logged yet.";
+        return "";
     }
   
     // Sort workouts from oldest to newest for the summary
@@ -73,6 +73,15 @@ export default function WorkoutAccomplishmentSummary({ workouts, isLoading: isFe
     }
 
     const formattedHistory = formatWorkoutHistory(workouts);
+    if (!formattedHistory) {
+      toast({
+        variant: "destructive",
+        title: "No Workouts Found",
+        description: "Log some workouts before generating a summary.",
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const result = await generateWorkoutSummary(formattedHistory);
