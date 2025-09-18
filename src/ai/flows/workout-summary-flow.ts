@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow to generate a workout summary.
@@ -56,7 +57,7 @@ const workoutSummaryFlow = ai.defineFlow(
     outputSchema: WorkoutSummaryOutputSchema,
   },
   async input => {
-    // Pre-emptive check to prevent calling the AI with no data.
+    // Pre-emptive check to prevent calling the AI with no data. This is the first line of defense.
     if (!input.workoutHistory || input.workoutHistory.trim() === '' || input.workoutHistory.includes("No workouts logged")) {
       return "No workout history available to summarize. Log some workouts to get started!";
     }
