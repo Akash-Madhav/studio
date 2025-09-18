@@ -6,7 +6,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 
 const WorkoutSummaryInputSchema = z.object({
     workoutHistory: z.string().describe("A formatted string of the user's entire workout history, with each entry on a new line."),
@@ -58,6 +58,7 @@ const workoutSummaryFlow = ai.defineFlow(
     outputSchema: WorkoutSummaryOutputSchema,
   },
   async (input) => {
+    // This check ensures we don't call the AI with empty data, which can cause it to return null.
     if (!input.workoutHistory || input.workoutHistory.trim() === "") {
         return "No workout history available to summarize. Please log some workouts first!";
     }
