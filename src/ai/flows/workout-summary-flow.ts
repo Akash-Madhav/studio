@@ -64,6 +64,13 @@ const workoutSummaryFlow = ai.defineFlow(
     }
     
     const { output } = await prompt(input);
-    return output!;
+
+    // This is the definitive fail-safe. If the model returns null for any reason,
+    // we return a valid string to prevent the schema validation error.
+    if (output === null || output === undefined) {
+        return "Could not generate a summary for the provided data at this time.";
+    }
+
+    return output;
   }
 );
