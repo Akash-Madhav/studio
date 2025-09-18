@@ -20,9 +20,6 @@ const WorkoutSummaryInputSchema = z.object({
 
 const WorkoutSummaryOutputSchema = z
   .string()
-//  .describe(
-//    "A motivational and insightful summary of the user's workout accomplishments and physique, highlighting progress, personal bests, and consistency."
-//  );
   .describe(
     "A motivational and insightful summary of the user's workout accomplishments and physique, highlighting progress, personal bests, and consistency. This CANNOT be null."
   );
