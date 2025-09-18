@@ -127,8 +127,6 @@ export default function WorkoutAccomplishmentSummary({ userId, workouts, isLoadi
                             ) : (
                                 <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans">
                                     {formatWorkoutHistory(workouts)}
-                                    <br/><br/>
-                                    <strong>+ Your Latest Physique Analysis</strong>
                                 </pre>
                             )}
                         </ScrollArea>
