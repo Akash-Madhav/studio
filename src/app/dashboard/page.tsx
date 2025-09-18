@@ -99,23 +99,30 @@ function DashboardContent() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(!isCoach);
   
   const fetchWorkoutHistory = useCallback(async () => {
-      // This function can be used to manually refresh data if needed in the future.
+      // This function is now only used for manual refreshes if needed,
+      // as real-time updates are handled by the listener.
       if (!initialUserId || role !== 'player') return;
       setIsLoadingHistory(true);
       const workoutsQuery = query(collection(db, 'users', initialUserId, 'workouts'), orderBy("createdAt", "desc"));
-      const querySnapshot = await getDocs(workoutsQuery);
-      const history = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            const createdAt = data.createdAt as Timestamp;
-            return {
-                ...data,
-                _id: doc.id,
-                createdAt: createdAt ? createdAt.toDate() : new Date(),
-            } as Workout;
-        });
-      setWorkoutHistory(history);
-      setIsLoadingHistory(false);
-  }, [initialUserId, role]);
+      try {
+        const querySnapshot = await getDocs(workoutsQuery);
+        const history = querySnapshot.docs.map(doc => {
+              const data = doc.data();
+              const createdAt = data.createdAt as Timestamp;
+              return {
+                  ...data,
+                  _id: doc.id,
+                  createdAt: createdAt ? createdAt.toDate() : new Date(),
+              } as Workout;
+          });
+        setWorkoutHistory(history);
+      } catch (error) {
+         console.error("Error fetching workout history manually:", error);
+         toast({ variant: 'destructive', title: 'Error', description: 'Could not refresh workout history.' });
+      } finally {
+        setIsLoadingHistory(false);
+      }
+  }, [initialUserId, role, toast]);
 
   useEffect(() => {
     if (!initialUserId) {
@@ -164,7 +171,7 @@ function DashboardContent() {
       unsubscribeUser();
       unsubscribeWorkouts();
     }
-  }, [initialUserId, role, toast]);
+  }, [initialUserId, role, toast, router]);
 
   const fetchAllPlayersForScouting = useCallback(async () => {
      if (!isCoach) return;
@@ -502,5 +509,3 @@ export default function Dashboard() {
     </Suspense>
   );
 }
-
-    
