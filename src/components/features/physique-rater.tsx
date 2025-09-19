@@ -180,7 +180,7 @@ export default function PhysiqueRater({ userId }: PhysiqueRaterProps) {
                         <TabsContent value="live" className="mt-4">
                             <div className="relative aspect-video bg-muted rounded-md overflow-hidden border">
                                 <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                                {hasCameraPermission === false && (
+                                {!hasCameraPermission && activeTab === 'live' && (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-4">
                                         <Camera className="h-12 w-12 mb-4" />
                                         <p className="text-center font-semibold">Camera access is required.</p>
@@ -193,7 +193,7 @@ export default function PhysiqueRater({ userId }: PhysiqueRaterProps) {
                                     </div>
                                 )}
                             </div>
-                            {hasCameraPermission === false && (
+                            {!hasCameraPermission && activeTab === 'live' && (
                                 <Alert variant="destructive" className="mt-4">
                                     <AlertTitle>Camera Access Denied</AlertTitle>
                                     <AlertDescription>Please enable camera permissions in your browser settings.</AlertDescription>
