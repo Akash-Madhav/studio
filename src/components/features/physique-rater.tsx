@@ -42,9 +42,22 @@ export default function PhysiqueRater({ userId }: PhysiqueRaterProps) {
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
                 }
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Error accessing camera:', error);
                 setHasCameraPermission(false);
+                if (error.name === 'NotAllowedError') {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Camera Access Denied',
+                        description: 'Please enable camera permissions in your browser settings.',
+                    });
+                } else if (error.name === 'TimeoutError' || error.message?.includes('timeout')) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Camera Timeout',
+                        description: 'The camera took too long to start. Please try again or check if another app is using it.',
+                    });
+                }
             }
         };
 
@@ -58,7 +71,7 @@ export default function PhysiqueRater({ userId }: PhysiqueRaterProps) {
                 stream.getTracks().forEach(track => track.stop());
             }
         };
-    }, [activeTab]);
+    }, [activeTab, toast]);
 
     const handleStartRecording = () => {
         if (videoRef.current?.srcObject) {
@@ -180,7 +193,12 @@ export default function PhysiqueRater({ userId }: PhysiqueRaterProps) {
                         <TabsContent value="live" className="mt-4">
                             <div className="relative aspect-video bg-muted rounded-md overflow-hidden border">
                                 <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                                {!hasCameraPermission && activeTab === 'live' && (
+                                {hasCameraPermission === null && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-4">
+                                        <Loader2 className="h-8 w-8 animate-spin" />
+                                    </div>
+                                )}
+                                {hasCameraPermission === false && (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-4">
                                         <Camera className="h-12 w-12 mb-4" />
                                         <p className="text-center font-semibold">Camera access is required.</p>
@@ -193,7 +211,7 @@ export default function PhysiqueRater({ userId }: PhysiqueRaterProps) {
                                     </div>
                                 )}
                             </div>
-                            {!hasCameraPermission && activeTab === 'live' && (
+                            {hasCameraPermission === false && (
                                 <Alert variant="destructive" className="mt-4">
                                     <AlertTitle>Camera Access Denied</AlertTitle>
                                     <AlertDescription>Please enable camera permissions in your browser settings.</AlertDescription>
@@ -205,7 +223,7 @@ export default function PhysiqueRater({ userId }: PhysiqueRaterProps) {
                                         <Video className="mr-2" /> Stop Recording & Analyze
                                     </Button>
                                     ) : (
-                                    <Button onClick={handleStartRecording} className="w-full mt-4" disabled={!hasCameraPermission || isAnalyzing}>
+                                    <Button onClick={handleStartRecording} className="w-full mt-4" disabled={hasCameraPermission !== true || isAnalyzing}>
                                         <Camera className="mr-2" /> Start Recording
                                     </Button>
                                 )}
