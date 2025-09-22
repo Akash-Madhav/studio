@@ -14,6 +14,18 @@ import {
 
 export function ThemeToggle() {
   const { setTheme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    // Return a placeholder or null to avoid rendering on the server
+    // and causing a hydration mismatch. A button placeholder is good
+    // as it prevents layout shifts.
+    return <Button variant="outline" size="icon" disabled={true}></Button>
+  }
 
   return (
     <DropdownMenu>
