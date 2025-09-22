@@ -383,32 +383,46 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
 }
 
 export async function respondToInvite({ inviteId, response, playerId, coachId }: { inviteId: string, response: 'accepted' | 'declined', playerId: string, coachId: string }) {
-    const batch = writeBatch(db);
-    const inviteRef = doc(db, 'invites', inviteId);
-    const playerRef = doc(db, 'users', playerId);
+    if (response === 'declined') {
+        const batch = writeBatch(db);
+        const inviteRef = doc(db, 'invites', inviteId);
+        const playerRef = doc(db, 'users', playerId);
+        batch.update(playerRef, { status: 'active', coachId: null });
+        batch.update(inviteRef, { status: 'declined' });
+        await batch.commit();
+        return { success: true, conversationId: null };
+    }
     
     try {
-        if (response === 'accepted') {
-            batch.update(playerRef, { status: 'recruited', coachId: coachId });
-            batch.update(inviteRef, { status: 'accepted' });
+        const newConversationId = await runTransaction(db, async (transaction) => {
+            const inviteRef = doc(db, 'invites', inviteId);
+            const playerRef = doc(db, 'users', playerId);
+            const coachRef = doc(db, 'users', coachId);
 
+            // 1. Update player and invite status
+            transaction.update(playerRef, { status: 'recruited', coachId: coachId });
+            transaction.update(inviteRef, { status: 'accepted' });
+            
+            // 2. Create direct conversation
             const newConvoRef = doc(collection(db, 'conversations'));
-            batch.set(newConvoRef, {
+            transaction.set(newConvoRef, {
                 participantIds: [playerId, coachId],
                 createdAt: serverTimestamp(),
                 type: 'direct',
             });
-            
-            const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
+
+            // 3. Find and update or create group chat
+            const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'), limit(1));
             const groupChatSnapshot = await getDocs(groupChatQuery);
-            
+
             if (groupChatSnapshot.empty) {
-                const coachSnap = await getDoc(doc(db, 'users', coachId));
+                // Create new group chat
+                const coachSnap = await transaction.get(coachRef);
                 const coachData = coachSnap.data();
-                let teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
+                const teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
                 
                 const groupChatRef = doc(collection(db, 'conversations'));
-                batch.set(groupChatRef, {
+                transaction.set(groupChatRef, {
                     coachId: coachId,
                     name: teamName,
                     participantIds: [playerId, coachId],
@@ -416,21 +430,17 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                     type: 'group',
                 });
             } else {
+                // Add player to existing group chat
                 const groupChatDoc = groupChatSnapshot.docs[0];
-                batch.update(groupChatDoc.ref, {
+                transaction.update(groupChatDoc.ref, {
                     participantIds: arrayUnion(playerId)
                 });
             }
 
-            await batch.commit();
-            return { success: true, conversationId: newConvoRef.id };
+            return newConvoRef.id;
+        });
 
-        } else { // 'declined'
-            batch.update(playerRef, { status: 'active', coachId: null });
-            batch.update(inviteRef, { status: 'declined' });
-            await batch.commit();
-            return { success: true, conversationId: null };
-        }
+        return { success: true, conversationId: newConversationId };
 
     } catch (error) {
         console.error("Error responding to invite:", error);
