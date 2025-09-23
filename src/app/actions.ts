@@ -366,14 +366,20 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
             return { success: false, message: 'Invite already sent.' };
         }
 
-        await addDoc(inviteRef, {
+        const batch = writeBatch(db);
+        const newInviteRef = doc(inviteRef);
+        batch.set(newInviteRef, {
             playerId,
             coachId,
             status: 'pending',
             sentAt: serverTimestamp(),
         });
 
-        await updateDoc(doc(db, 'users', playerId), { status: 'pending_invite', coachId: coachId });
+        // Update player status to show an invite is pending
+        const playerRef = doc(db, 'users', playerId);
+        batch.update(playerRef, { status: 'pending_invite' });
+        
+        await batch.commit();
 
         return { success: true, message: 'Recruitment invite sent successfully!' };
     } catch (error) {
@@ -387,19 +393,21 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
         const batch = writeBatch(db);
         const inviteRef = doc(db, 'invites', inviteId);
         const playerRef = doc(db, 'users', playerId);
-        batch.update(playerRef, { status: 'active', coachId: null });
+        batch.update(playerRef, { status: 'active' }); // Player becomes active again
         batch.update(inviteRef, { status: 'declined' });
         await batch.commit();
         return { success: true, conversationId: null };
     }
     
+    // Handle 'accepted' response
     try {
-        // Step 1: Read data BEFORE the transaction.
-        const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
+        // Step 1: READ data BEFORE the transaction.
+        // Find the coach's group chat if it exists.
+        const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'), limit(1));
         const groupChatSnapshot = await getDocs(groupChatQuery);
         const existingGroupChatDoc = groupChatSnapshot.docs.length > 0 ? groupChatSnapshot.docs[0] : null;
 
-        // Step 2: Run all writes in a transaction.
+        // Step 2: Run all WRITES in a transaction.
         const newConversationId = await runTransaction(db, async (transaction) => {
             const inviteRef = doc(db, 'invites', inviteId);
             const playerRef = doc(db, 'users', playerId);
@@ -425,15 +433,12 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 });
             } else {
                 // If it's the first player, create the team chat.
-                // We need the coach's data for the name, so we must read it here.
+                // We need the coach's data for the name, which we must read within the transaction.
                 const coachSnap = await transaction.get(coachRef);
                 if (!coachSnap.exists()) {
                     throw new Error("Coach does not exist!");
                 }
                 const coachData = coachSnap.data();
-                // Note: Calling an external service like an AI flow from within a transaction
-                // is generally not recommended as it can cause transactions to be slow and
-                // more likely to fail. For this specific case, it's acceptable.
                 const teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
                 
                 const groupChatRef = doc(collection(db, 'conversations'));
@@ -683,7 +688,5 @@ export async function endPartnership({ playerId, coachId }: { playerId: string, 
         return { success: false, message: 'Failed to end partnership.' };
     }
 }
-
-    
 
     
