@@ -5,7 +5,6 @@ import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit, setDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 import { z } from 'zod';
-import { generateTeamName } from '@/ai/flows/generate-team-name';
 import dayjs from 'dayjs';
 
 // Helper to convert Firestore Timestamp to a serializable format
@@ -375,7 +374,6 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
             sentAt: serverTimestamp(),
         });
 
-        // Update player status to show an invite is pending
         const playerRef = doc(db, 'users', playerId);
         batch.update(playerRef, { status: 'pending_invite' });
         
@@ -393,31 +391,25 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
         const batch = writeBatch(db);
         const inviteRef = doc(db, 'invites', inviteId);
         const playerRef = doc(db, 'users', playerId);
-        batch.update(playerRef, { status: 'active' }); // Player becomes active again
+        batch.update(playerRef, { status: 'active' });
         batch.update(inviteRef, { status: 'declined' });
         await batch.commit();
         return { success: true, conversationId: null };
     }
     
-    // Handle 'accepted' response
     try {
-        // Step 1: READ data BEFORE the transaction.
-        // Find the coach's group chat if it exists.
         const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'), limit(1));
         const groupChatSnapshot = await getDocs(groupChatQuery);
         const existingGroupChatDoc = groupChatSnapshot.docs.length > 0 ? groupChatSnapshot.docs[0] : null;
 
-        // Step 2: Run all WRITES in a transaction.
         const newConversationId = await runTransaction(db, async (transaction) => {
             const inviteRef = doc(db, 'invites', inviteId);
             const playerRef = doc(db, 'users', playerId);
             const coachRef = doc(db, 'users', coachId);
 
-            // 2a. Update player and invite status.
             transaction.update(playerRef, { status: 'recruited', coachId: coachId });
             transaction.update(inviteRef, { status: 'accepted' });
             
-            // 2b. Create the direct one-on-one conversation.
             const newConvoRef = doc(collection(db, 'conversations'));
             transaction.set(newConvoRef, {
                 participantIds: [playerId, coachId],
@@ -425,21 +417,17 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 type: 'direct',
             });
 
-            // 2c. Update or create the group chat for the team.
             if (existingGroupChatDoc) {
-                // If team chat exists, just add the new player.
                 transaction.update(existingGroupChatDoc.ref, {
                     participantIds: arrayUnion(playerId)
                 });
             } else {
-                // If it's the first player, create the team chat.
-                // We need the coach's data for the name, which we must read within the transaction.
                 const coachSnap = await transaction.get(coachRef);
                 if (!coachSnap.exists()) {
                     throw new Error("Coach does not exist!");
                 }
                 const coachData = coachSnap.data();
-                const teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
+                const teamName = coachData?.name ? `Coach ${coachData.name}'s Team` : 'The Team';
                 
                 const groupChatRef = doc(collection(db, 'conversations'));
                 transaction.set(groupChatRef, {
