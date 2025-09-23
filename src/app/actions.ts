@@ -388,65 +388,31 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
 }
 
 export async function respondToInvite({ inviteId, response, playerId, coachId }: { inviteId: string, response: 'accepted' | 'declined', playerId: string, coachId: string }) {
+    const inviteRef = doc(db, 'invites', inviteId);
+    const playerRef = doc(db, 'users', playerId);
+    
     if (response === 'declined') {
         const batch = writeBatch(db);
-        const inviteRef = doc(db, 'invites', inviteId);
-        const playerRef = doc(db, 'users', playerId);
         batch.update(playerRef, { status: 'active' });
         batch.update(inviteRef, { status: 'declined' });
         await batch.commit();
         return { success: true, conversationId: null };
     }
     
-    // For "accepted" response
+    // For "accepted" response, create an individual partnership
     try {
-        // Step 1: Read the existing group chat document *before* the transaction.
-        const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'), limit(1));
-        const groupChatSnapshot = await getDocs(groupChatQuery);
-        const existingGroupChatDoc = groupChatSnapshot.docs.length > 0 ? groupChatSnapshot.docs[0] : null;
-
-        // Step 2: Run all writes in a transaction.
         const newConversationId = await runTransaction(db, async (transaction) => {
-            const inviteRef = doc(db, 'invites', inviteId);
-            const playerRef = doc(db, 'users', playerId);
-            const coachRef = doc(db, 'users', coachId);
-
             transaction.update(playerRef, { status: 'recruited', coachId: coachId });
             transaction.update(inviteRef, { status: 'accepted' });
             
-            // Create the direct message conversation
+            // Create the direct message conversation for the new partnership
             const newConvoRef = doc(collection(db, 'conversations'));
             transaction.set(newConvoRef, {
                 participantIds: [playerId, coachId],
                 createdAt: serverTimestamp(),
-                type: 'direct',
+                type: 'direct', // Only direct conversations are created now
             });
-
-            // Handle the group chat
-            if (existingGroupChatDoc) {
-                // If the group chat exists, just add the new player to it.
-                transaction.update(existingGroupChatDoc.ref, {
-                    participantIds: arrayUnion(playerId)
-                });
-            } else {
-                // If it's the first player, create the group chat.
-                const coachSnap = await transaction.get(coachRef);
-                if (!coachSnap.exists()) {
-                    throw new Error("Coach does not exist!");
-                }
-                const coachData = coachSnap.data();
-                const teamName = coachData?.name ? `Coach ${coachData.name}'s Team` : 'The Team';
-                
-                const groupChatRef = doc(collection(db, 'conversations'));
-                transaction.set(groupChatRef, {
-                    coachId: coachId,
-                    name: teamName,
-                    participantIds: [playerId, coachId],
-                    createdAt: serverTimestamp(),
-                    type: 'group',
-                });
-            }
-
+            
             return newConvoRef.id;
         });
 
@@ -654,26 +620,24 @@ export async function endPartnership({ playerId, coachId }: { playerId: string, 
     const playerRef = doc(db, 'users', playerId);
     
     try {
-        // 1. Update player status
+        // 1. Update player status to free agent
         batch.update(playerRef, { status: 'active', coachId: null });
 
-        // 2. Find all conversations involving the player to either delete or modify
-        const conversationsQuery = query(collection(db, 'conversations'), where('participantIds', 'array-contains', playerId));
+        // 2. Find and delete the direct conversation between the player and the coach
+        const conversationsQuery = query(
+            collection(db, 'conversations'), 
+            where('participantIds', 'array-contains', playerId)
+        );
         const conversationsSnapshot = await getDocs(conversationsQuery);
 
         conversationsSnapshot.forEach(convoDoc => {
             const convoData = convoDoc.data();
-            const isDirectChatWithCoach = convoData.type === 'direct' && convoData.participantIds.includes(coachId);
-            const isGroupChatWithCoach = convoData.type === 'group' && convoData.coachId === coachId;
+            const isDirectChatWithCoach = convoData.type === 'direct' && 
+                                          convoData.participantIds.includes(coachId) &&
+                                          convoData.participantIds.length === 2;
 
             if (isDirectChatWithCoach) {
-                // Delete direct conversations between the player and the coach
                 batch.delete(convoDoc.ref);
-            } else if (isGroupChatWithCoach) {
-                // Remove the player from the team's group chat
-                batch.update(convoDoc.ref, {
-                    participantIds: arrayRemove(playerId)
-                });
             }
         });
         
@@ -684,7 +648,3 @@ export async function endPartnership({ playerId, coachId }: { playerId: string, 
         return { success: false, message: 'Failed to end partnership.' };
     }
 }
-
-    
-
-    

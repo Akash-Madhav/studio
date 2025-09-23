@@ -137,14 +137,14 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
     setIsSubmitting(false);
   }
 
-  const handleLeaveTeam = async () => {
+  const handleEndPartnership = async () => {
     if (!currentUser || !currentUser.coachId) return;
 
     setIsSubmitting(true);
     const result = await endPartnership({ playerId: currentUser.id, coachId: currentUser.coachId });
     if (result.success) {
         toast({
-            title: "You've Left the Team",
+            title: "Partnership Ended",
             description: "You are now a free agent.",
         });
         // Re-fetch user to update status
@@ -322,19 +322,19 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
                         <AlertDialogTrigger asChild>
                             <Button variant="destructive" className="w-full">
                                 <UserX className="mr-2" />
-                                Leave Team
+                                End Partnership
                             </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
                             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                This action will remove you from your current team. You will lose access to team communications, and your coach will no longer be able to see your stats. You can be invited to a new team or the same team again in the future.
+                                This action will end your partnership with your current coach. You will lose access to direct communications, and your coach will no longer be able to see your stats. You can be invited to a new partnership in the future.
                             </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleLeaveTeam}>Yes, Leave Team</AlertDialogAction>
+                            <AlertDialogAction onClick={handleEndPartnership}>Yes, End Partnership</AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
