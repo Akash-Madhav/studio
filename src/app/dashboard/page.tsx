@@ -20,7 +20,7 @@ import {
   Scan,
   Bot,
   ScrollText,
-  ChevronDown,
+  MoreVertical,
   Home as HomeIcon,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -378,8 +378,9 @@ function DashboardContent() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="outline">
-                        Features <ChevronDown className="ml-2 h-4 w-4" />
+                    <Button variant="ghost" size="icon">
+                        <MoreVertical />
+                        <span className="sr-only">Features</span>
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
