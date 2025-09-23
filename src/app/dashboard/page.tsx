@@ -43,7 +43,7 @@ import PlayerInvites from '@/components/features/player-invites';
 import Messages from '@/components/features/messages';
 import SportMatch from '@/components/features/sport-match';
 import CommunityHub from '@/components/features/community-hub';
-import { getAllPlayers, getUsersByIds } from '@/app/actions';
+import { getAllPlayers, getPlayersForCoach, getUsersByIds } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -52,6 +52,7 @@ import { db } from '@/lib/firebase';
 import PhysiqueRater from '@/components/features/physique-rater';
 import PhysiqueHistory from '@/components/features/physique-history';
 import CoachAnalytics from '@/components/features/coach-analytics';
+import WorkoutSummary from '@/components/features/workout-accomplishment-summary';
 
 
 interface User {
@@ -76,9 +77,10 @@ interface Workout {
     createdAt: Date;
 }
 
-function HomeDashboard({ workouts, isLoadingHistory }: { workouts: Workout[], isLoadingHistory: boolean }) {
+function HomeDashboard({ userId, workouts, isLoadingHistory }: { userId: string, workouts: Workout[], isLoadingHistory: boolean }) {
   return (
     <div className="space-y-8">
+        <WorkoutSummary userId={userId} />
         <ProgressVisualization 
             workouts={workouts} 
             isLoading={isLoadingHistory} 
@@ -173,93 +175,30 @@ function DashboardContent() {
       unsubscribeWorkouts();
     }
   }, [initialUserId, role, toast, router]);
-
-  const fetchAllPlayersForScouting = async () => {
-     if (!isCoach) return;
-     try {
-        const playersRes = await getAllPlayers();
-        if (playersRes.success) {
-            setPlayers(playersRes.players);
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not load players for scouting.'});
-        }
-     } catch(e) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch player data for scouting.' });
-     }
-  };
   
-  useEffect(() => {
-    if (isCoach) {
-      fetchAllPlayersForScouting();
-    }
-  }, [isCoach]);
-
-  useEffect(() => {
-    if (!isCoach || !initialUserId) {
-        setIsLoadingCoachData(false);
-        return;
-    }
+  const fetchCoachData = async () => {
+    if (!isCoach || !initialUserId) return;
     setIsLoadingCoachData(true);
-
-    const recruitedQuery = query(collection(db, 'users'), where('coachId', '==', initialUserId), where('status', '==', 'recruited'));
-    const recruitedUnsubscribe = onSnapshot(recruitedQuery, async (snapshot) => {
-        const recruitedDataPromises = snapshot.docs.map(async (d) => {
-            const player: any = { id: d.id, ...d.data() };
-            const workoutsCollection = collection(db, 'users', d.id, 'workouts');
-            const q = query(workoutsCollection, orderBy("createdAt", "desc"), limit(20));
-            const querySnapshot = await getDocs(q);
-            const recentWorkouts = querySnapshot.docs.map(doc => ({ ...doc.data(), createdAt: (doc.data().createdAt as Timestamp).toDate() }));
-            
-            let performanceData = recentWorkouts.length > 0 ? recentWorkouts.map(w => `${w.exercise} ${w.reps ? `${w.reps} reps` : ''} ${w.weight ? `@ ${w.weight}kg` : ''}`).join('; ') : 'No recent workouts logged.';
-            
-            const physiqueCollection = collection(db, 'users', player.id, 'physique_analyses');
-            const physiqueQuery = query(physiqueCollection, orderBy("createdAt", "desc"), limit(1));
-            const physiqueSnapshot = await getDocs(physiqueQuery);
-            let physiqueAnalysis = "No physique data available.";
-            if (!physiqueSnapshot.empty) {
-                const analysis = physiqueSnapshot.docs[0].data();
-                physiqueAnalysis = `Score: ${analysis.rating.score}/100. Summary: ${analysis.summary}`;
-            }
-
-            const userProfile = [player.experience, player.goals].filter(Boolean).join(', ') || 'No profile information available.';
-            return { id: d.id, name: player.name, userProfile, performanceData, status: player.status, coachId: player.coachId, physiqueAnalysis, recentWorkoutCount: recentWorkouts.length };
-        });
-        const recruitedData = await Promise.all(recruitedDataPromises);
-        setRecruitedPlayers(recruitedData);
-        setIsLoadingCoachData(false);
-    }, (error) => {
-        console.error("Error fetching recruited players:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not load team data.' });
-        setIsLoadingCoachData(false);
-    });
-
-    const invitesQuery = query(collection(db, 'invites'), where('coachId', '==', initialUserId), where('status', '==', 'pending'));
-    const invitesUnsubscribe = onSnapshot(invitesQuery, async (snapshot) => {
-        const playerIds = snapshot.docs.map(doc => doc.data().playerId).filter(Boolean);
-        if (playerIds.length === 0) {
-            setPendingInvites([]);
-            return;
+    try {
+        const res = await getPlayersForCoach(initialUserId);
+        if (res.success) {
+            setPlayers(res.scoutingPlayers || []);
+            setRecruitedPlayers(res.recruitedPlayers || []);
+            setPendingInvites(res.pendingInvites || []);
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: res.message || 'Could not load coach data.' });
         }
-        const usersRes = await getUsersByIds(playerIds);
-        if (usersRes.success) {
-            const invitesData = snapshot.docs.map(d => {
-                const data = d.data();
-                const player = usersRes.users[data.playerId];
-                const sentAt = data.sentAt as Timestamp;
-                return { inviteId: d.id, playerId: data.playerId, playerName: player?.name || 'Unknown', sentAt: sentAt ? sentAt.toDate().toISOString() : new Date().toISOString() };
-            });
-            setPendingInvites(invitesData);
-        }
-    }, (error) => {
-        console.error("Error fetching pending invites:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not load pending invites.' });
-    });
-
-    return () => {
-        recruitedUnsubscribe();
-        invitesUnsubscribe();
+    } catch (e) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch coach data.' });
+    } finally {
+        setIsLoadingCoachData(false);
     }
-  }, [isCoach, initialUserId, toast]);
+  };
+
+  useEffect(() => {
+      fetchCoachData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCoach, initialUserId]);
 
   if (isLoading) {
     return (
@@ -323,7 +262,7 @@ function DashboardContent() {
         case 'analytics':
           return <CoachAnalytics players={recruitedPlayers} isLoading={isLoadingCoachData} />;
         case 'scouting':
-          return <PlayerScouting players={players} isLoading={isLoadingCoachData} onInviteSent={fetchAllPlayersForScouting} />;
+          return <PlayerScouting players={players} isLoading={isLoadingCoachData} onInviteSent={fetchCoachData} />;
         case 'messages':
           return <Messages userId={userId} />;
         case 'community':
@@ -334,7 +273,7 @@ function DashboardContent() {
     } else {
        switch (activeTab) {
         case 'home':
-          return <HomeDashboard workouts={workoutHistory} isLoadingHistory={isLoadingHistory} />;
+          return <HomeDashboard userId={userId} workouts={workoutHistory} isLoadingHistory={isLoadingHistory} />;
         case 'history':
           return <WorkoutHistory workouts={workoutHistory} isLoading={isLoadingHistory} user={currentUser}/>;
         case 'analysis':
