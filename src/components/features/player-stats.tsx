@@ -11,7 +11,7 @@ import {
     CardFooter,
   } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
-import { Loader2, User, UserCheck, Eye, Sparkles, History, Dumbbell, Calendar } from "lucide-react";
+import { Loader2, User, UserCheck, Eye, Sparkles, History, Dumbbell, Calendar, UserX } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
     AlertDialog,
@@ -21,6 +21,8 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
+    AlertDialogAction,
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
     Dialog,
@@ -31,7 +33,7 @@ import {
     DialogTrigger,
   } from "@/components/ui/dialog"
 import { getPlayerAnalysis, PlayerAnalysisOutput } from '@/ai/flows/player-analysis-flow';
-import { getWorkoutHistory } from '@/app/actions';
+import { getWorkoutHistory, endPartnership } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import dayjs from 'dayjs';
 import { ScrollArea } from '../ui/scroll-area';
@@ -42,6 +44,7 @@ interface Player {
   userProfile: string;
   performanceData: string;
   status: string;
+  coachId: string;
 }
 
 interface Workout {
@@ -66,7 +69,8 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
     const [historyPlayer, setHistoryPlayer] = React.useState<Player | null>(null);
     const [workoutHistory, setWorkoutHistory] = React.useState<Workout[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = React.useState(false);
-    
+    const [isRemoving, setIsRemoving] = React.useState<string | null>(null);
+
     const { toast } = useToast();
 
     const handleAnalyzePlayer = async (player: Player) => {
@@ -106,6 +110,24 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
             });
         }
         setIsLoadingHistory(false);
+    };
+
+    const handleRemovePlayer = async (player: Player) => {
+        setIsRemoving(player.id);
+        const result = await endPartnership({ playerId: player.id, coachId: player.coachId });
+        if (result.success) {
+            toast({
+                title: "Player Removed",
+                description: `${player.name} has been removed from your team.`,
+            });
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: result.message,
+            });
+        }
+        setIsRemoving(null);
     };
 
     const formatWorkoutDetails = (workout: Workout) => {
@@ -169,57 +191,79 @@ export default function PlayerStats({ players, isLoading }: PlayerStatsProps) {
                                         <p className="text-sm font-medium">Latest Performance</p>
                                         <p className="text-sm text-muted-foreground line-clamp-3">{player.performanceData || 'N/A'}</p>
                                     </CardContent>
-                                    <CardFooter className="flex justify-end gap-2 pt-4">
-                                         <Dialog onOpenChange={(open) => !open && closeHistoryDialog()}>
-                                            <DialogTrigger asChild>
-                                                <Button variant="outline" size="sm" onClick={() => handleViewHistory(player)}>
-                                                    <History className="mr-2 h-4 w-4" />
-                                                    History
+                                    <CardFooter className="flex justify-between gap-2 pt-4">
+                                         <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="destructive" size="icon" disabled={!!isRemoving}>
+                                                    {isRemoving === player.id ? <Loader2 className="animate-spin" /> : <UserX />}
                                                 </Button>
-                                            </DialogTrigger>
-                                            <DialogContent className="sm:max-w-[425px]">
-                                                <DialogHeader>
-                                                    <DialogTitle>Workout History: {historyPlayer?.name}</DialogTitle>
-                                                    <DialogDescription>
-                                                        A log of all recorded training sessions.
-                                                    </DialogDescription>
-                                                </DialogHeader>
-                                                <ScrollArea className="h-96 pr-4">
-                                                    {isLoadingHistory ? (
-                                                        <div className="flex justify-center items-center h-full">
-                                                            <Loader2 className="animate-spin" />
-                                                        </div>
-                                                    ) : workoutHistory.length > 0 ? (
-                                                        <div className="space-y-4">
-                                                            {workoutHistory.map((workout) => (
-                                                                <div key={workout._id} className="flex items-start gap-3">
-                                                                     <div className="bg-primary/10 text-primary p-2 rounded-full mt-1">
-                                                                        <Dumbbell className="h-5 w-5" />
-                                                                    </div>
-                                                                    <div className="flex-1">
-                                                                        <p className="font-semibold">{workout.exercise}</p>
-                                                                        <p className="text-sm text-muted-foreground">{formatWorkoutDetails(workout)}</p>
-                                                                         <div className="flex items-center gap-2 text-xs text-muted-foreground/80 mt-1">
-                                                                            <Calendar className="h-3 w-3" />
-                                                                            <span>{dayjs(workout.createdAt).format('MMMM D, YYYY h:mm A')}</span>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This will remove {player.name} from your team. They will become a free agent and will need to be invited again to rejoin. This action cannot be undone.
+                                                </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleRemovePlayer(player)}>Remove Player</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+
+                                        <div className="flex gap-2">
+                                            <Dialog onOpenChange={(open) => !open && closeHistoryDialog()}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" size="sm" onClick={() => handleViewHistory(player)}>
+                                                        <History className="mr-2 h-4 w-4" />
+                                                        History
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="sm:max-w-[425px]">
+                                                    <DialogHeader>
+                                                        <DialogTitle>Workout History: {historyPlayer?.name}</DialogTitle>
+                                                        <DialogDescription>
+                                                            A log of all recorded training sessions.
+                                                        </DialogDescription>
+                                                    </DialogHeader>
+                                                    <ScrollArea className="h-96 pr-4">
+                                                        {isLoadingHistory ? (
+                                                            <div className="flex justify-center items-center h-full">
+                                                                <Loader2 className="animate-spin" />
+                                                            </div>
+                                                        ) : workoutHistory.length > 0 ? (
+                                                            <div className="space-y-4">
+                                                                {workoutHistory.map((workout) => (
+                                                                    <div key={workout._id} className="flex items-start gap-3">
+                                                                        <div className="bg-primary/10 text-primary p-2 rounded-full mt-1">
+                                                                            <Dumbbell className="h-5 w-5" />
+                                                                        </div>
+                                                                        <div className="flex-1">
+                                                                            <p className="font-semibold">{workout.exercise}</p>
+                                                                            <p className="text-sm text-muted-foreground">{formatWorkoutDetails(workout)}</p>
+                                                                            <div className="flex items-center gap-2 text-xs text-muted-foreground/80 mt-1">
+                                                                                <Calendar className="h-3 w-3" />
+                                                                                <span>{dayjs(workout.createdAt).format('MMMM D, YYYY h:mm A')}</span>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="text-center text-muted-foreground py-12">
-                                                            No workouts logged yet.
-                                                        </div>
-                                                    )}
-                                                </ScrollArea>
-                                            </DialogContent>
-                                        </Dialog>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-center text-muted-foreground py-12">
+                                                                No workouts logged yet.
+                                                            </div>
+                                                        )}
+                                                    </ScrollArea>
+                                                </DialogContent>
+                                            </Dialog>
 
-                                        <Button variant="secondary" size="sm" onClick={() => handleAnalyzePlayer(player)} disabled={!!isAnalyzing}>
-                                            {isAnalyzing === player.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                                            AI Analysis
-                                        </Button>
+                                            <Button variant="secondary" size="sm" onClick={() => handleAnalyzePlayer(player)} disabled={!!isAnalyzing}>
+                                                {isAnalyzing === player.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                                AI Analysis
+                                            </Button>
+                                        </div>
                                     </CardFooter>
                                 </Card>
                             ))}

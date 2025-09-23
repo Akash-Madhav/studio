@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { CalendarIcon, Loader2, User } from "lucide-react";
+import { CalendarIcon, Loader2, User, UserX } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -28,10 +28,21 @@ import {
   CardTitle,
   CardFooter,
 } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import { updateUserProfile, getUser } from "@/app/actions";
+import { updateUserProfile, getUser, endPartnership } from "@/app/actions";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 
@@ -41,6 +52,14 @@ const formSchema = z.object({
   experience: z.string().optional(),
   goals: z.string().optional(),
 });
+
+interface UserData {
+    id: string;
+    name: string;
+    email: string;
+    status: string;
+    coachId?: string;
+}
 
 interface ProfileSettingsProps {
     userId: string;
@@ -52,8 +71,7 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingUser, setIsFetchingUser] = useState(true);
-  const [userEmail, setUserEmail] = useState("");
-  const [userName, setUserName] = useState("");
+  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -70,14 +88,13 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
       setIsFetchingUser(true);
       const result = await getUser(userId);
       if (result.success && result.user) {
+        setCurrentUser(result.user as UserData);
         form.reset({
           name: result.user.name || "",
           dob: result.user.dob ? new Date(result.user.dob) : undefined,
           experience: result.user.experience || "",
           goals: result.user.goals || "",
         });
-        setUserEmail(result.user.email || "");
-        setUserName(result.user.name || "");
       } else {
         toast({ variant: 'destructive', title: "Error", description: "Failed to load user profile." });
       }
@@ -105,13 +122,42 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
         title: "Profile Updated",
         description: "Your changes have been saved successfully.",
       });
-      router.push(`/dashboard?role=${role}&userId=${userId}`);
+       // Re-fetch user to update name in avatar header
+       const updatedUser = await getUser(userId);
+       if (updatedUser.success && updatedUser.user) {
+           setCurrentUser(updatedUser.user as UserData);
+       }
     } else {
       toast({
         variant: "destructive",
         title: "Update Failed",
         description: result.message,
       });
+    }
+    setIsSubmitting(false);
+  }
+
+  const handleLeaveTeam = async () => {
+    if (!currentUser || !currentUser.coachId) return;
+
+    setIsSubmitting(true);
+    const result = await endPartnership({ playerId: currentUser.id, coachId: currentUser.coachId });
+    if (result.success) {
+        toast({
+            title: "You've Left the Team",
+            description: "You are now a free agent.",
+        });
+        // Re-fetch user to update status
+        const updatedUser = await getUser(userId);
+        if (updatedUser.success && updatedUser.user) {
+            setCurrentUser(updatedUser.user as UserData);
+        }
+    } else {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: result.message,
+        });
     }
     setIsSubmitting(false);
   }
@@ -132,130 +178,169 @@ export default function ProfileSettings({ userId, role }: ProfileSettingsProps) 
     );
   }
 
-  return (
-    <Card className="max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>Profile Settings</CardTitle>
-        <CardDescription>
-          Update your personal information and goals.
-        </CardDescription>
-      </CardHeader>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-6">
-            <div className="flex items-center gap-6">
-                <Avatar className="h-24 w-24">
-                    <AvatarFallback className="text-4xl">
-                      {(userName || '').charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                </Avatar>
-                <div className="space-y-1">
-                    <h2 className="text-2xl font-bold">{userName}</h2>
-                    <p className="text-muted-foreground">{userEmail}</p>
-                </div>
-            </div>
+  if (!currentUser) {
+      return <Card className="max-w-2xl mx-auto"><CardContent>Could not load user data.</CardContent></Card>
+  }
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
+  const isRecruited = currentUser.status === 'recruited' && currentUser.role === 'player';
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+        <Card>
+        <CardHeader>
+            <CardTitle>Profile Settings</CardTitle>
+            <CardDescription>
+            Update your personal information and goals.
+            </CardDescription>
+        </CardHeader>
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+            <CardContent className="space-y-6">
+                <div className="flex items-center gap-6">
+                    <Avatar className="h-24 w-24">
+                        <AvatarFallback className="text-4xl">
+                        {(currentUser.name || '').charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                    </Avatar>
+                    <div className="space-y-1">
+                        <h2 className="text-2xl font-bold">{currentUser.name}</h2>
+                        <p className="text-muted-foreground">{currentUser.email}</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Name</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Your name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
                     control={form.control}
-                    name="name"
+                    name="dob"
                     render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Name</FormLabel>
-                        <FormControl>
-                            <Input placeholder="Your name" {...field} />
-                        </FormControl>
+                        <FormItem className="flex flex-col">
+                        <FormLabel>Date of birth</FormLabel>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <FormControl>
+                                <Button
+                                variant={"outline"}
+                                className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                )}
+                                >
+                                {field.value ? (
+                                    format(field.value, "PPP")
+                                ) : (
+                                    <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                            </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                    captionLayout="dropdown-buttons"
+                                    fromYear={1920}
+                                    toYear={new Date().getFullYear()}
+                                    mode="single"
+                                    selected={field.value ?? undefined}
+                                    onSelect={field.onChange}
+                                    disabled={(date) =>
+                                    date > new Date() || date < new Date("1900-01-01")
+                                    }
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
                         <FormMessage />
                         </FormItem>
                     )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="dob"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Date of birth</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, "PPP")
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                           <Calendar
-                                captionLayout="dropdown-buttons"
-                                fromYear={1920}
-                                toYear={new Date().getFullYear()}
-                                mode="single"
-                                selected={field.value ?? undefined}
-                                onSelect={field.onChange}
-                                disabled={(date) =>
-                                date > new Date() || date < new Date("1900-01-01")
-                                }
-                                initialFocus
-                            />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-            </div>
-            
-            <FormField
-              control={form.control}
-              name="experience"
-              render={({ field }) => (
-                  <FormItem>
-                  <FormLabel>Experience Level</FormLabel>
-                  <FormControl>
-                      <Input placeholder="e.g., Beginner, Intermediate" {...field} value={field.value ?? ''} />
-                  </FormControl>
-                  <FormMessage />
-                  </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="goals"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fitness Goals</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Describe your fitness goals..."
-                      className="min-h-[100px]"
-                      {...field}
-                      value={field.value ?? ''}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" disabled={isSubmitting} className="w-full">
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Update Profile
-            </Button>
-          </CardFooter>
-        </form>
-      </Form>
-    </Card>
+                </div>
+                
+                <FormField
+                control={form.control}
+                name="experience"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Experience Level</FormLabel>
+                    <FormControl>
+                        <Input placeholder="e.g., Beginner, Intermediate" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                
+                <FormField
+                control={form.control}
+                name="goals"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Fitness Goals</FormLabel>
+                    <FormControl>
+                        <Textarea
+                        placeholder="Describe your fitness goals..."
+                        className="min-h-[100px]"
+                        {...field}
+                        value={field.value ?? ''}
+                        />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </CardContent>
+            <CardFooter>
+                <Button type="submit" disabled={isSubmitting} className="w-full">
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Update Profile
+                </Button>
+            </CardFooter>
+            </form>
+        </Form>
+        </Card>
+        
+        {isRecruited && (
+             <Card className="border-destructive">
+                <CardHeader>
+                    <CardTitle>Danger Zone</CardTitle>
+                    <CardDescription>Actions in this section are permanent and cannot be undone.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" className="w-full">
+                                <UserX className="mr-2" />
+                                Leave Team
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action will remove you from your current team. You will lose access to team communications, and your coach will no longer be able to see your stats. You can be invited to a new team or the same team again in the future.
+                            </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleLeaveTeam}>Yes, Leave Team</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </CardContent>
+             </Card>
+        )}
+    </div>
   );
 }

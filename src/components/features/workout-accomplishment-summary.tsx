@@ -1,21 +1,15 @@
 
 "use client";
 
-import { useState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
-import { generateWorkoutSummary } from "@/ai/flows/workout-summary-flow";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import dayjs from "dayjs";
-import { ScrollArea } from "../ui/scroll-area";
+import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { generateWorkoutSummary } from '@/ai/flows/workout-summary-flow';
+import { getPhysiqueHistory } from '@/app/actions';
+import dayjs from 'dayjs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Loader2, Sparkles, RefreshCcw } from 'lucide-react';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface Workout {
     _id: string;
@@ -28,105 +22,113 @@ interface Workout {
 }
 
 interface WorkoutAccomplishmentSummaryProps {
-  workouts: Workout[];
-  isLoading: boolean;
+    userId: string;
+    workouts: Workout[];
+    isLoading: boolean;
 }
 
 function formatWorkoutHistory(workouts: Workout[]): string {
     if (workouts.length === 0) {
         return "No workouts logged yet.";
     }
-  
-    // Sort workouts from oldest to newest for the summary
-    const sortedWorkouts = [...workouts].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-
-    return sortedWorkouts
-      .map((w) => {
-        let record = `${dayjs(w.createdAt).format('YYYY-MM-DD')} - ${w.exercise}:`;
-        const details = [];
-        if (w.reps) details.push(`${w.reps} reps`);
-        if (w.weight) details.push(`${w.weight}kg`);
-        if (w.distance) details.push(`${w.distance}km`);
-        if (w.time) details.push(w.time);
-        return `${record} ${details.join(', ')}`;
-      })
-      .join("\n");
+    return workouts
+        .slice(0, 15) // Limit to the last 15 workouts for the summary
+        .map(w => {
+            const parts = [dayjs(w.createdAt).format("YYYY-MM-DD"), w.exercise];
+            if (w.reps) parts.push(`${w.reps} reps`);
+            if (w.weight) parts.push(`@ ${w.weight}kg`);
+            if (w.distance) parts.push(`${w.distance}km`);
+            if (w.time) parts.push(`in ${w.time}`);
+            return parts.join(' ');
+        })
+        .join('; ');
 }
 
-export default function WorkoutAccomplishmentSummary({ workouts, isLoading: isFetchingData }: WorkoutAccomplishmentSummaryProps) {
-  const { toast } = useToast();
-  const [summary, setSummary] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+export default function WorkoutAccomplishmentSummary({ userId, workouts, isLoading: isLoadingWorkouts }: WorkoutAccomplishmentSummaryProps) {
+    const { toast } = useToast();
+    const [summary, setSummary] = useState<string | null>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleGenerateSummary = async () => {
-    setIsLoading(true);
-    setSummary(null);
-
-    if (workouts.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "No Workouts Found",
-        description: "Log some workouts before generating a summary.",
-      });
-      setIsLoading(false);
-      return;
-    }
-
-    const formattedHistory = formatWorkoutHistory(workouts);
-
-    try {
-      const result = await generateWorkoutSummary(formattedHistory);
-      setSummary(result);
-    } catch (error: any) {
-      console.error("Failed to get workout summary:", error);
-      let errorDescription = "Failed to generate your summary. Please try again.";
-      if (error.message?.includes("503") || error.message?.includes("overloaded")) {
-          errorDescription = "The AI model is currently busy. Please wait a moment and try again.";
+    useEffect(() => {
+      // Auto-generate summary on initial load if there are workouts
+      if (!isLoadingWorkouts && workouts.length > 0) {
+        handleGenerateSummary();
       }
-      toast({
-          variant: "destructive",
-          title: "Error",
-          description: errorDescription,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoadingWorkouts, workouts]);
 
-  return (
-    <Card className="max-w-4xl mx-auto">
-        <CardHeader>
-          <CardTitle>Workout Accomplishment Summary</CardTitle>
-          <CardDescription>
-            Get a detailed AI-powered summary of your entire fitness journey so far.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            {isLoading ? (
-                 <div className="flex justify-center items-center h-48">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                 </div>
-            ) : summary ? (
-                <ScrollArea className="h-96 pr-4">
-                    <div className="p-4 bg-muted/50 rounded-md whitespace-pre-line text-sm leading-relaxed">
-                        {summary}
+    const handleGenerateSummary = async () => {
+        setIsGenerating(true);
+        setSummary(null);
+
+        try {
+            // 1. Fetch the latest physique analysis
+            const physiqueRes = await getPhysiqueHistory(userId, 1);
+            let latestPhysique = "No physique analysis on record.";
+            if (physiqueRes.success && physiqueRes.analyses.length > 0) {
+                const analysis = physiqueRes.analyses[0];
+                latestPhysique = `Score: ${analysis.rating.score}/100. Summary: ${analysis.summary}`;
+            }
+
+            // 2. Format workout history
+            const formattedHistory = formatWorkoutHistory(workouts);
+            
+            // 3. Call the AI flow
+            const result = await generateWorkoutSummary({
+                workoutHistory: formattedHistory,
+                physiqueAnalysis: latestPhysique,
+            });
+            
+            setSummary(result.summary);
+
+        } catch (error: any) {
+            console.error("Error generating summary:", error);
+            let errorDescription = "An unexpected error occurred. Please try again.";
+            if (error.message?.includes("503") || error.message?.includes("overloaded")) {
+                errorDescription = "The AI model is currently busy. Please wait a moment and try again.";
+            } else if (error.message) {
+                errorDescription = error.message;
+            }
+            toast({
+                variant: 'destructive',
+                title: 'Summary Generation Failed',
+                description: errorDescription,
+            });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+    
+    return (
+        <Card className="h-full flex flex-col">
+            <CardHeader>
+                <CardTitle>AI-Powered Progress Summary</CardTitle>
+                <CardDescription>
+                    A motivational summary of your recent accomplishments.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow">
+                 {isGenerating ? (
+                    <div className="flex justify-center items-center h-full">
+                        <Loader2 className="animate-spin h-8 w-8 text-primary" />
                     </div>
-                </ScrollArea>
-            ) : (
-                <div className="text-center text-muted-foreground py-12">
-                    Click the button below to generate your personalized accomplishment summary.
-                </div>
-            )}
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-            <Button onClick={handleGenerateSummary} disabled={isLoading || isFetchingData} className="w-full">
-                {(isLoading || isFetchingData) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isFetchingData ? "Loading Workout Data..." : summary ? "Regenerate Summary" : "Generate My Summary"}
-            </Button>
-             {summary && (
-                <Button variant="ghost" onClick={() => setSummary(null)}>Clear Summary</Button>
-            )}
-        </CardFooter>
-    </Card>
-  );
+                ) : summary ? (
+                     <div className="p-4 bg-muted/50 rounded-lg space-y-4 h-full">
+                        <p className="text-sm text-muted-foreground whitespace-pre-line">{summary}</p>
+                    </div>
+                ) : (
+                    <div className="text-center text-muted-foreground py-12">
+                        Log a workout to generate your first summary.
+                    </div>
+                )}
+            </CardContent>
+            <CardFooter>
+                 <Button onClick={handleGenerateSummary} disabled={isGenerating || isLoadingWorkouts} className="w-full">
+                    {(isGenerating || isLoadingWorkouts) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isLoadingWorkouts ? "Loading Data..." : isGenerating ? "Generating..." : "Regenerate Summary"}
+                    <Sparkles className="ml-2"/>
+                </Button>
+            </CardFooter>
+        </Card>
+    );
 }

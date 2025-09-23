@@ -1,11 +1,11 @@
 
 'use server';
-import { db, auth } from '@/lib/firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit, setDoc, arrayUnion } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
+import { collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp, addDoc, updateDoc, deleteDoc, orderBy, runTransaction, documentId, getDocsFromCache, limit, setDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 import { z } from 'zod';
-import { generateTeamName } from '@/ai/flows/generate-team-name';
+import dayjs from 'dayjs';
 
 // Helper to convert Firestore Timestamp to a serializable format
 const formatTimestamp = (timestamp: any): Date | null => {
@@ -19,20 +19,18 @@ const formatTimestamp = (timestamp: any): Date | null => {
 }
 
 const signUpSchema = z.object({
+  userId: z.string(),
   name: z.string().min(2, "Name is required."),
   email: z.string().email("Invalid email address."),
-  password: z.string().min(6, "Password must be at least 6 characters."),
   role: z.enum(['player', 'coach']),
 });
 
 export async function signUpWithEmailAndPassword(values: z.infer<typeof signUpSchema>) {
     try {
         const validatedData = signUpSchema.parse(values);
-        const userCredential = await createUserWithEmailAndPassword(auth, validatedData.email, validatedData.password);
-        const user = userCredential.user;
-
-        await setDoc(doc(db, "users", user.uid), {
-            id: user.uid,
+        
+        await setDoc(doc(db, "users", validatedData.userId), {
+            id: validatedData.userId,
             name: validatedData.name,
             email: validatedData.email,
             role: validatedData.role,
@@ -40,57 +38,42 @@ export async function signUpWithEmailAndPassword(values: z.infer<typeof signUpSc
             createdAt: serverTimestamp(),
         });
         
-        return { success: true, userId: user.uid, role: validatedData.role };
+        return { success: true, userId: validatedData.userId, role: validatedData.role };
     } catch (error: any) {
-        console.error("Error signing up:", error);
-        let message = 'Failed to sign up.';
-        if (error.code === 'auth/email-already-in-use') {
-            message = 'This email is already in use.';
+        console.error("Error creating user profile:", error);
+        // If profile creation fails, delete the auth user to prevent orphaned accounts
+        try {
+            await getAdminAuth().deleteUser(values.userId);
+        } catch (deleteError) {
+            console.error("Failed to clean up orphaned auth user:", deleteError);
         }
-        return { success: false, message };
+        return { success: false, message: 'Failed to create user profile in database.' };
     }
 }
 
+
 const signInSchema = z.object({
-  email: z.string().email("Invalid email address."),
-  password: z.string().min(1, "Password is required."),
+  userId: z.string(),
 });
 
 
 export async function signInWithEmailAndPasswordAction(values: z.infer<typeof signInSchema>) {
     try {
         const validatedData = signInSchema.parse(values);
-        const userCredential = await signInWithEmailAndPassword(auth, validatedData.email, validatedData.password);
-        const user = userCredential.user;
-
-        const userRef = doc(db, "users", user.uid);
+        const userRef = doc(db, "users", validatedData.userId);
         const userDoc = await getDoc(userRef);
         
         if (!userDoc.exists()) {
-             // If the user is authenticated but has no profile, create a default one.
-            const defaultProfile = {
-                id: user.uid,
-                name: user.displayName || user.email?.split('@')[0] || 'New User',
-                email: user.email!,
-                role: 'player', // Default role
-                status: 'active',
-                createdAt: serverTimestamp(),
-            };
-            await setDoc(userRef, defaultProfile);
-            return { success: true, userId: user.uid, role: 'player' };
+           return { success: false, message: 'User profile not found. Please sign up.' };
         }
 
         const userRole = userDoc.data()?.role || 'player'; 
 
-        return { success: true, userId: user.uid, role: userRole };
+        return { success: true, userId: validatedData.userId, role: userRole };
     } catch (error: any)
      {
         console.error("Error signing in:", error);
-        let message = 'Failed to sign in. Please check your credentials.';
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            message = 'Invalid email or password.';
-        }
-        return { success: false, message };
+        return { success: false, message: 'Failed to retrieve user profile.' };
     }
 }
 
@@ -196,9 +179,10 @@ const logWorkoutSchema = z.object({
 export async function logWorkout(values: z.infer<typeof logWorkoutSchema>) {
     try {
         const validatedData = logWorkoutSchema.parse(values);
-        const workoutsCollection = collection(db, 'workouts');
+        const { userId, ...workoutData } = validatedData;
+        const workoutsCollection = collection(db, 'users', userId, 'workouts');
         await addDoc(workoutsCollection, {
-            ...validatedData,
+            ...workoutData,
             createdAt: serverTimestamp(),
         });
 
@@ -252,10 +236,13 @@ export async function updateUserProfile(values: z.infer<typeof updateUserProfile
 
 export async function getWorkoutHistory(userId: string, recordLimit?: number) {
     try {
-        const workoutsCollection = collection(db, 'workouts');
+        const workoutsCollection = collection(db, 'users', userId, 'workouts');
         
-        // Remove orderBy from the query to prevent index error
-        let q = query(workoutsCollection, where("userId", "==", userId));
+        let q = query(workoutsCollection, orderBy("createdAt", "desc"));
+        
+        if (recordLimit) {
+            q = query(q, limit(recordLimit));
+        }
         
         const querySnapshot = await getDocs(q);
 
@@ -269,12 +256,7 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
                 };
             });
         
-        // Sort in code instead of in the query
-        workouts.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
-
-        const finalWorkouts = recordLimit ? workouts.slice(0, recordLimit) : workouts;
-        
-        return { success: true, workouts: JSON.parse(JSON.stringify(finalWorkouts)) };
+        return { success: true, workouts: JSON.parse(JSON.stringify(workouts)) };
     } catch (error: any) {
         console.error(`Error fetching workout history for user ${userId}:`, error);
         return { success: false, workouts: [], message: "Failed to fetch workout history." };
@@ -284,48 +266,67 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
 export async function getAllPlayers() {
     try {
         const usersCollection = collection(db, 'users');
-        // Only get players with status 'active' (no coach)
         const q = query(usersCollection, where("role", "==", "player"), where("status", "==", "active"));
         const querySnapshot = await getDocs(q);
-        const players = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            return { 
-                id: doc.id, 
-                ...data,
-                dob: formatTimestamp(data.dob),
-                createdAt: formatTimestamp(data.createdAt),
-            };
-        });
 
-        const playersWithWorkouts = await Promise.all(players.map(async (player: any) => {
-            // Get the COMPLETE workout history for each player
-            const workoutHistory = await getWorkoutHistory(player.id);
-            let performanceData = 'No workouts logged.';
-            if (workoutHistory.success && workoutHistory.workouts.length > 0) {
-                performanceData = workoutHistory.workouts
-                    .map(w => {
-                        const parts = [w.exercise];
-                        if (w.reps) parts.push(`${w.reps} reps`);
-                        if (w.weight) parts.push(`@ ${w.weight}kg`);
-                        if (w.distance) parts.push(`${w.distance}km`);
-                        if (w.time) parts.push(`in ${w.time}`);
-                        return parts.join(' ');
-                    }).join('; ');
+        const playersPromises = querySnapshot.docs.map(async (playerDoc) => {
+            const player: any = { id: playerDoc.id, ...playerDoc.data() };
+
+            // Fetch recent 20 workouts for performance data string
+            const workoutsCollection = collection(db, 'users', player.id, 'workouts');
+            const workoutsQuery = query(workoutsCollection, orderBy("createdAt", "desc"), limit(20));
+            const workoutsSnapshot = await getDocs(workoutsQuery);
+            const workouts = workoutsSnapshot.docs.map(doc => ({ ...doc.data(), createdAt: formatTimestamp(doc.data().createdAt) }));
+
+            let performanceData = "No workout data available.";
+            if (workouts.length > 0) {
+                performanceData = workouts.map(w => {
+                    const parts = [dayjs(w.createdAt).format("YYYY-MM-DD"), w.exercise];
+                    if (w.reps) parts.push(`${w.reps} reps`);
+                    if (w.weight) parts.push(`@ ${w.weight}kg`);
+                    if (w.distance) parts.push(`${w.distance}km`);
+                    if (w.time) parts.push(`in ${w.time}`);
+                    return parts.join(' ');
+                }).join('; ');
             }
+
+            // Fetch most recent physique analysis
+            const physiqueCollection = collection(db, 'users', player.id, 'physique_analyses');
+            const physiqueQuery = query(physiqueCollection, orderBy("createdAt", "desc"), limit(1));
+            const physiqueSnapshot = await getDocs(physiqueQuery);
+            let physiqueAnalysis = "No physique data available.";
+            if (!physiqueSnapshot.empty) {
+                const analysis = physiqueSnapshot.docs[0].data();
+                physiqueAnalysis = `Score: ${analysis.rating.score}/100. Summary: ${analysis.summary}`;
+            }
+
+            // Get user profile string
             const profileParts = [];
             if (player.experience) profileParts.push(player.experience);
             if (player.goals) profileParts.push(player.goals);
             const userProfile = profileParts.length > 0 ? profileParts.join(', ') : 'No profile information available.';
 
-            return { ...player, performanceData, userProfile };
-        }));
+            return { 
+                id: player.id, 
+                name: player.name,
+                status: player.status,
+                coachId: player.coachId,
+                performanceData,
+                userProfile, 
+                physiqueAnalysis,
+                recentWorkoutCount: workouts.length,
+            };
+        });
 
-        return { success: true, players: JSON.parse(JSON.stringify(playersWithWorkouts)) };
+        const players = await Promise.all(playersPromises);
+
+        return { success: true, players: JSON.parse(JSON.stringify(players)) };
     } catch (error) {
         console.error("Error getting all players:", error);
         return { success: false, players: [] };
     }
 }
+
 
 export async function findPlayerByEmail(email: string) {
     try {
@@ -359,21 +360,25 @@ export async function findPlayerByEmail(email: string) {
 export async function sendRecruitInvite(playerId: string, coachId: string) {
     try {
         const inviteRef = collection(db, 'invites');
-        // Check if an invite already exists
         const q = query(inviteRef, where('playerId', '==', playerId), where('coachId', '==', coachId), where('status', '==', 'pending'));
         const existingInvites = await getDocs(q);
         if (!existingInvites.empty) {
             return { success: false, message: 'Invite already sent.' };
         }
 
-        await addDoc(inviteRef, {
+        const batch = writeBatch(db);
+        const newInviteRef = doc(inviteRef);
+        batch.set(newInviteRef, {
             playerId,
             coachId,
             status: 'pending',
             sentAt: serverTimestamp(),
         });
 
-        await updateDoc(doc(db, 'users', playerId), { status: 'pending_invite', coachId: coachId });
+        const playerRef = doc(db, 'users', playerId);
+        batch.update(playerRef, { status: 'pending_invite' });
+        
+        await batch.commit();
 
         return { success: true, message: 'Recruitment invite sent successfully!' };
     } catch (error) {
@@ -383,78 +388,76 @@ export async function sendRecruitInvite(playerId: string, coachId: string) {
 }
 
 export async function respondToInvite({ inviteId, response, playerId, coachId }: { inviteId: string, response: 'accepted' | 'declined', playerId: string, coachId: string }) {
+    if (response === 'declined') {
+        const batch = writeBatch(db);
+        const inviteRef = doc(db, 'invites', inviteId);
+        const playerRef = doc(db, 'users', playerId);
+        batch.update(playerRef, { status: 'active' });
+        batch.update(inviteRef, { status: 'declined' });
+        await batch.commit();
+        return { success: true, conversationId: null };
+    }
+    
+    // For "accepted" response
     try {
-        if (response === 'accepted') {
-            // --- Pre-transaction reads ---
+        // Step 1: Read the existing group chat document *before* the transaction.
+        const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'), limit(1));
+        const groupChatSnapshot = await getDocs(groupChatQuery);
+        const existingGroupChatDoc = groupChatSnapshot.docs.length > 0 ? groupChatSnapshot.docs[0] : null;
+
+        // Step 2: Run all writes in a transaction.
+        const newConversationId = await runTransaction(db, async (transaction) => {
+            const inviteRef = doc(db, 'invites', inviteId);
+            const playerRef = doc(db, 'users', playerId);
             const coachRef = doc(db, 'users', coachId);
-            const coachDoc = await getDoc(coachRef);
-            const coachData = coachDoc.data();
-            if (!coachData) throw new Error('Coach not found');
 
-            const teamQuery = query(collection(db, 'users'), where('coachId', '==', coachId), where('status', '==', 'recruited'));
-            const teamSnapshot = await getDocs(teamQuery);
-            const teamSize = teamSnapshot.docs.length; // Current size, before adding the new player
-
-            const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
-            const groupChatSnapshot = await getDocs(groupChatQuery);
+            transaction.update(playerRef, { status: 'recruited', coachId: coachId });
+            transaction.update(inviteRef, { status: 'accepted' });
             
-            let conversationId: string | null = null;
-            // --- Transaction ---
-            await runTransaction(db, async (transaction) => {
-                const inviteRef = doc(db, 'invites', inviteId);
-                const playerRef = doc(db, 'users', playerId);
+            // Create the direct message conversation
+            const newConvoRef = doc(collection(db, 'conversations'));
+            transaction.set(newConvoRef, {
+                participantIds: [playerId, coachId],
+                createdAt: serverTimestamp(),
+                type: 'direct',
+            });
 
-                // Create direct conversation
-                const newConvoRef = doc(collection(db, 'conversations'));
-                transaction.set(newConvoRef, {
+            // Handle the group chat
+            if (existingGroupChatDoc) {
+                // If the group chat exists, just add the new player to it.
+                transaction.update(existingGroupChatDoc.ref, {
+                    participantIds: arrayUnion(playerId)
+                });
+            } else {
+                // If it's the first player, create the group chat.
+                const coachSnap = await transaction.get(coachRef);
+                if (!coachSnap.exists()) {
+                    throw new Error("Coach does not exist!");
+                }
+                const coachData = coachSnap.data();
+                const teamName = coachData?.name ? `Coach ${coachData.name}'s Team` : 'The Team';
+                
+                const groupChatRef = doc(collection(db, 'conversations'));
+                transaction.set(groupChatRef, {
+                    coachId: coachId,
+                    name: teamName,
                     participantIds: [playerId, coachId],
                     createdAt: serverTimestamp(),
-                    type: 'direct',
+                    type: 'group',
                 });
-                conversationId = newConvoRef.id;
+            }
 
-                // Update player and invite status
-                transaction.update(inviteRef, { status: 'accepted' });
-                transaction.update(playerRef, { status: 'recruited', coachId: coachId });
+            return newConvoRef.id;
+        });
 
-                // Handle group chat logic
-                if (teamSize + 1 >= 2) { // +1 for the newly accepted player
-                    if (groupChatSnapshot.empty) {
-                        // Create a new group chat
-                        const teamName = await generateTeamName(coachData.name);
-                        const groupChatRef = doc(collection(db, 'conversations'));
-                        const allParticipantIds = [coachId, playerId, ...teamSnapshot.docs.map(d => d.id)];
-                        transaction.set(groupChatRef, {
-                            coachId: coachId,
-                            name: teamName,
-                            participantIds: allParticipantIds,
-                            createdAt: serverTimestamp(),
-                            type: 'group',
-                        });
-                    } else {
-                        // Add player to existing group chat
-                        const groupChatDoc = groupChatSnapshot.docs[0];
-                        transaction.update(groupChatDoc.ref, {
-                            participantIds: arrayUnion(playerId)
-                        });
-                    }
-                }
-            });
-             return { success: true, conversationId };
-        } else { // Declined
-            await runTransaction(db, async (transaction) => {
-                const inviteRef = doc(db, 'invites', inviteId);
-                const playerRef = doc(db, 'users', playerId);
-                transaction.update(inviteRef, { status: 'declined' });
-                transaction.update(playerRef, { status: 'active', coachId: null });
-            });
-             return { success: true, conversationId: null };
-        }
+        return { success: true, conversationId: newConversationId };
+
     } catch (error) {
         console.error("Error responding to invite:", error);
         return { success: false, message: 'Failed to respond to invite.' };
     }
 }
+
 
 export interface Conversation {
     id: string;
@@ -486,7 +489,6 @@ export async function getConversations(userId: string): Promise<{ success: boole
         const conversations = await Promise.all(snapshot.docs.map(async (d) => {
             const data = d.data();
             const participants = data.participantIds
-                // .filter((id: string) => id !== userId) // Keep all for group context
                 .map((id: string) => ({ id, name: usersMap[id]?.name || 'Unknown' }));
 
             const messagesCol = collection(db, 'conversations', d.id, 'messages');
@@ -601,3 +603,88 @@ export async function addComment(values: z.infer<typeof addCommentSchema>) {
         return { success: false, message: "Failed to add comment." };
     }
 }
+
+export async function logPhysiqueAnalysis(userId: string, summary: string, rating: { score: number; justification: string }) {
+    try {
+        if (!userId) {
+            throw new Error("User ID is required.");
+        }
+        const analysesCollection = collection(db, 'users', userId, 'physique_analyses');
+        await addDoc(analysesCollection, {
+            summary,
+            rating,
+            createdAt: serverTimestamp(),
+        });
+        return { success: true, message: "Physique analysis logged successfully!" };
+    } catch (error) {
+        console.error("Error logging physique analysis:", error);
+        return { success: false, message: "Failed to log physique analysis." };
+    }
+}
+
+export async function getPhysiqueHistory(userId: string, recordLimit?: number) {
+    try {
+        const analysesCollection = collection(db, 'users', userId, 'physique_analyses');
+        let q = query(analysesCollection, orderBy("createdAt", "desc"));
+
+        if (recordLimit) {
+            q = query(q, limit(recordLimit));
+        }
+
+        const querySnapshot = await getDocs(q);
+
+        const analyses = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                createdAt: formatTimestamp(data.createdAt),
+            };
+        });
+
+        return { success: true, analyses: JSON.parse(JSON.stringify(analyses)) };
+    } catch (error: any) {
+        console.error(`Error fetching physique history for user ${userId}:`, error);
+        return { success: false, analyses: [], message: "Failed to fetch physique history." };
+    }
+}
+
+export async function endPartnership({ playerId, coachId }: { playerId: string, coachId: string }) {
+    const batch = writeBatch(db);
+    const playerRef = doc(db, 'users', playerId);
+    
+    try {
+        // 1. Update player status
+        batch.update(playerRef, { status: 'active', coachId: null });
+
+        // 2. Find all conversations involving the player to either delete or modify
+        const conversationsQuery = query(collection(db, 'conversations'), where('participantIds', 'array-contains', playerId));
+        const conversationsSnapshot = await getDocs(conversationsQuery);
+
+        conversationsSnapshot.forEach(convoDoc => {
+            const convoData = convoDoc.data();
+            const isDirectChatWithCoach = convoData.type === 'direct' && convoData.participantIds.includes(coachId);
+            const isGroupChatWithCoach = convoData.type === 'group' && convoData.coachId === coachId;
+
+            if (isDirectChatWithCoach) {
+                // Delete direct conversations between the player and the coach
+                batch.delete(convoDoc.ref);
+            } else if (isGroupChatWithCoach) {
+                // Remove the player from the team's group chat
+                batch.update(convoDoc.ref, {
+                    participantIds: arrayRemove(playerId)
+                });
+            }
+        });
+        
+        await batch.commit();
+        return { success: true, message: 'Partnership ended successfully.' };
+    } catch (error: any) {
+        console.error("Error ending partnership:", error.message);
+        return { success: false, message: 'Failed to end partnership.' };
+    }
+}
+
+    
+
+    

@@ -1,11 +1,15 @@
 
+"use client";
+
+import { useState, useEffect } from "react";
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
 
-export const metadata: Metadata = {
+// This is a workaround for the metadata type issue.
+const metadata: Metadata = {
   title: "OptiFit AI",
   description:
     "An AI-powered fitness assessment app designed to evaluate and enhance user physical capabilities.",
@@ -16,9 +20,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <title>{String(metadata.title)}</title>
+        <meta name="description" content={String(metadata.description)} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -37,7 +49,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          {mounted && children}
           <Toaster />
         </ThemeProvider>
       </body>

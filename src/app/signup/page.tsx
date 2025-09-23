@@ -14,11 +14,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dumbbell, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { signUpWithEmailAndPassword, signInWithGoogle } from "@/app/actions";
+import { signUpWithEmailAndPassword } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
+import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required."),
@@ -28,15 +28,6 @@ const formSchema = z.object({
     required_error: "You need to select a role.",
   }),
 });
-
-const GoogleIcon = () => (
-    <svg className="mr-2 h-4 w-4" viewBox="0 0 48 48">
-        <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path>
-        <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path>
-        <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path>
-        <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C42.021,35.596,44,30.138,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path>
-    </svg>
-);
 
 export default function SignUpPage() {
   const { toast } = useToast();
@@ -55,61 +46,52 @@ export default function SignUpPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    const result = await signUpWithEmailAndPassword(values);
-    setIsLoading(false);
+    let createdUserId: string | null = null;
 
-    if (result.success) {
-      toast({
-        title: "Account Created",
-        description: "Welcome to OptiFit AI!",
-      });
-      router.push(`/dashboard?role=${result.role}&userId=${result.userId}`);
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Sign Up Failed",
-        description: result.message,
-      });
-    }
-  }
-
-  async function handleGoogleSignIn() {
-    setIsLoading(true);
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({
-        prompt: 'select_account',
-        auth_domain: auth.config.authDomain,
-    });
-    const selectedRole = form.getValues('role');
     try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
+        // Step 1: Create user on the client-side with Firebase Auth
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const user = userCredential.user;
+        createdUserId = user.uid;
 
-        const serverResult = await signInWithGoogle({
+        // Step 2: Call server action to create the user profile in Firestore
+        const serverResult = await signUpWithEmailAndPassword({
             userId: user.uid,
-            email: user.email!,
-            name: user.displayName!,
-            role: selectedRole,
+            name: values.name,
+            email: values.email,
+            role: values.role,
         });
 
         if (serverResult.success) {
-             toast({
+            toast({
                 title: "Account Created",
-                description: "Welcome to OptiFit AI!",
+                description: "Welcome to OptiFit AI! Redirecting you...",
             });
             router.push(`/dashboard?role=${serverResult.role}&userId=${serverResult.userId}`);
         } else {
+            // This will trigger the catch block below
             throw new Error(serverResult.message);
         }
-
     } catch (error: any) {
+        // This unified catch block handles failures from both client and server steps
+        let errorMessage = "Could not create account.";
+        if (error.code === 'auth/email-already-in-use') {
+            errorMessage = 'This email is already in use.';
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+
         toast({
             variant: "destructive",
-            title: "Google Sign-In Failed",
-             description: error.code === 'auth/popup-closed-by-user' 
-                ? 'The sign-in window was closed.' 
-                : error.message || "An unexpected error occurred.",
+            title: "Sign Up Failed",
+            description: errorMessage,
         });
+        
+        // Clean up: If the user was created in Auth but the DB record failed,
+        // we should sign them out to prevent a broken login state.
+        if (createdUserId) {
+            await signOut(auth);
+        }
     } finally {
         setIsLoading(false);
     }
@@ -172,18 +154,14 @@ export default function SignUpPage() {
                     </FormItem>
                   )}
                 />
-                <Button variant="outline" onClick={handleGoogleSignIn} disabled={isLoading} className="w-full" type="button">
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
-                    Continue with Google
-                </Button>
-
+                
                 <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                         <span className="w-full border-t" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
                         <span className="bg-card px-2 text-muted-foreground">
-                        Or sign up with email
+                        Sign up with email
                         </span>
                     </div>
                 </div>
@@ -231,7 +209,7 @@ export default function SignUpPage() {
               <CardFooter className="flex flex-col gap-4">
                 <Button className="w-full" type="submit" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Account with Email
+                  Create Account
                 </Button>
                 <div className="text-center text-sm">
                   Already have an account?{" "}
