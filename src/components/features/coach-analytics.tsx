@@ -90,7 +90,7 @@ export default function CoachAnalytics({ players, isLoading }: CoachAnalyticsPro
                     <div className="text-center text-muted-foreground py-12 border rounded-lg w-full max-w-sm">
                         <Info className="mx-auto h-12 w-12" />
                         <h3 className="mt-4 text-lg font-semibold">No Player Data</h3>
-                        <p>Recruit players to see team analytics.</p>
+                        <p>Recruit players to see individual analytics.</p>
                     </div>
                 </CardContent>
             </Card>
@@ -102,8 +102,8 @@ export default function CoachAnalytics({ players, isLoading }: CoachAnalyticsPro
             {physiqueChartData.length > 0 && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Team Physique Scores</CardTitle>
-                        <CardDescription>Comparison of AI-rated physique scores across the team.</CardDescription>
+                        <CardTitle>Player Physique Scores</CardTitle>
+                        <CardDescription>Comparison of AI-rated physique scores across your players.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ChartContainer config={physiqueChartConfig} className="h-[300px] w-full">
@@ -131,7 +131,7 @@ export default function CoachAnalytics({ players, isLoading }: CoachAnalyticsPro
             {activityChartData.length > 0 && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Recent Team Activity</CardTitle>
+                        <CardTitle>Recent Player Activity</CardTitle>
                         <CardDescription>Number of workouts logged by each player in the recent period.</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -173,5 +173,3 @@ export default function CoachAnalytics({ players, isLoading }: CoachAnalyticsPro
         </div>
     );
 }
-
-    
