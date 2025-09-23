@@ -272,13 +272,13 @@ export async function getAllPlayers() {
         const playersPromises = querySnapshot.docs.map(async (playerDoc) => {
             const player: any = { id: playerDoc.id, ...playerDoc.data() };
 
-            // Fetch full workout history
+            // Fetch recent 20 workouts for performance data string
             const workoutsCollection = collection(db, 'users', player.id, 'workouts');
-            const workoutsQuery = query(workoutsCollection, orderBy("createdAt", "desc"));
+            const workoutsQuery = query(workoutsCollection, orderBy("createdAt", "desc"), limit(20));
             const workoutsSnapshot = await getDocs(workoutsQuery);
             const workouts = workoutsSnapshot.docs.map(doc => ({ ...doc.data(), createdAt: formatTimestamp(doc.data().createdAt) }));
 
-            let performanceData = "No workout data or physique analysis available.";
+            let performanceData = "No workout data available.";
             if (workouts.length > 0) {
                 performanceData = workouts.map(w => {
                     const parts = [dayjs(w.createdAt).format("YYYY-MM-DD"), w.exercise];
@@ -294,7 +294,7 @@ export async function getAllPlayers() {
             const physiqueCollection = collection(db, 'users', player.id, 'physique_analyses');
             const physiqueQuery = query(physiqueCollection, orderBy("createdAt", "desc"), limit(1));
             const physiqueSnapshot = await getDocs(physiqueQuery);
-            let physiqueAnalysis = "No physique data loaded.";
+            let physiqueAnalysis = "No physique data available.";
             if (!physiqueSnapshot.empty) {
                 const analysis = physiqueSnapshot.docs[0].data();
                 physiqueAnalysis = `Score: ${analysis.rating.score}/100. Summary: ${analysis.summary}`;
@@ -311,9 +311,9 @@ export async function getAllPlayers() {
                 name: player.name,
                 status: player.status,
                 coachId: player.coachId,
-                performanceData: performanceData,
+                performanceData,
                 userProfile, 
-                physiqueAnalysis: physiqueAnalysis
+                physiqueAnalysis
             };
         });
 
@@ -397,11 +397,14 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
         return { success: true, conversationId: null };
     }
     
+    // For "accepted" response
     try {
+        // Step 1: Read the existing group chat document *before* the transaction.
         const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'), limit(1));
         const groupChatSnapshot = await getDocs(groupChatQuery);
         const existingGroupChatDoc = groupChatSnapshot.docs.length > 0 ? groupChatSnapshot.docs[0] : null;
 
+        // Step 2: Run all writes in a transaction.
         const newConversationId = await runTransaction(db, async (transaction) => {
             const inviteRef = doc(db, 'invites', inviteId);
             const playerRef = doc(db, 'users', playerId);
@@ -410,6 +413,7 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
             transaction.update(playerRef, { status: 'recruited', coachId: coachId });
             transaction.update(inviteRef, { status: 'accepted' });
             
+            // Create the direct message conversation
             const newConvoRef = doc(collection(db, 'conversations'));
             transaction.set(newConvoRef, {
                 participantIds: [playerId, coachId],
@@ -417,11 +421,14 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 type: 'direct',
             });
 
+            // Handle the group chat
             if (existingGroupChatDoc) {
+                // If the group chat exists, just add the new player to it.
                 transaction.update(existingGroupChatDoc.ref, {
                     participantIds: arrayUnion(playerId)
                 });
             } else {
+                // If it's the first player, create the group chat.
                 const coachSnap = await transaction.get(coachRef);
                 if (!coachSnap.exists()) {
                     throw new Error("Coach does not exist!");

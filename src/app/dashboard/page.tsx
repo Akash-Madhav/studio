@@ -133,7 +133,6 @@ function DashboardContent() {
       return;
     }
 
-    // Listener for current user data
     const userRef = doc(db, "users", initialUserId);
     const unsubscribeUser = onSnapshot(userRef, (doc) => {
         if (doc.exists()) {
@@ -145,7 +144,6 @@ function DashboardContent() {
         setIsLoading(false);
     });
     
-    // Listener for workout history for players
     let unsubscribeWorkouts = () => {};
     if (role === 'player') {
         setIsLoadingHistory(true);
@@ -154,11 +152,7 @@ function DashboardContent() {
             const history = snapshot.docs.map(doc => {
                 const data = doc.data();
                 const createdAt = data.createdAt as Timestamp;
-                return {
-                    ...data,
-                    _id: doc.id,
-                    createdAt: createdAt ? createdAt.toDate() : new Date(),
-                } as Workout;
+                return { ...data, _id: doc.id, createdAt: createdAt ? createdAt.toDate() : new Date() } as Workout;
             });
             setWorkoutHistory(history);
             setIsLoadingHistory(false);
@@ -202,44 +196,17 @@ function DashboardContent() {
     }
     setIsLoadingCoachData(true);
 
-    // Listener for Recruited Players
     const recruitedQuery = query(collection(db, 'users'), where('coachId', '==', initialUserId), where('status', '==', 'recruited'));
     const recruitedUnsubscribe = onSnapshot(recruitedQuery, async (snapshot) => {
         const recruitedDataPromises = snapshot.docs.map(async (d) => {
             const player: any = { id: d.id, ...d.data() };
-            
             const workoutsCollection = collection(db, 'users', d.id, 'workouts');
             const q = query(workoutsCollection, orderBy("createdAt", "desc"), limit(3));
             const querySnapshot = await getDocs(q);
-            
             const recentWorkouts = querySnapshot.docs.map(doc => ({ ...doc.data(), createdAt: (doc.data().createdAt as Timestamp).toDate() }));
-
-            let performanceData = 'No recent workouts logged.';
-            if (recentWorkouts.length > 0) {
-                 performanceData = recentWorkouts
-                    .map(w => {
-                        const parts = [w.exercise];
-                        if (w.reps) parts.push(`${w.reps} reps`);
-                        if (w.weight) parts.push(`@ ${w.weight}kg`);
-                        if (w.distance) parts.push(`${w.distance}km`);
-                        if (w.time) parts.push(`in ${w.time}`);
-                        return parts.join(' ');
-                    }).join('; ');
-            }
-            
-            const profileParts = [];
-            if (player.experience) profileParts.push(player.experience);
-            if (player.goals) profileParts.push(player.goals);
-            const userProfile = profileParts.length > 0 ? profileParts.join(', ') : 'No profile information available.';
-
-            return {
-                id: d.id,
-                name: player.name,
-                userProfile: userProfile,
-                performanceData: performanceData,
-                status: player.status,
-                coachId: player.coachId
-            };
+            let performanceData = recentWorkouts.length > 0 ? recentWorkouts.map(w => `${w.exercise} ${w.reps ? `${w.reps} reps` : ''} ${w.weight ? `@ ${w.weight}kg` : ''}`).join('; ') : 'No recent workouts logged.';
+            const userProfile = [player.experience, player.goals].filter(Boolean).join(', ') || 'No profile information available.';
+            return { id: d.id, name: player.name, userProfile, performanceData, status: player.status, coachId: player.coachId };
         });
         const recruitedData = await Promise.all(recruitedDataPromises);
         setRecruitedPlayers(recruitedData);
@@ -250,28 +217,20 @@ function DashboardContent() {
         setIsLoadingCoachData(false);
     });
 
-    // Listener for Pending Invites
     const invitesQuery = query(collection(db, 'invites'), where('coachId', '==', initialUserId), where('status', '==', 'pending'));
     const invitesUnsubscribe = onSnapshot(invitesQuery, async (snapshot) => {
-        const playerIds = snapshot.docs.map(doc => doc.data().playerId);
-        
+        const playerIds = snapshot.docs.map(doc => doc.data().playerId).filter(Boolean);
         if (playerIds.length === 0) {
             setPendingInvites([]);
             return;
         }
-
         const usersRes = await getUsersByIds(playerIds);
         if (usersRes.success) {
             const invitesData = snapshot.docs.map(d => {
                 const data = d.data();
                 const player = usersRes.users[data.playerId];
                 const sentAt = data.sentAt as Timestamp;
-                return {
-                    inviteId: d.id,
-                    playerId: data.playerId,
-                    playerName: player?.name || 'Unknown',
-                    sentAt: sentAt ? sentAt.toDate().toISOString() : new Date().toISOString(),
-                };
+                return { inviteId: d.id, playerId: data.playerId, playerName: player?.name || 'Unknown', sentAt: sentAt ? sentAt.toDate().toISOString() : new Date().toISOString() };
             });
             setPendingInvites(invitesData);
         }
