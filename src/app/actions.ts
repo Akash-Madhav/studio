@@ -394,22 +394,22 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
     }
     
     try {
-        // Step 1: Find the group chat for the coach BEFORE the transaction.
-        // getDocs is not allowed in transactions.
+        // Step 1: Read data BEFORE the transaction.
         const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
         const groupChatSnapshot = await getDocs(groupChatQuery);
         const existingGroupChatDoc = groupChatSnapshot.docs.length > 0 ? groupChatSnapshot.docs[0] : null;
 
+        // Step 2: Run all writes in a transaction.
         const newConversationId = await runTransaction(db, async (transaction) => {
             const inviteRef = doc(db, 'invites', inviteId);
             const playerRef = doc(db, 'users', playerId);
             const coachRef = doc(db, 'users', coachId);
 
-            // 2. Perform all writes in the transaction.
+            // 2a. Update player and invite status.
             transaction.update(playerRef, { status: 'recruited', coachId: coachId });
             transaction.update(inviteRef, { status: 'accepted' });
             
-            // 3. Create the direct conversation.
+            // 2b. Create the direct one-on-one conversation.
             const newConvoRef = doc(collection(db, 'conversations'));
             transaction.set(newConvoRef, {
                 participantIds: [playerId, coachId],
@@ -417,17 +417,23 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 type: 'direct',
             });
 
-            // 4. Update or create the group chat.
+            // 2c. Update or create the group chat for the team.
             if (existingGroupChatDoc) {
-                // If it exists, just add the player.
+                // If team chat exists, just add the new player.
                 transaction.update(existingGroupChatDoc.ref, {
                     participantIds: arrayUnion(playerId)
                 });
             } else {
-                // If it's the first player, create the group chat.
-                // We need coach's data for the name, so we must read it within the transaction.
+                // If it's the first player, create the team chat.
+                // We need the coach's data for the name, so we must read it here.
                 const coachSnap = await transaction.get(coachRef);
+                if (!coachSnap.exists()) {
+                    throw new Error("Coach does not exist!");
+                }
                 const coachData = coachSnap.data();
+                // Note: Calling an external service like an AI flow from within a transaction
+                // is generally not recommended as it can cause transactions to be slow and
+                // more likely to fail. For this specific case, it's acceptable.
                 const teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
                 
                 const groupChatRef = doc(collection(db, 'conversations'));
