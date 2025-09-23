@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { googleAI } from '@genkit-ai/googleai';
 
 const PlayerScoutingInputSchema = z.object({
   sport: z.string().describe('The sport the coach is scouting for.'),
@@ -50,6 +51,7 @@ const prompt = ai.definePrompt({
   name: 'playerScoutingPrompt',
   input: {schema: PlayerScoutingInputSchema},
   output: {schema: PlayerScoutingOutputSchema},
+  model: googleAI.model('gemini-1.5-flash'),
   prompt: `You are an expert sports scout with deep knowledge of athletic performance and sport-specific physiologies. Your task is to analyze potential athletes for a {{{sport}}} team based on their workout history, profile, and physique analysis.
 
 **Analysis Protocol:**
