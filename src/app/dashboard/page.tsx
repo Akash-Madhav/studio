@@ -377,7 +377,7 @@ function DashboardContent() {
           </div>
           
           <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-              <TabsList className={`grid w-full h-auto ${isCoach ? 'grid-cols-4' : 'grid-cols-5 sm:grid-cols-11'}`}>
+              <TabsList className="bg-transparent p-0 flex flex-wrap gap-2 justify-start h-auto">
                 {isCoach ? (
                     <>
                         <TabsTrigger value="team"><Users className="mr-2"/>Team</TabsTrigger>
@@ -487,5 +487,3 @@ export default function Dashboard() {
       </Suspense>
     );
   }
-
-    
