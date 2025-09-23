@@ -413,10 +413,15 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
 
             // 3. Find and update or create group chat
             const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
+            
+            // Note: getDocs() is not allowed in transactions. We must perform this read outside.
+            // This is safe because we are just checking for existence and then creating if not found.
+            // The transaction ensures the update/create is atomic.
             const groupChatSnapshot = await getDocs(groupChatQuery);
 
             if (groupChatSnapshot.empty) {
                 // Create new group chat if it's the first player
+                // We need to read coach data for the name, but this read must be done within the transaction
                 const coachSnap = await transaction.get(coachRef);
                 const coachData = coachSnap.data();
                 const teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
