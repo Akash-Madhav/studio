@@ -1,14 +1,12 @@
 
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  BarChart3,
   BrainCircuit,
   Dumbbell,
-  FileText,
   Search,
   Target,
   History,
@@ -19,12 +17,11 @@ import {
   UsersRound,
   Scan,
   Bot,
-  ScrollText,
   MoreVertical,
   Home as HomeIcon,
   LineChart,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,7 +31,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AiInsights from "@/components/features/ai-insights";
 import WorkoutAnalysis from "@/components/features/workout-analysis";
 import PersonalizedRecommendations from "@/components/features/personalized-recommendations";
@@ -51,11 +47,10 @@ import { getAllPlayers, getUsersByIds } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
-import { onSnapshot, collection, query, where, doc, getDoc, Timestamp, getDocs, orderBy, limit } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, doc, Timestamp, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import PhysiqueRater from '@/components/features/physique-rater';
 import PhysiqueHistory from '@/components/features/physique-history';
-import HomeWorkoutLog from '@/components/features/home-workout-log';
 import CoachAnalytics from '@/components/features/coach-analytics';
 
 
@@ -81,7 +76,7 @@ interface Workout {
     createdAt: Date;
 }
 
-function HomeDashboard({ userId, workouts, isLoadingHistory }: { userId: string, workouts: Workout[], isLoadingHistory: boolean }) {
+function HomeDashboard({ workouts, isLoadingHistory }: { workouts: Workout[], isLoadingHistory: boolean }) {
   return (
     <div className="space-y-8">
         <ProgressVisualization 
@@ -92,6 +87,26 @@ function HomeDashboard({ userId, workouts, isLoadingHistory }: { userId: string,
   )
 }
 
+const coachTabs = [
+  { value: 'team', label: 'Team', icon: Users },
+  { value: 'analytics', label: 'Analytics', icon: LineChart },
+  { value: 'scouting', label: 'Scouting', icon: UserPlus },
+  { value: 'messages', label: 'Messages', icon: MessageSquare },
+  { value: 'community', label: 'Community', icon: UsersRound },
+];
+
+const playerTabs = [
+    { value: 'home', label: 'Home', icon: HomeIcon },
+    { value: 'history', label: 'History', icon: History },
+    { value: 'analysis', label: 'Analysis', icon: Bot },
+    { value: 'ai-insights', label: 'Insights', icon: BrainCircuit },
+    { value: 'recommendations', label: 'Recs', icon: Target },
+    { value: 'physique', label: 'Physique', icon: Scan },
+    { value: 'find-sport', label: 'Find Sport', icon: Search },
+    { value: 'invites', label: 'Invites', icon: Mail },
+    { value: 'messages', label: 'Messages', icon: MessageSquare },
+    { value: 'community', label: 'Community', icon: UsersRound },
+];
 
 function DashboardContent() {
   const router = useRouter();
@@ -104,8 +119,9 @@ function DashboardContent() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  const initialTab = searchParams.get('tab') || (isCoach ? 'team' : 'home');
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const activeTab = useMemo(() => {
+    return searchParams.get('tab') || (isCoach ? 'team' : 'home');
+  }, [searchParams, isCoach]);
 
   const [players, setPlayers] = useState<any[]>([]);
   const [recruitedPlayers, setRecruitedPlayers] = useState<any[]>([]);
@@ -245,13 +261,6 @@ function DashboardContent() {
     }
   }, [isCoach, initialUserId, toast]);
 
-
-  useEffect(() => {
-    const tab = searchParams.get('tab') || (isCoach ? 'team' : 'home');
-    setActiveTab(tab);
-  }, [searchParams, isCoach]);
-
-
   if (isLoading) {
     return (
         <div className="flex flex-col min-h-screen w-full">
@@ -297,30 +306,63 @@ function DashboardContent() {
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.set('tab', tab);
     router.push(newUrl.href, { scroll: false });
-    setActiveTab(tab);
   };
-
-  const coachTabs = [
-    { value: 'team', label: 'Team', icon: Users },
-    { value: 'analytics', label: 'Analytics', icon: LineChart },
-    { value: 'scouting', label: 'Scouting', icon: UserPlus },
-    { value: 'messages', label: 'Messages', icon: MessageSquare },
-    { value: 'community', label: 'Community', icon: UsersRound },
-  ];
-  const playerTabs = [
-      { value: 'home', label: 'Home', icon: HomeIcon },
-      { value: 'history', label: 'History', icon: History },
-      { value: 'analysis', label: 'Analysis', icon: Bot },
-      { value: 'ai-insights', label: 'Insights', icon: BrainCircuit },
-      { value: 'recommendations', label: 'Recs', icon: Target },
-      { value: 'physique', label: 'Physique', icon: Scan },
-      { value: 'find-sport', label: 'Find Sport', icon: Search },
-      { value: 'invites', label: 'Invites', icon: Mail },
-      { value: 'messages', label: 'Messages', icon: MessageSquare },
-      { value: 'community', label: 'Community', icon: UsersRound },
-  ];
-
+  
   const menuItems = isCoach ? coachTabs : playerTabs;
+  
+  const renderContent = () => {
+    if (isCoach) {
+      switch (activeTab) {
+        case 'team':
+          return (
+            <div className="mt-4 space-y-8">
+              <PlayerStats players={recruitedPlayers} isLoading={isLoadingCoachData} />
+              <PendingInvites invites={pendingInvites} isLoading={isLoadingCoachData} />
+            </div>
+          );
+        case 'analytics':
+          return <CoachAnalytics players={recruitedPlayers} isLoading={isLoadingCoachData} />;
+        case 'scouting':
+          return <PlayerScouting players={players} isLoading={isLoadingCoachData} onInviteSent={fetchAllPlayersForScouting} />;
+        case 'messages':
+          return <Messages userId={userId} />;
+        case 'community':
+          return <CommunityHub userId={userId} userName={userName} />;
+        default:
+          return null;
+      }
+    } else {
+       switch (activeTab) {
+        case 'home':
+          return <HomeDashboard workouts={workoutHistory} isLoadingHistory={isLoadingHistory} />;
+        case 'history':
+          return <WorkoutHistory workouts={workoutHistory} isLoading={isLoadingHistory} user={currentUser}/>;
+        case 'analysis':
+          return <WorkoutAnalysis userId={userId} />;
+        case 'ai-insights':
+          return <AiInsights userId={userId} />;
+        case 'recommendations':
+          return <PersonalizedRecommendations userId={userId} workouts={workoutHistory} isLoading={isLoadingHistory} />;
+        case 'physique':
+            return (
+                <div className="grid lg:grid-cols-2 gap-8">
+                    <PhysiqueRater userId={userId}/>
+                    <PhysiqueHistory userId={userId} />
+                </div>
+            );
+        case 'find-sport':
+            return <SportMatch userId={userId} workouts={workoutHistory} isLoading={isLoadingHistory} />;
+        case 'invites':
+            return <PlayerInvites userId={userId} />;
+        case 'messages':
+          return <Messages userId={userId} />;
+        case 'community':
+          return <CommunityHub userId={userId} userName={userName} />;
+        default:
+          return null;
+       }
+    }
+  }
 
 
   return (
@@ -389,84 +431,10 @@ function DashboardContent() {
             </p>
           </div>
           
-          <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-              {isCoach ? (
-                  <>
-                      <TabsContent value="team" className="mt-4 space-y-8">
-                          <PlayerStats players={recruitedPlayers} isLoading={isLoadingCoachData} />
-                          <PendingInvites invites={pendingInvites} isLoading={isLoadingCoachData} />
-                      </TabsContent>
-                       <TabsContent value="analytics" className="mt-4">
-                          <CoachAnalytics players={recruitedPlayers} isLoading={isLoadingCoachData} />
-                      </TabsContent>
-                      <TabsContent value="scouting" className="mt-4">
-                          <PlayerScouting 
-                              players={players} 
-                              isLoading={isLoadingCoachData} 
-                              onInviteSent={fetchAllPlayersForScouting} 
-                          />
-                      </TabsContent>
-                      <TabsContent value="messages" className="mt-4">
-                          <Messages userId={userId} />
-                      </TabsContent>
-                      <TabsContent value="community" className="mt-4">
-                          <CommunityHub userId={userId} userName={userName} />
-                      </TabsContent>
-                  </>
-              ) : (
-                  <>
-                      <TabsContent value="home" className="mt-4">
-                        <HomeDashboard 
-                          userId={userId}
-                          workouts={workoutHistory} 
-                          isLoadingHistory={isLoadingHistory} 
-                        />
-                      </TabsContent>
-                      <TabsContent value="analysis" className="mt-4">
-                          <WorkoutAnalysis userId={userId} />
-                      </TabsContent>
-                      <TabsContent value="history" className="mt-4">
-                          <WorkoutHistory 
-                            workouts={workoutHistory} 
-                            isLoading={isLoadingHistory}
-                            user={currentUser}
-                          />
-                      </TabsContent>
-                      <TabsContent value="ai-insights" className="mt-4">
-                          <AiInsights userId={userId} />
-                      </TabsContent>
-                      <TabsContent value="recommendations" className="mt-4">
-                          <PersonalizedRecommendations 
-                            userId={userId} 
-                            workouts={workoutHistory}
-                            isLoading={isLoadingHistory}
-                          />
-                      </TabsContent>
-                      <TabsContent value="physique" className="mt-4">
-                          <div className="grid lg:grid-cols-2 gap-8">
-                              <PhysiqueRater userId={userId}/>
-                              <PhysiqueHistory userId={userId} />
-                          </div>
-                      </TabsContent>
-                      <TabsContent value="find-sport" className="mt-4">
-                          <SportMatch 
-                            userId={userId} 
-                            workouts={workoutHistory}
-                            isLoading={isLoadingHistory}
-                          />
-                      </TabsContent>
-                      <TabsContent value="invites" className="mt-4">
-                          <PlayerInvites userId={userId} />
-                      </TabsContent>
-                      <TabsContent value="messages" className="mt-4">
-                          <Messages userId={userId} />
-                      </TabsContent>
-                      <TabsContent value="community" className="mt-4">
-                          <CommunityHub userId={userId} userName={userName} />
-                      </TabsContent>
-                  </>
-              )}
-            </Tabs>
+          <div className="mt-4">
+            {renderContent()}
+          </div>
+
         </main>
       </div>
     </Suspense>
@@ -480,5 +448,3 @@ export default function Dashboard() {
       </Suspense>
     );
   }
-
-    
