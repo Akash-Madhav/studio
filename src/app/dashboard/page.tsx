@@ -21,6 +21,7 @@ import {
   Bot,
   ScrollText,
   ChevronDown,
+  Home as HomeIcon,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ import { db } from '@/lib/firebase';
 import PhysiqueRater from '@/components/features/physique-rater';
 import PhysiqueHistory from '@/components/features/physique-history';
 import WorkoutAccomplishmentSummary from '@/components/features/workout-accomplishment-summary';
+import HomeWorkoutLog from '@/components/features/home-workout-log';
 
 
 interface User {
@@ -78,6 +80,30 @@ interface Workout {
     createdAt: Date;
 }
 
+function HomeDashboard({ userId, workouts, isLoadingHistory }: { userId: string, workouts: Workout[], isLoadingHistory: boolean }) {
+  return (
+    <div className="space-y-8">
+      <ProgressVisualization 
+        workouts={workouts} 
+        isLoading={isLoadingHistory} 
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1">
+          <HomeWorkoutLog userId={userId} onWorkoutLogged={() => {}}/>
+        </div>
+        <div className="lg:col-span-2">
+           <WorkoutAccomplishmentSummary 
+              userId={userId} 
+              workouts={workouts}
+              isLoading={isLoadingHistory}
+            />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -89,7 +115,7 @@ function DashboardContent() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  const initialTab = searchParams.get('tab') || (isCoach ? 'team' : 'dashboard');
+  const initialTab = searchParams.get('tab') || (isCoach ? 'team' : 'home');
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const [players, setPlayers] = useState<any[]>([]);
@@ -262,7 +288,7 @@ function DashboardContent() {
 
 
   useEffect(() => {
-    const tab = searchParams.get('tab') || (isCoach ? 'team' : 'dashboard');
+    const tab = searchParams.get('tab') || (isCoach ? 'team' : 'home');
     setActiveTab(tab);
   }, [searchParams, isCoach]);
 
@@ -316,14 +342,15 @@ function DashboardContent() {
   };
 
   const coachTabs = [
+    { value: 'team', label: 'Team', icon: Users },
     { value: 'scouting', label: 'Scouting', icon: UserPlus },
     { value: 'messages', label: 'Messages', icon: MessageSquare },
     { value: 'community', label: 'Community', icon: UsersRound },
   ];
   const playerTabs = [
+      { value: 'home', label: 'Home', icon: HomeIcon },
       { value: 'history', label: 'History', icon: History },
       { value: 'analysis', label: 'Analysis', icon: Bot },
-      { value: 'summary', label: 'Summary', icon: ScrollText },
       { value: 'ai-insights', label: 'Insights', icon: BrainCircuit },
       { value: 'recommendations', label: 'Recs', icon: Target },
       { value: 'physique', label: 'Physique', icon: Scan },
@@ -424,10 +451,11 @@ function DashboardContent() {
                   </>
               ) : (
                   <>
-                      <TabsContent value="dashboard" className="mt-4">
-                        <ProgressVisualization 
+                      <TabsContent value="home" className="mt-4">
+                        <HomeDashboard 
+                          userId={userId}
                           workouts={workoutHistory} 
-                          isLoading={isLoadingHistory} 
+                          isLoadingHistory={isLoadingHistory} 
                         />
                       </TabsContent>
                       <TabsContent value="analysis" className="mt-4">
@@ -438,13 +466,6 @@ function DashboardContent() {
                             workouts={workoutHistory} 
                             isLoading={isLoadingHistory}
                             user={currentUser}
-                          />
-                      </TabsContent>
-                      <TabsContent value="summary" className="mt-4">
-                          <WorkoutAccomplishmentSummary 
-                            userId={userId} 
-                            workouts={workoutHistory}
-                            isLoading={isLoadingHistory}
                           />
                       </TabsContent>
                       <TabsContent value="ai-insights" className="mt-4">

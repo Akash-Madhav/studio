@@ -201,8 +201,7 @@ export default function WorkoutAnalysis({ userId }: WorkoutAnalysisProps) {
 
   return (
     <div className="grid lg:grid-cols-2 gap-8">
-      <ManualWorkoutForm userId={userId} onWorkoutLogged={() => {}} />
-      <Card>
+       <Card>
         <CardHeader>
           <CardTitle>AI-Powered Video Analysis</CardTitle>
           <CardDescription>
@@ -327,6 +326,7 @@ export default function WorkoutAnalysis({ userId }: WorkoutAnalysisProps) {
           )}
         </CardContent>
       </Card>
+      <ManualWorkoutForm userId={userId} onWorkoutLogged={() => {}} />
     </div>
   );
 }

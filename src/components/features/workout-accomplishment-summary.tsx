@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { generateWorkoutSummary } from '@/ai/flows/workout-summary-flow';
 import { getPhysiqueHistory } from '@/app/actions';
@@ -49,6 +49,14 @@ export default function WorkoutAccomplishmentSummary({ userId, workouts, isLoadi
     const [summary, setSummary] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
 
+    useEffect(() => {
+      // Auto-generate summary on initial load if there are workouts
+      if (!isLoadingWorkouts && workouts.length > 0) {
+        handleGenerateSummary();
+      }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoadingWorkouts, workouts]);
+
     const handleGenerateSummary = async () => {
         setIsGenerating(true);
         setSummary(null);
@@ -91,54 +99,35 @@ export default function WorkoutAccomplishmentSummary({ userId, workouts, isLoadi
         }
     };
     
-    const handleClearSummary = () => {
-        setSummary(null);
-    }
-
     return (
-        <Card className="max-w-4xl mx-auto">
+        <Card className="h-full flex flex-col">
             <CardHeader>
                 <CardTitle>AI-Powered Progress Summary</CardTitle>
                 <CardDescription>
-                    Get a motivational summary of your recent accomplishments based on your workout and physique history.
+                    A motivational summary of your recent accomplishments.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-                {summary ? (
-                     <div className="p-4 bg-muted/50 rounded-lg space-y-4">
-                        <h3 className="font-semibold text-primary">Your Summary</h3>
+            <CardContent className="flex-grow">
+                 {isGenerating ? (
+                    <div className="flex justify-center items-center h-full">
+                        <Loader2 className="animate-spin h-8 w-8 text-primary" />
+                    </div>
+                ) : summary ? (
+                     <div className="p-4 bg-muted/50 rounded-lg space-y-4 h-full">
                         <p className="text-sm text-muted-foreground whitespace-pre-line">{summary}</p>
                     </div>
                 ) : (
-                    <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Data to be Analyzed</h4>
-                        <ScrollArea className="h-48 p-3 rounded-md border bg-muted/50">
-                            {isLoadingWorkouts ? (
-                                <div className="flex justify-center items-center h-full">
-                                    <Loader2 className="animate-spin" />
-                                </div>
-                            ) : (
-                                <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans">
-                                    {formatWorkoutHistory(workouts)}
-                                </pre>
-                            )}
-                        </ScrollArea>
+                    <div className="text-center text-muted-foreground py-12">
+                        Log a workout to generate your first summary.
                     </div>
                 )}
             </CardContent>
             <CardFooter>
-                 {summary ? (
-                     <Button onClick={handleClearSummary} variant="outline" className="w-full">
-                        <RefreshCcw className="mr-2"/>
-                        Generate New Summary
-                    </Button>
-                 ) : (
-                    <Button onClick={handleGenerateSummary} disabled={isGenerating || isLoadingWorkouts} className="w-full">
-                        {(isGenerating || isLoadingWorkouts) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {isLoadingWorkouts ? "Loading Data..." : isGenerating ? "Generating..." : "Generate My Summary"}
-                        <Sparkles className="ml-2"/>
-                    </Button>
-                 )}
+                 <Button onClick={handleGenerateSummary} disabled={isGenerating || isLoadingWorkouts} className="w-full">
+                    {(isGenerating || isLoadingWorkouts) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isLoadingWorkouts ? "Loading Data..." : isGenerating ? "Generating..." : "Regenerate Summary"}
+                    <Sparkles className="ml-2"/>
+                </Button>
             </CardFooter>
         </Card>
     );
