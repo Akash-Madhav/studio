@@ -20,6 +20,7 @@ import {
   Scan,
   Bot,
   ScrollText,
+  ChevronDown,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -314,19 +315,26 @@ function DashboardContent() {
     setActiveTab(tab);
   };
 
-  const commonPlayerTabs = (
-      <>
-        <TabsTrigger value="dashboard"><BarChart3 className="mr-2" />Dashboard</TabsTrigger>
-        <TabsTrigger value="history"><History className="mr-2" />History</TabsTrigger>
-        <TabsTrigger value="analysis"><Bot className="mr-2" />Analysis</TabsTrigger>
-        <TabsTrigger value="summary"><ScrollText className="mr-2" />Summary</TabsTrigger>
-        <TabsTrigger value="ai-insights"><BrainCircuit className="mr-2" />Insights</TabsTrigger>
-        <TabsTrigger value="recommendations"><Target className="mr-2" />Recs</TabsTrigger>
-        <TabsTrigger value="physique"><Scan className="mr-2" />Physique</TabsTrigger>
-        <TabsTrigger value="find-sport"><Search className="mr-2" />Find Sport</TabsTrigger>
-        <TabsTrigger value="invites"><Mail className="mr-2" />Invites</TabsTrigger>
-      </>
-  );
+  const coachTabs = [
+    { value: 'scouting', label: 'Scouting', icon: UserPlus },
+    { value: 'messages', label: 'Messages', icon: MessageSquare },
+    { value: 'community', label: 'Community', icon: UsersRound },
+  ];
+  const playerTabs = [
+      { value: 'history', label: 'History', icon: History },
+      { value: 'analysis', label: 'Analysis', icon: Bot },
+      { value: 'summary', label: 'Summary', icon: ScrollText },
+      { value: 'ai-insights', label: 'Insights', icon: BrainCircuit },
+      { value: 'recommendations', label: 'Recs', icon: Target },
+      { value: 'physique', label: 'Physique', icon: Scan },
+      { value: 'find-sport', label: 'Find Sport', icon: Search },
+      { value: 'invites', label: 'Invites', icon: Mail },
+      { value: 'messages', label: 'Messages', icon: MessageSquare },
+      { value: 'community', label: 'Community', icon: UsersRound },
+  ];
+
+  const menuItems = isCoach ? coachTabs : playerTabs;
+
 
   return (
     <Suspense fallback={<div className="flex h-screen w-full items-center justify-center">Loading...</div>}>
@@ -340,6 +348,23 @@ function DashboardContent() {
             <div className="ml-auto flex-1 sm:flex-initial"></div>
             <div className="flex items-center gap-3">
               <ThemeToggle />
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                        Features <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    {menuItems.map(item => (
+                        <DropdownMenuItem key={item.value} onSelect={() => updateUrl(item.value)}>
+                            <item.icon className="mr-2 h-4 w-4" />
+                            <span>{item.label}</span>
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <span className="hidden sm:inline-block text-sm font-medium text-right">{displayName}</span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -377,23 +402,6 @@ function DashboardContent() {
           </div>
           
           <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-              <TabsList className="bg-transparent p-0 flex flex-wrap gap-2 justify-start h-auto">
-                {isCoach ? (
-                    <>
-                        <TabsTrigger value="team"><Users className="mr-2"/>Team</TabsTrigger>
-                        <TabsTrigger value="scouting"><UserPlus className="mr-2"/>Scouting</TabsTrigger>
-                        <TabsTrigger value="messages"><MessageSquare className="mr-2"/>Messages</TabsTrigger>
-                        <TabsTrigger value="community"><UsersRound className="mr-2"/>Community</TabsTrigger>
-                    </>
-                ) : (
-                    <>
-                        {commonPlayerTabs}
-                        <TabsTrigger value="messages"><MessageSquare className="mr-2"/>Messages</TabsTrigger>
-                        <TabsTrigger value="community"><UsersRound className="mr-2"/>Community</TabsTrigger>
-                    </>
-                )}
-              </TabsList>
-
               {isCoach ? (
                   <>
                       <TabsContent value="team" className="mt-4 space-y-8">
