@@ -412,11 +412,11 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
             });
 
             // 3. Find and update or create group chat
-            const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'), limit(1));
+            const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
             const groupChatSnapshot = await getDocs(groupChatQuery);
 
             if (groupChatSnapshot.empty) {
-                // Create new group chat
+                // Create new group chat if it's the first player
                 const coachSnap = await transaction.get(coachRef);
                 const coachData = coachSnap.data();
                 const teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
