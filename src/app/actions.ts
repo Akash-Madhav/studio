@@ -394,16 +394,22 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
     }
     
     try {
+        // Step 1: Find the group chat for the coach BEFORE the transaction.
+        // getDocs is not allowed in transactions.
+        const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
+        const groupChatSnapshot = await getDocs(groupChatQuery);
+        const existingGroupChatDoc = groupChatSnapshot.docs.length > 0 ? groupChatSnapshot.docs[0] : null;
+
         const newConversationId = await runTransaction(db, async (transaction) => {
             const inviteRef = doc(db, 'invites', inviteId);
             const playerRef = doc(db, 'users', playerId);
             const coachRef = doc(db, 'users', coachId);
 
-            // 1. Update player and invite status
+            // 2. Perform all writes in the transaction.
             transaction.update(playerRef, { status: 'recruited', coachId: coachId });
             transaction.update(inviteRef, { status: 'accepted' });
             
-            // 2. Create direct conversation
+            // 3. Create the direct conversation.
             const newConvoRef = doc(collection(db, 'conversations'));
             transaction.set(newConvoRef, {
                 participantIds: [playerId, coachId],
@@ -411,17 +417,15 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                 type: 'direct',
             });
 
-            // 3. Find and update or create group chat
-            const groupChatQuery = query(collection(db, 'conversations'), where('coachId', '==', coachId), where('type', '==', 'group'));
-            
-            // Note: getDocs() is not allowed in transactions. We must perform this read outside.
-            // This is safe because we are just checking for existence and then creating if not found.
-            // The transaction ensures the update/create is atomic.
-            const groupChatSnapshot = await getDocs(groupChatQuery);
-
-            if (groupChatSnapshot.empty) {
-                // Create new group chat if it's the first player
-                // We need to read coach data for the name, but this read must be done within the transaction
+            // 4. Update or create the group chat.
+            if (existingGroupChatDoc) {
+                // If it exists, just add the player.
+                transaction.update(existingGroupChatDoc.ref, {
+                    participantIds: arrayUnion(playerId)
+                });
+            } else {
+                // If it's the first player, create the group chat.
+                // We need coach's data for the name, so we must read it within the transaction.
                 const coachSnap = await transaction.get(coachRef);
                 const coachData = coachSnap.data();
                 const teamName = coachData?.name ? await generateTeamName(coachData.name) : 'The Team';
@@ -433,12 +437,6 @@ export async function respondToInvite({ inviteId, response, playerId, coachId }:
                     participantIds: [playerId, coachId],
                     createdAt: serverTimestamp(),
                     type: 'group',
-                });
-            } else {
-                // Add player to existing group chat
-                const groupChatDoc = groupChatSnapshot.docs[0];
-                transaction.update(groupChatDoc.ref, {
-                    participantIds: arrayUnion(playerId)
                 });
             }
 
