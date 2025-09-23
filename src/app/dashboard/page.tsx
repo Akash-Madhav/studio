@@ -1,14 +1,12 @@
 
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  BarChart3,
   BrainCircuit,
   Dumbbell,
-  FileText,
   Search,
   Target,
   History,
@@ -19,12 +17,11 @@ import {
   UsersRound,
   Scan,
   Bot,
-  ScrollText,
   MoreVertical,
   Home as HomeIcon,
   LineChart,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,7 +31,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AiInsights from "@/components/features/ai-insights";
 import WorkoutAnalysis from "@/components/features/workout-analysis";
 import PersonalizedRecommendations from "@/components/features/personalized-recommendations";
@@ -47,16 +43,16 @@ import PlayerInvites from '@/components/features/player-invites';
 import Messages from '@/components/features/messages';
 import SportMatch from '@/components/features/sport-match';
 import CommunityHub from '@/components/features/community-hub';
-import { getAllPlayers, getUsersByIds } from '@/app/actions';
+import { getAllPlayers, getPlayersForCoach, getUsersByIds } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
-import { onSnapshot, collection, query, where, doc, getDoc, Timestamp, getDocs, orderBy, limit } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, doc, Timestamp, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import PhysiqueRater from '@/components/features/physique-rater';
 import PhysiqueHistory from '@/components/features/physique-history';
-import HomeWorkoutLog from '@/components/features/home-workout-log';
 import CoachAnalytics from '@/components/features/coach-analytics';
+import WorkoutSummary from '@/components/features/workout-accomplishment-summary';
 
 
 interface User {
@@ -81,9 +77,34 @@ interface Workout {
     createdAt: Date;
 }
 
-function HomeDashboard({ userId, workouts, isLoadingHistory }: { userId: string, workouts: Workout[], isLoadingHistory: boolean }) {
+interface PhysiqueAnalysis {
+    id: string;
+    summary: string;
+    rating: { score: number; justification: string };
+    createdAt: Date;
+}
+
+function HomeDashboard({ 
+    userId, 
+    workouts, 
+    isLoadingHistory, 
+    physiqueHistory, 
+    isLoadingPhysique 
+}: { 
+    userId: string, 
+    workouts: Workout[], 
+    isLoadingHistory: boolean,
+    physiqueHistory: PhysiqueAnalysis[],
+    isLoadingPhysique: boolean,
+}) {
   return (
     <div className="space-y-8">
+        <WorkoutSummary 
+            userId={userId} 
+            workouts={workouts} 
+            physiqueHistory={physiqueHistory}
+            isLoading={isLoadingHistory || isLoadingPhysique}
+        />
         <ProgressVisualization 
             workouts={workouts} 
             isLoading={isLoadingHistory} 
@@ -92,6 +113,26 @@ function HomeDashboard({ userId, workouts, isLoadingHistory }: { userId: string,
   )
 }
 
+const coachTabs = [
+  { value: 'team', label: 'Team', icon: Users },
+  { value: 'analytics', label: 'Analytics', icon: LineChart },
+  { value: 'scouting', label: 'Scouting', icon: UserPlus },
+  { value: 'messages', label: 'Messages', icon: MessageSquare },
+  { value: 'community', label: 'Community', icon: UsersRound },
+];
+
+const playerTabs = [
+    { value: 'home', label: 'Home', icon: HomeIcon },
+    { value: 'history', label: 'History', icon: History },
+    { value: 'analysis', label: 'Analysis', icon: Bot },
+    { value: 'ai-insights', label: 'Insights', icon: BrainCircuit },
+    { value: 'recommendations', label: 'Recs', icon: Target },
+    { value: 'physique', label: 'Physique', icon: Scan },
+    { value: 'find-sport', label: 'Find Sport', icon: Search },
+    { value: 'invites', label: 'Invites', icon: Mail },
+    { value: 'messages', label: 'Messages', icon: MessageSquare },
+    { value: 'community', label: 'Community', icon: UsersRound },
+];
 
 function DashboardContent() {
   const router = useRouter();
@@ -104,8 +145,9 @@ function DashboardContent() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  const initialTab = searchParams.get('tab') || (isCoach ? 'team' : 'home');
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const activeTab = useMemo(() => {
+    return searchParams.get('tab') || (isCoach ? 'team' : 'home');
+  }, [searchParams, isCoach]);
 
   const [players, setPlayers] = useState<any[]>([]);
   const [recruitedPlayers, setRecruitedPlayers] = useState<any[]>([]);
@@ -114,6 +156,9 @@ function DashboardContent() {
 
   const [workoutHistory, setWorkoutHistory] = useState<Workout[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(!isCoach);
+  const [physiqueHistory, setPhysiqueHistory] = useState<PhysiqueAnalysis[]>([]);
+  const [isLoadingPhysique, setIsLoadingPhysique] = useState(!isCoach);
+
   
   useEffect(() => {
     if (!initialUserId) {
@@ -134,6 +179,8 @@ function DashboardContent() {
     });
     
     let unsubscribeWorkouts = () => {};
+    let unsubscribePhysique = () => {};
+
     if (role === 'player') {
         setIsLoadingHistory(true);
         const workoutsQuery = query(collection(db, 'users', initialUserId, 'workouts'), orderBy("createdAt", "desc"));
@@ -150,107 +197,54 @@ function DashboardContent() {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load workout history.' });
             setIsLoadingHistory(false);
         });
+
+        setIsLoadingPhysique(true);
+        const physiqueQuery = query(collection(db, 'users', initialUserId, 'physique_analyses'), orderBy("createdAt", "desc"));
+        unsubscribePhysique = onSnapshot(physiqueQuery, (snapshot) => {
+             const history = snapshot.docs.map(doc => {
+                const data = doc.data();
+                const createdAt = data.createdAt as Timestamp;
+                return { ...data, id: doc.id, createdAt: createdAt ? createdAt.toDate() : new Date() } as PhysiqueAnalysis;
+            });
+            setPhysiqueHistory(history);
+            setIsLoadingPhysique(false);
+        }, (error) => {
+            console.error("Error fetching physique history:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load physique history.' });
+            setIsLoadingPhysique(false);
+        });
     }
 
     return () => {
       unsubscribeUser();
       unsubscribeWorkouts();
+      unsubscribePhysique();
     }
   }, [initialUserId, role, toast, router]);
-
-  const fetchAllPlayersForScouting = async () => {
-     if (!isCoach) return;
-     try {
-        const playersRes = await getAllPlayers();
-        if (playersRes.success) {
-            setPlayers(playersRes.players);
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not load players for scouting.'});
-        }
-     } catch(e) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch player data for scouting.' });
-     }
-  };
   
-  useEffect(() => {
-    if (isCoach) {
-      fetchAllPlayersForScouting();
-    }
-  }, [isCoach]);
-
-  useEffect(() => {
-    if (!isCoach || !initialUserId) {
-        setIsLoadingCoachData(false);
-        return;
-    }
+  const fetchCoachData = async () => {
+    if (!isCoach || !initialUserId) return;
     setIsLoadingCoachData(true);
-
-    const recruitedQuery = query(collection(db, 'users'), where('coachId', '==', initialUserId), where('status', '==', 'recruited'));
-    const recruitedUnsubscribe = onSnapshot(recruitedQuery, async (snapshot) => {
-        const recruitedDataPromises = snapshot.docs.map(async (d) => {
-            const player: any = { id: d.id, ...d.data() };
-            const workoutsCollection = collection(db, 'users', d.id, 'workouts');
-            const q = query(workoutsCollection, orderBy("createdAt", "desc"), limit(20));
-            const querySnapshot = await getDocs(q);
-            const recentWorkouts = querySnapshot.docs.map(doc => ({ ...doc.data(), createdAt: (doc.data().createdAt as Timestamp).toDate() }));
-            
-            let performanceData = recentWorkouts.length > 0 ? recentWorkouts.map(w => `${w.exercise} ${w.reps ? `${w.reps} reps` : ''} ${w.weight ? `@ ${w.weight}kg` : ''}`).join('; ') : 'No recent workouts logged.';
-            
-            const physiqueCollection = collection(db, 'users', player.id, 'physique_analyses');
-            const physiqueQuery = query(physiqueCollection, orderBy("createdAt", "desc"), limit(1));
-            const physiqueSnapshot = await getDocs(physiqueQuery);
-            let physiqueAnalysis = "No physique data available.";
-            if (!physiqueSnapshot.empty) {
-                const analysis = physiqueSnapshot.docs[0].data();
-                physiqueAnalysis = `Score: ${analysis.rating.score}/100. Summary: ${analysis.summary}`;
-            }
-
-            const userProfile = [player.experience, player.goals].filter(Boolean).join(', ') || 'No profile information available.';
-            return { id: d.id, name: player.name, userProfile, performanceData, status: player.status, coachId: player.coachId, physiqueAnalysis, recentWorkoutCount: recentWorkouts.length };
-        });
-        const recruitedData = await Promise.all(recruitedDataPromises);
-        setRecruitedPlayers(recruitedData);
-        setIsLoadingCoachData(false);
-    }, (error) => {
-        console.error("Error fetching recruited players:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not load team data.' });
-        setIsLoadingCoachData(false);
-    });
-
-    const invitesQuery = query(collection(db, 'invites'), where('coachId', '==', initialUserId), where('status', '==', 'pending'));
-    const invitesUnsubscribe = onSnapshot(invitesQuery, async (snapshot) => {
-        const playerIds = snapshot.docs.map(doc => doc.data().playerId).filter(Boolean);
-        if (playerIds.length === 0) {
-            setPendingInvites([]);
-            return;
+    try {
+        const res = await getPlayersForCoach(initialUserId);
+        if (res.success) {
+            setPlayers(res.scoutingPlayers || []);
+            setRecruitedPlayers(res.recruitedPlayers || []);
+            setPendingInvites(res.pendingInvites || []);
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: res.message || 'Could not load coach data.' });
         }
-        const usersRes = await getUsersByIds(playerIds);
-        if (usersRes.success) {
-            const invitesData = snapshot.docs.map(d => {
-                const data = d.data();
-                const player = usersRes.users[data.playerId];
-                const sentAt = data.sentAt as Timestamp;
-                return { inviteId: d.id, playerId: data.playerId, playerName: player?.name || 'Unknown', sentAt: sentAt ? sentAt.toDate().toISOString() : new Date().toISOString() };
-            });
-            setPendingInvites(invitesData);
-        }
-    }, (error) => {
-        console.error("Error fetching pending invites:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not load pending invites.' });
-    });
-
-    return () => {
-        recruitedUnsubscribe();
-        invitesUnsubscribe();
+    } catch (e) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch coach data.' });
+    } finally {
+        setIsLoadingCoachData(false);
     }
-  }, [isCoach, initialUserId, toast]);
-
+  };
 
   useEffect(() => {
-    const tab = searchParams.get('tab') || (isCoach ? 'team' : 'home');
-    setActiveTab(tab);
-  }, [searchParams, isCoach]);
-
+      fetchCoachData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCoach, initialUserId]);
 
   if (isLoading) {
     return (
@@ -297,30 +291,69 @@ function DashboardContent() {
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.set('tab', tab);
     router.push(newUrl.href, { scroll: false });
-    setActiveTab(tab);
   };
-
-  const coachTabs = [
-    { value: 'team', label: 'Team', icon: Users },
-    { value: 'analytics', label: 'Analytics', icon: LineChart },
-    { value: 'scouting', label: 'Scouting', icon: UserPlus },
-    { value: 'messages', label: 'Messages', icon: MessageSquare },
-    { value: 'community', label: 'Community', icon: UsersRound },
-  ];
-  const playerTabs = [
-      { value: 'home', label: 'Home', icon: HomeIcon },
-      { value: 'history', label: 'History', icon: History },
-      { value: 'analysis', label: 'Analysis', icon: Bot },
-      { value: 'ai-insights', label: 'Insights', icon: BrainCircuit },
-      { value: 'recommendations', label: 'Recs', icon: Target },
-      { value: 'physique', label: 'Physique', icon: Scan },
-      { value: 'find-sport', label: 'Find Sport', icon: Search },
-      { value: 'invites', label: 'Invites', icon: Mail },
-      { value: 'messages', label: 'Messages', icon: MessageSquare },
-      { value: 'community', label: 'Community', icon: UsersRound },
-  ];
-
+  
   const menuItems = isCoach ? coachTabs : playerTabs;
+  
+  const renderContent = () => {
+    if (isCoach) {
+      switch (activeTab) {
+        case 'team':
+          return (
+            <div className="mt-4 space-y-8">
+              <PlayerStats players={recruitedPlayers} isLoading={isLoadingCoachData} />
+              <PendingInvites invites={pendingInvites} isLoading={isLoadingCoachData} />
+            </div>
+          );
+        case 'analytics':
+          return <CoachAnalytics players={recruitedPlayers} isLoading={isLoadingCoachData} />;
+        case 'scouting':
+          return <PlayerScouting players={players} isLoading={isLoadingCoachData} onInviteSent={fetchCoachData} />;
+        case 'messages':
+          return <Messages userId={userId} />;
+        case 'community':
+          return <CommunityHub userId={userId} userName={userName} />;
+        default:
+          return null;
+      }
+    } else {
+       switch (activeTab) {
+        case 'home':
+          return <HomeDashboard 
+                    userId={userId} 
+                    workouts={workoutHistory} 
+                    isLoadingHistory={isLoadingHistory}
+                    physiqueHistory={physiqueHistory}
+                    isLoadingPhysique={isLoadingPhysique}
+                 />;
+        case 'history':
+          return <WorkoutHistory workouts={workoutHistory} isLoading={isLoadingHistory} user={currentUser}/>;
+        case 'analysis':
+          return <WorkoutAnalysis userId={userId} />;
+        case 'ai-insights':
+          return <AiInsights userId={userId} />;
+        case 'recommendations':
+          return <PersonalizedRecommendations userId={userId} workouts={workoutHistory} isLoading={isLoadingHistory} />;
+        case 'physique':
+            return (
+                <div className="grid lg:grid-cols-2 gap-8">
+                    <PhysiqueRater userId={userId}/>
+                    <PhysiqueHistory userId={userId} />
+                </div>
+            );
+        case 'find-sport':
+            return <SportMatch userId={userId} workouts={workoutHistory} isLoading={isLoadingHistory} />;
+        case 'invites':
+            return <PlayerInvites userId={userId} />;
+        case 'messages':
+          return <Messages userId={userId} />;
+        case 'community':
+          return <CommunityHub userId={userId} userName={userName} />;
+        default:
+          return null;
+       }
+    }
+  }
 
 
   return (
@@ -389,84 +422,10 @@ function DashboardContent() {
             </p>
           </div>
           
-          <Tabs value={activeTab} onValueChange={updateUrl} className="w-full mt-4">
-              {isCoach ? (
-                  <>
-                      <TabsContent value="team" className="mt-4 space-y-8">
-                          <PlayerStats players={recruitedPlayers} isLoading={isLoadingCoachData} />
-                          <PendingInvites invites={pendingInvites} isLoading={isLoadingCoachData} />
-                      </TabsContent>
-                       <TabsContent value="analytics" className="mt-4">
-                          <CoachAnalytics players={recruitedPlayers} isLoading={isLoadingCoachData} />
-                      </TabsContent>
-                      <TabsContent value="scouting" className="mt-4">
-                          <PlayerScouting 
-                              players={players} 
-                              isLoading={isLoadingCoachData} 
-                              onInviteSent={fetchAllPlayersForScouting} 
-                          />
-                      </TabsContent>
-                      <TabsContent value="messages" className="mt-4">
-                          <Messages userId={userId} />
-                      </TabsContent>
-                      <TabsContent value="community" className="mt-4">
-                          <CommunityHub userId={userId} userName={userName} />
-                      </TabsContent>
-                  </>
-              ) : (
-                  <>
-                      <TabsContent value="home" className="mt-4">
-                        <HomeDashboard 
-                          userId={userId}
-                          workouts={workoutHistory} 
-                          isLoadingHistory={isLoadingHistory} 
-                        />
-                      </TabsContent>
-                      <TabsContent value="analysis" className="mt-4">
-                          <WorkoutAnalysis userId={userId} />
-                      </TabsContent>
-                      <TabsContent value="history" className="mt-4">
-                          <WorkoutHistory 
-                            workouts={workoutHistory} 
-                            isLoading={isLoadingHistory}
-                            user={currentUser}
-                          />
-                      </TabsContent>
-                      <TabsContent value="ai-insights" className="mt-4">
-                          <AiInsights userId={userId} />
-                      </TabsContent>
-                      <TabsContent value="recommendations" className="mt-4">
-                          <PersonalizedRecommendations 
-                            userId={userId} 
-                            workouts={workoutHistory}
-                            isLoading={isLoadingHistory}
-                          />
-                      </TabsContent>
-                      <TabsContent value="physique" className="mt-4">
-                          <div className="grid lg:grid-cols-2 gap-8">
-                              <PhysiqueRater userId={userId}/>
-                              <PhysiqueHistory userId={userId} />
-                          </div>
-                      </TabsContent>
-                      <TabsContent value="find-sport" className="mt-4">
-                          <SportMatch 
-                            userId={userId} 
-                            workouts={workoutHistory}
-                            isLoading={isLoadingHistory}
-                          />
-                      </TabsContent>
-                      <TabsContent value="invites" className="mt-4">
-                          <PlayerInvites userId={userId} />
-                      </TabsContent>
-                      <TabsContent value="messages" className="mt-4">
-                          <Messages userId={userId} />
-                      </TabsContent>
-                      <TabsContent value="community" className="mt-4">
-                          <CommunityHub userId={userId} userName={userName} />
-                      </TabsContent>
-                  </>
-              )}
-            </Tabs>
+          <div className="mt-4">
+            {renderContent()}
+          </div>
+
         </main>
       </div>
     </Suspense>
@@ -480,5 +439,3 @@ export default function Dashboard() {
       </Suspense>
     );
   }
-
-    

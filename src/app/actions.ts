@@ -263,67 +263,97 @@ export async function getWorkoutHistory(userId: string, recordLimit?: number) {
     }
 }
 
-export async function getAllPlayers() {
+// Helper function to get detailed player data
+const getPlayerDetails = async (playerDoc: any) => {
+    const player: any = { id: playerDoc.id, ...playerDoc.data() };
+
+    // Fetch recent 20 workouts for performance data string
+    const workoutsCollection = collection(db, 'users', player.id, 'workouts');
+    const workoutsQuery = query(workoutsCollection, orderBy("createdAt", "desc"), limit(20));
+    const workoutsSnapshot = await getDocs(workoutsQuery);
+    const workouts = workoutsSnapshot.docs.map(doc => ({ ...doc.data(), createdAt: formatTimestamp(doc.data().createdAt) }));
+
+    let performanceData = "No workout data available.";
+    if (workouts.length > 0) {
+        performanceData = workouts.map(w => {
+            const parts = [dayjs(w.createdAt).format("YYYY-MM-DD"), w.exercise];
+            if (w.reps) parts.push(`${w.reps} reps`);
+            if (w.weight) parts.push(`@ ${w.weight}kg`);
+            if (w.distance) parts.push(`${w.distance}km`);
+            if (w.time) parts.push(`in ${w.time}`);
+            return parts.join(' ');
+        }).join('; ');
+    }
+
+    // Fetch most recent physique analysis
+    const physiqueCollection = collection(db, 'users', player.id, 'physique_analyses');
+    const physiqueQuery = query(physiqueCollection, orderBy("createdAt", "desc"), limit(1));
+    const physiqueSnapshot = await getDocs(physiqueQuery);
+    let physiqueAnalysis = "No physique data available.";
+    if (!physiqueSnapshot.empty) {
+        const analysis = physiqueSnapshot.docs[0].data();
+        physiqueAnalysis = `Score: ${analysis.rating.score}/100. Summary: ${analysis.summary}`;
+    }
+
+    // Get user profile string
+    const profileParts = [];
+    if (player.experience) profileParts.push(player.experience);
+    if (player.goals) profileParts.push(player.goals);
+    const userProfile = profileParts.length > 0 ? profileParts.join(', ') : 'No profile information available.';
+
+    return { 
+        id: player.id, 
+        name: player.name,
+        status: player.status,
+        coachId: player.coachId,
+        performanceData,
+        userProfile, 
+        physiqueAnalysis,
+        recentWorkoutCount: workouts.length,
+    };
+};
+
+export async function getPlayersForCoach(coachId: string) {
     try {
-        const usersCollection = collection(db, 'users');
-        const q = query(usersCollection, where("role", "==", "player"), where("status", "==", "active"));
-        const querySnapshot = await getDocs(q);
+        // 1. Get all players for scouting (role == player, status == active)
+        const allPlayersQuery = query(collection(db, 'users'), where("role", "==", "player"), where("status", "==", "active"));
+        const allPlayersSnapshot = await getDocs(allPlayersQuery);
+        const scoutingPlayersPromises = allPlayersSnapshot.docs.map(getPlayerDetails);
+        const scoutingPlayers = await Promise.all(scoutingPlayersPromises);
 
-        const playersPromises = querySnapshot.docs.map(async (playerDoc) => {
-            const player: any = { id: playerDoc.id, ...playerDoc.data() };
+        // 2. Get recruited players for the current coach
+        const recruitedPlayersQuery = query(collection(db, 'users'), where("coachId", "==", coachId), where("status", "==", "recruited"));
+        const recruitedPlayersSnapshot = await getDocs(recruitedPlayersQuery);
+        const recruitedPlayersPromises = recruitedPlayersSnapshot.docs.map(getPlayerDetails);
+        const recruitedPlayers = await Promise.all(recruitedPlayersPromises);
 
-            // Fetch recent 20 workouts for performance data string
-            const workoutsCollection = collection(db, 'users', player.id, 'workouts');
-            const workoutsQuery = query(workoutsCollection, orderBy("createdAt", "desc"), limit(20));
-            const workoutsSnapshot = await getDocs(workoutsQuery);
-            const workouts = workoutsSnapshot.docs.map(doc => ({ ...doc.data(), createdAt: formatTimestamp(doc.data().createdAt) }));
-
-            let performanceData = "No workout data available.";
-            if (workouts.length > 0) {
-                performanceData = workouts.map(w => {
-                    const parts = [dayjs(w.createdAt).format("YYYY-MM-DD"), w.exercise];
-                    if (w.reps) parts.push(`${w.reps} reps`);
-                    if (w.weight) parts.push(`@ ${w.weight}kg`);
-                    if (w.distance) parts.push(`${w.distance}km`);
-                    if (w.time) parts.push(`in ${w.time}`);
-                    return parts.join(' ');
-                }).join('; ');
+        // 3. Get pending invites sent by the current coach
+        const invitesQuery = query(collection(db, 'invites'), where('coachId', '==', coachId), where('status', '==', 'pending'));
+        const invitesSnapshot = await getDocs(invitesQuery);
+        const playerIds = invitesSnapshot.docs.map(doc => doc.data().playerId).filter(Boolean);
+        let pendingInvites: any[] = [];
+        if (playerIds.length > 0) {
+            const usersRes = await getUsersByIds(playerIds);
+            if (usersRes.success) {
+                pendingInvites = invitesSnapshot.docs.map(d => {
+                    const data = d.data();
+                    const player = usersRes.users[data.playerId];
+                    const sentAt = data.sentAt;
+                    return { inviteId: d.id, playerId: data.playerId, playerName: player?.name || 'Unknown', sentAt: formatTimestamp(sentAt)?.toISOString() || new Date().toISOString() };
+                });
             }
+        }
+        
+        return { 
+            success: true, 
+            scoutingPlayers: JSON.parse(JSON.stringify(scoutingPlayers)),
+            recruitedPlayers: JSON.parse(JSON.stringify(recruitedPlayers)),
+            pendingInvites: JSON.parse(JSON.stringify(pendingInvites)),
+        };
 
-            // Fetch most recent physique analysis
-            const physiqueCollection = collection(db, 'users', player.id, 'physique_analyses');
-            const physiqueQuery = query(physiqueCollection, orderBy("createdAt", "desc"), limit(1));
-            const physiqueSnapshot = await getDocs(physiqueQuery);
-            let physiqueAnalysis = "No physique data available.";
-            if (!physiqueSnapshot.empty) {
-                const analysis = physiqueSnapshot.docs[0].data();
-                physiqueAnalysis = `Score: ${analysis.rating.score}/100. Summary: ${analysis.summary}`;
-            }
-
-            // Get user profile string
-            const profileParts = [];
-            if (player.experience) profileParts.push(player.experience);
-            if (player.goals) profileParts.push(player.goals);
-            const userProfile = profileParts.length > 0 ? profileParts.join(', ') : 'No profile information available.';
-
-            return { 
-                id: player.id, 
-                name: player.name,
-                status: player.status,
-                coachId: player.coachId,
-                performanceData,
-                userProfile, 
-                physiqueAnalysis,
-                recentWorkoutCount: workouts.length,
-            };
-        });
-
-        const players = await Promise.all(playersPromises);
-
-        return { success: true, players: JSON.parse(JSON.stringify(players)) };
     } catch (error) {
-        console.error("Error getting all players:", error);
-        return { success: false, players: [] };
+        console.error("Error fetching players for coach:", error);
+        return { success: false, message: "Failed to fetch player data." };
     }
 }
 
@@ -646,5 +676,21 @@ export async function endPartnership({ playerId, coachId }: { playerId: string, 
     } catch (error: any) {
         console.error("Error ending partnership:", error.message);
         return { success: false, message: 'Failed to end partnership.' };
+    }
+}
+
+// This function is deprecated and will be removed in a future version.
+// Use getPlayersForCoach instead.
+export async function getAllPlayers() {
+    try {
+        const usersCollection = collection(db, 'users');
+        const q = query(usersCollection, where("role", "==", "player"), where("status", "==", "active"));
+        const querySnapshot = await getDocs(q);
+        const playersPromises = querySnapshot.docs.map(getPlayerDetails);
+        const players = await Promise.all(playersPromises);
+        return { success: true, players: JSON.parse(JSON.stringify(players)) };
+    } catch (error) {
+        console.error("Error getting all players:", error);
+        return { success: false, players: [] };
     }
 }

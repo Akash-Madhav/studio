@@ -75,7 +75,7 @@ export default function ManualWorkoutForm({ userId, onWorkoutLogged }: ManualWor
         description: result.message,
       });
       form.reset();
-      // The dashboard will update automatically via its real-time listener
+      onWorkoutLogged();
     } else {
       toast({
         variant: "destructive",
@@ -86,11 +86,11 @@ export default function ManualWorkoutForm({ userId, onWorkoutLogged }: ManualWor
   }
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
-        <CardTitle>Log a Workout</CardTitle>
+        <CardTitle>Log a Workout Manually</CardTitle>
         <CardDescription>
-          Quickly add a completed exercise to your workout history.
+          Add an exercise to your history.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -137,7 +137,7 @@ export default function ManualWorkoutForm({ userId, onWorkoutLogged }: ManualWor
                 )}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+             <div className="grid grid-cols-2 gap-4">
                 <FormField
                 control={form.control}
                 name="distance"
@@ -177,5 +177,3 @@ export default function ManualWorkoutForm({ userId, onWorkoutLogged }: ManualWor
     </Card>
   );
 }
-
-    
