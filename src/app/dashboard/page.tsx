@@ -77,10 +77,34 @@ interface Workout {
     createdAt: Date;
 }
 
-function HomeDashboard({ userId, workouts, isLoadingHistory }: { userId: string, workouts: Workout[], isLoadingHistory: boolean }) {
+interface PhysiqueAnalysis {
+    id: string;
+    summary: string;
+    rating: { score: number; justification: string };
+    createdAt: Date;
+}
+
+function HomeDashboard({ 
+    userId, 
+    workouts, 
+    isLoadingHistory, 
+    physiqueHistory, 
+    isLoadingPhysique 
+}: { 
+    userId: string, 
+    workouts: Workout[], 
+    isLoadingHistory: boolean,
+    physiqueHistory: PhysiqueAnalysis[],
+    isLoadingPhysique: boolean,
+}) {
   return (
     <div className="space-y-8">
-        <WorkoutSummary userId={userId} />
+        <WorkoutSummary 
+            userId={userId} 
+            workouts={workouts} 
+            physiqueHistory={physiqueHistory}
+            isLoading={isLoadingHistory || isLoadingPhysique}
+        />
         <ProgressVisualization 
             workouts={workouts} 
             isLoading={isLoadingHistory} 
@@ -132,6 +156,9 @@ function DashboardContent() {
 
   const [workoutHistory, setWorkoutHistory] = useState<Workout[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(!isCoach);
+  const [physiqueHistory, setPhysiqueHistory] = useState<PhysiqueAnalysis[]>([]);
+  const [isLoadingPhysique, setIsLoadingPhysique] = useState(!isCoach);
+
   
   useEffect(() => {
     if (!initialUserId) {
@@ -152,6 +179,8 @@ function DashboardContent() {
     });
     
     let unsubscribeWorkouts = () => {};
+    let unsubscribePhysique = () => {};
+
     if (role === 'player') {
         setIsLoadingHistory(true);
         const workoutsQuery = query(collection(db, 'users', initialUserId, 'workouts'), orderBy("createdAt", "desc"));
@@ -168,11 +197,28 @@ function DashboardContent() {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load workout history.' });
             setIsLoadingHistory(false);
         });
+
+        setIsLoadingPhysique(true);
+        const physiqueQuery = query(collection(db, 'users', initialUserId, 'physique_analyses'), orderBy("createdAt", "desc"));
+        unsubscribePhysique = onSnapshot(physiqueQuery, (snapshot) => {
+             const history = snapshot.docs.map(doc => {
+                const data = doc.data();
+                const createdAt = data.createdAt as Timestamp;
+                return { ...data, id: doc.id, createdAt: createdAt ? createdAt.toDate() : new Date() } as PhysiqueAnalysis;
+            });
+            setPhysiqueHistory(history);
+            setIsLoadingPhysique(false);
+        }, (error) => {
+            console.error("Error fetching physique history:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load physique history.' });
+            setIsLoadingPhysique(false);
+        });
     }
 
     return () => {
       unsubscribeUser();
       unsubscribeWorkouts();
+      unsubscribePhysique();
     }
   }, [initialUserId, role, toast, router]);
   
@@ -273,7 +319,13 @@ function DashboardContent() {
     } else {
        switch (activeTab) {
         case 'home':
-          return <HomeDashboard userId={userId} workouts={workoutHistory} isLoadingHistory={isLoadingHistory} />;
+          return <HomeDashboard 
+                    userId={userId} 
+                    workouts={workoutHistory} 
+                    isLoadingHistory={isLoadingHistory}
+                    physiqueHistory={physiqueHistory}
+                    isLoadingPhysique={isLoadingPhysique}
+                 />;
         case 'history':
           return <WorkoutHistory workouts={workoutHistory} isLoading={isLoadingHistory} user={currentUser}/>;
         case 'analysis':

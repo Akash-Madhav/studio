@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import { generateWorkoutSummary } from '@/ai/flows/workout-summary-flow';
-import { getWorkoutHistory, getPhysiqueHistory } from '@/app/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Sparkles } from 'lucide-react';
 import dayjs from 'dayjs';
@@ -27,29 +26,32 @@ interface PhysiqueAnalysis {
 
 interface WorkoutSummaryProps {
     userId: string;
+    workouts: Workout[];
+    physiqueHistory: PhysiqueAnalysis[];
+    isLoading: boolean;
 }
 
-export default function WorkoutSummary({ userId }: WorkoutSummaryProps) {
+export default function WorkoutSummary({ userId, workouts, physiqueHistory, isLoading: isLoadingData }: WorkoutSummaryProps) {
     const [summary, setSummary] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
+    const [isGenerating, setIsGenerating] = useState(true);
 
     useEffect(() => {
         if (!userId) {
-            setIsLoading(false);
+            setIsGenerating(false);
+            return;
+        }
+        
+        if (isLoadingData) {
+            setIsGenerating(true);
             return;
         }
 
         const fetchAndSummarize = async () => {
-            setIsLoading(true);
+            setIsGenerating(true);
             try {
-                const [workoutRes, physiqueRes] = await Promise.all([
-                    getWorkoutHistory(userId, 20),
-                    getPhysiqueHistory(userId, 1)
-                ]);
-
                 let workoutHistoryText = "No workouts logged yet.";
-                if (workoutRes.success && workoutRes.workouts.length > 0) {
-                    workoutHistoryText = workoutRes.workouts.map(w => {
+                if (workouts.length > 0) {
+                    workoutHistoryText = workouts.slice(0, 20).map(w => {
                         const parts = [dayjs(w.createdAt).format("YYYY-MM-DD"), w.exercise];
                         if (w.reps) parts.push(`${w.reps} reps`);
                         if (w.weight) parts.push(`@ ${w.weight}kg`);
@@ -60,8 +62,8 @@ export default function WorkoutSummary({ userId }: WorkoutSummaryProps) {
                 }
 
                 let physiqueAnalysisText = "No physique analysis available.";
-                if (physiqueRes.success && physiqueRes.analyses.length > 0) {
-                    const latestAnalysis = physiqueRes.analyses[0];
+                if (physiqueHistory.length > 0) {
+                    const latestAnalysis = physiqueHistory[0];
                     physiqueAnalysisText = `Score: ${latestAnalysis.rating.score}/100. Summary: ${latestAnalysis.summary}`;
                 }
                 
@@ -75,12 +77,12 @@ export default function WorkoutSummary({ userId }: WorkoutSummaryProps) {
                 console.error('Failed to generate workout summary:', error);
                 setSummary('Could not load your summary at this time. Please try again later.');
             } finally {
-                setIsLoading(false);
+                setIsGenerating(false);
             }
         };
 
         fetchAndSummarize();
-    }, [userId]);
+    }, [userId, workouts, physiqueHistory, isLoadingData]);
 
     return (
         <Card>
@@ -94,7 +96,7 @@ export default function WorkoutSummary({ userId }: WorkoutSummaryProps) {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                {isLoading ? (
+                {isGenerating ? (
                     <div className="flex items-center justify-center h-24">
                         <Loader2 className="animate-spin" />
                     </div>
