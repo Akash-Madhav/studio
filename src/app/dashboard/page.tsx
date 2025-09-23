@@ -83,17 +83,10 @@ interface Workout {
 function HomeDashboard({ userId, workouts, isLoadingHistory }: { userId: string, workouts: Workout[], isLoadingHistory: boolean }) {
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-            <ProgressVisualization 
-                workouts={workouts} 
-                isLoading={isLoadingHistory} 
-            />
-        </div>
-        <div className="lg:col-span-1">
-          <HomeWorkoutLog userId={userId} onWorkoutLogged={() => {}}/>
-        </div>
-      </div>
+        <ProgressVisualization 
+            workouts={workouts} 
+            isLoading={isLoadingHistory} 
+        />
     </div>
   )
 }
