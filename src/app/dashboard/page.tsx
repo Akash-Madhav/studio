@@ -22,6 +22,7 @@ import {
   ScrollText,
   MoreVertical,
   Home as HomeIcon,
+  LineChart,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -54,8 +55,8 @@ import { onSnapshot, collection, query, where, doc, getDoc, Timestamp, getDocs, 
 import { db } from '@/lib/firebase';
 import PhysiqueRater from '@/components/features/physique-rater';
 import PhysiqueHistory from '@/components/features/physique-history';
-import WorkoutAccomplishmentSummary from '@/components/features/workout-accomplishment-summary';
 import HomeWorkoutLog from '@/components/features/home-workout-log';
+import CoachAnalytics from '@/components/features/coach-analytics';
 
 
 interface User {
@@ -189,12 +190,23 @@ function DashboardContent() {
         const recruitedDataPromises = snapshot.docs.map(async (d) => {
             const player: any = { id: d.id, ...d.data() };
             const workoutsCollection = collection(db, 'users', d.id, 'workouts');
-            const q = query(workoutsCollection, orderBy("createdAt", "desc"), limit(3));
+            const q = query(workoutsCollection, orderBy("createdAt", "desc"), limit(20));
             const querySnapshot = await getDocs(q);
             const recentWorkouts = querySnapshot.docs.map(doc => ({ ...doc.data(), createdAt: (doc.data().createdAt as Timestamp).toDate() }));
+            
             let performanceData = recentWorkouts.length > 0 ? recentWorkouts.map(w => `${w.exercise} ${w.reps ? `${w.reps} reps` : ''} ${w.weight ? `@ ${w.weight}kg` : ''}`).join('; ') : 'No recent workouts logged.';
+            
+            const physiqueCollection = collection(db, 'users', player.id, 'physique_analyses');
+            const physiqueQuery = query(physiqueCollection, orderBy("createdAt", "desc"), limit(1));
+            const physiqueSnapshot = await getDocs(physiqueQuery);
+            let physiqueAnalysis = "No physique data available.";
+            if (!physiqueSnapshot.empty) {
+                const analysis = physiqueSnapshot.docs[0].data();
+                physiqueAnalysis = `Score: ${analysis.rating.score}/100. Summary: ${analysis.summary}`;
+            }
+
             const userProfile = [player.experience, player.goals].filter(Boolean).join(', ') || 'No profile information available.';
-            return { id: d.id, name: player.name, userProfile, performanceData, status: player.status, coachId: player.coachId };
+            return { id: d.id, name: player.name, userProfile, performanceData, status: player.status, coachId: player.coachId, physiqueAnalysis, recentWorkoutCount: recentWorkouts.length };
         });
         const recruitedData = await Promise.all(recruitedDataPromises);
         setRecruitedPlayers(recruitedData);
@@ -290,6 +302,7 @@ function DashboardContent() {
 
   const coachTabs = [
     { value: 'team', label: 'Team', icon: Users },
+    { value: 'analytics', label: 'Analytics', icon: LineChart },
     { value: 'scouting', label: 'Scouting', icon: UserPlus },
     { value: 'messages', label: 'Messages', icon: MessageSquare },
     { value: 'community', label: 'Community', icon: UsersRound },
@@ -383,6 +396,9 @@ function DashboardContent() {
                           <PlayerStats players={recruitedPlayers} isLoading={isLoadingCoachData} />
                           <PendingInvites invites={pendingInvites} isLoading={isLoadingCoachData} />
                       </TabsContent>
+                       <TabsContent value="analytics" className="mt-4">
+                          <CoachAnalytics players={recruitedPlayers} isLoading={isLoadingCoachData} />
+                      </TabsContent>
                       <TabsContent value="scouting" className="mt-4">
                           <PlayerScouting 
                               players={players} 
@@ -464,3 +480,5 @@ export default function Dashboard() {
       </Suspense>
     );
   }
+
+    

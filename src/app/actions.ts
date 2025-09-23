@@ -313,7 +313,8 @@ export async function getAllPlayers() {
                 coachId: player.coachId,
                 performanceData,
                 userProfile, 
-                physiqueAnalysis
+                physiqueAnalysis,
+                recentWorkoutCount: workouts.length,
             };
         });
 
@@ -683,7 +684,5 @@ export async function endPartnership({ playerId, coachId }: { playerId: string, 
         return { success: false, message: 'Failed to end partnership.' };
     }
 }
-
-    
 
     
