@@ -49,10 +49,10 @@ export default function ManualWorkoutForm({ userId, onWorkoutLogged }: ManualWor
     resolver: zodResolver(formSchema),
     defaultValues: {
       exercise: "",
-      reps: undefined,
-      weight: undefined,
+      reps: '' as unknown as undefined,
+      weight: '' as unknown as undefined,
       time: "",
-      distance: undefined,
+      distance: '' as unknown as undefined,
     },
   });
 
