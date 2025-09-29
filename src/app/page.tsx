@@ -13,9 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Dumbbell, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { signInWithEmailAndPasswordAction } from "@/app/actions";
+import { signInWithEmailAndPasswordAction, signInWithGoogle } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 const formSchema = z.object({
@@ -27,6 +27,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -72,6 +73,45 @@ export default function LoginPage() {
     }
   }
 
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    try {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        const serverResult = await signInWithGoogle({
+            userId: user.uid,
+            email: user.email!,
+            name: user.displayName!,
+        });
+
+        if (serverResult.success) {
+            toast({
+                title: "Login Successful",
+                description: "Welcome! Redirecting you to the dashboard...",
+            });
+            router.push(`/dashboard?role=${serverResult.role}&userId=${serverResult.userId}`);
+        } else {
+            throw new Error(serverResult.message || "An unknown error occurred during Google sign-in.");
+        }
+    } catch (error: any) {
+        let errorMessage = "Failed to sign in with Google.";
+        if (error.code === 'auth/popup-closed-by-user') {
+            errorMessage = "Sign-in process was cancelled.";
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        toast({
+            variant: "destructive",
+            title: "Google Sign-In Failed",
+            description: errorMessage,
+        });
+    } finally {
+        setIsGoogleLoading(false);
+    }
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-50 flex items-center justify-between h-16 px-4 md:px-6 border-b bg-card">
@@ -90,7 +130,7 @@ export default function LoginPage() {
               Enter your email below to login to your account.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="grid gap-4">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <FormField
@@ -100,7 +140,7 @@ export default function LoginPage() {
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
-                          <Input placeholder="m@example.com" {...field} disabled={isLoading}/>
+                          <Input placeholder="m@example.com" {...field} disabled={isLoading || isGoogleLoading}/>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -113,18 +153,32 @@ export default function LoginPage() {
                       <FormItem>
                         <FormLabel>Password</FormLabel>
                         <FormControl>
-                          <Input type="password" {...field} disabled={isLoading}/>
+                          <Input type="password" {...field} disabled={isLoading || isGoogleLoading}/>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                   <Button className="w-full" type="submit" disabled={isLoading}>
+                   <Button className="w-full" type="submit" disabled={isLoading || isGoogleLoading}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Sign in
                   </Button>
               </form>
             </Form>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+            <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading || isGoogleLoading}>
+              {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 21.2 172.4 56.2L384.9 128C349.5 95.7 300.7 80 248 80c-82.6 0-150.2 67.6-150.2 150.2S165.4 406.4 248 406.4c93.2 0 128.3-61.1 133.7-93.5H248v-63.4h239.2c1.2 12.3 1.8 24.9 1.8 38.8z"></path></svg>}
+              Google
+            </Button>
           </CardContent>
           <CardFooter className="flex flex-col gap-4 items-center">
               <div className="text-center text-sm">
@@ -151,3 +205,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
