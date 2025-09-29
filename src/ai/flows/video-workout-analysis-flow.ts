@@ -8,7 +8,7 @@
  * - VideoAnalysisOutput - The return type for the analyzeWorkoutVideo function.
  */
 
-import {ai} from '@/ai/genkit';
+import {workoutAI} from '@/ai/genkit';
 import {z} from 'genkit';
 import { googleAI } from '@genkit-ai/googleai';
 
@@ -38,11 +38,11 @@ export async function analyzeWorkoutVideo(input: VideoAnalysisInput): Promise<Vi
   return videoWorkoutAnalysisFlow(input);
 }
 
-const prompt = ai.definePrompt({
+const prompt = workoutAI.definePrompt({
   name: 'videoWorkoutAnalysisPrompt',
   input: {schema: VideoAnalysisInputSchema},
   output: {schema: VideoAnalysisOutputSchema},
-  model: googleAI.model('gemini-1.5-flash'),
+  model: googleAI.model('gemini-2.5-flash'),
   config: {
     temperature: 0,
   },
@@ -66,7 +66,7 @@ Video to analyze:
   `,
 });
 
-const videoWorkoutAnalysisFlow = ai.defineFlow(
+const videoWorkoutAnalysisFlow = workoutAI.defineFlow(
   {
     name: 'videoWorkoutAnalysisFlow',
     inputSchema: VideoAnalysisInputSchema,

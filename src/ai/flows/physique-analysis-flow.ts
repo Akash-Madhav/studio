@@ -7,7 +7,7 @@
  * - PhysiqueAnalysisOutput - The return type for the analyzePhysique function.
  */
 
-import {ai} from '@/ai/genkit';
+import {physiqueAI} from '@/ai/genkit';
 import {z} from 'genkit';
 import { googleAI } from '@genkit-ai/googleai';
 
@@ -33,11 +33,11 @@ export async function analyzePhysique(input: PhysiqueAnalysisInput): Promise<Phy
   return physiqueAnalysisFlow(input);
 }
 
-const prompt = ai.definePrompt({
+const prompt = physiqueAI.definePrompt({
   name: 'physiqueAnalysisPrompt',
   input: {schema: PhysiqueAnalysisInputSchema},
   output: {schema: PhysiqueAnalysisOutputSchema},
-  model: googleAI.model('gemini-1.5-flash'),
+  model: googleAI.model('gemini-2.5-flash'),
   config: {
     temperature: 0.2,
   },
@@ -62,7 +62,7 @@ Video to analyze:
   `,
 });
 
-const physiqueAnalysisFlow = ai.defineFlow(
+const physiqueAnalysisFlow = physiqueAI.defineFlow(
   {
     name: 'physiqueAnalysisFlow',
     inputSchema: PhysiqueAnalysisInputSchema,

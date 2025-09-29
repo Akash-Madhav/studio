@@ -8,7 +8,7 @@
  * - PlayerScoutingOutput - The return type for the getPlayerRecommendations function.
  */
 
-import {ai} from '@/ai/genkit';
+import {scoutAI} from '@/ai/genkit';
 import {z} from 'genkit';
 import { googleAI } from '@genkit-ai/googleai';
 
@@ -47,11 +47,11 @@ export async function getPlayerRecommendations(input: PlayerScoutingInput): Prom
   return playerScoutingFlow(input);
 }
 
-const prompt = ai.definePrompt({
+const prompt = scoutAI.definePrompt({
   name: 'playerScoutingPrompt',
   input: {schema: PlayerScoutingInputSchema},
   output: {schema: PlayerScoutingOutputSchema},
-  model: googleAI.model('gemini-1.5-flash'),
+  model: googleAI.model('gemini-2.5-flash'),
   prompt: `You are an expert sports scout with deep knowledge of athletic performance and sport-specific physiologies. Your task is to analyze potential athletes for a {{{sport}}} team based on their workout history, profile, and physique analysis.
 
 **Analysis Protocol:**
@@ -88,7 +88,7 @@ Your final output must be structured according to the PlayerScoutingOutputSchema
 });
 
 
-const playerScoutingFlow = ai.defineFlow(
+const playerScoutingFlow = scoutAI.defineFlow(
   {
     name: 'playerScoutingFlow',
     inputSchema: PlayerScoutingInputSchema,

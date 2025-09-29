@@ -163,7 +163,7 @@ function DashboardContent() {
   useEffect(() => {
     if (!initialUserId) {
       setIsLoading(false);
-      router.push('/');
+      router.push('/login');
       return;
     }
 
@@ -173,7 +173,7 @@ function DashboardContent() {
             setCurrentUser({ id: doc.id, ...doc.data() } as User);
         } else {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
-            router.push('/');
+            router.push('/login');
         }
         setIsLoading(false);
     });
@@ -276,7 +276,7 @@ function DashboardContent() {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
             <p className="text-destructive">User not found or not logged in.</p>
-            <Link href="/" passHref>
+            <Link href="/login" passHref>
                 <Button variant="link">Return to Login</Button>
             </Link>
         </div>
