@@ -141,10 +141,10 @@ export default function SignUpPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-50 flex items-center justify-between h-16 px-4 md:px-6 border-b bg-card">
-        <div className="flex items-center gap-2 text-lg font-semibold text-primary">
+        <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-primary">
           <Dumbbell className="w-6 h-6" />
           <span className="font-bold">OptiFit AI</span>
-        </div>
+        </Link>
         <ThemeToggle />
       </header>
 
@@ -203,7 +203,7 @@ export default function SignUpPage() {
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
                         <span className="bg-card px-2 text-muted-foreground">
-                        Sign up with email
+                        Or sign up with Google
                         </span>
                     </div>
                 </div>
@@ -212,6 +212,17 @@ export default function SignUpPage() {
                     {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 21.2 172.4 56.2L384.9 128C349.5 95.7 300.7 80 248 80c-82.6 0-150.2 67.6-150.2 150.2S165.4 406.4 248 406.4c93.2 0 128.3-61.1 133.7-93.5H248v-63.4h239.2c1.2 12.3 1.8 24.9 1.8 38.8z"></path></svg>}
                     Sign up with Google
                 </Button>
+
+                <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-card px-2 text-muted-foreground">
+                        Or with email
+                        </span>
+                    </div>
+                </div>
 
                 <FormField
                   control={form.control}
@@ -260,7 +271,7 @@ export default function SignUpPage() {
                 </Button>
                 <div className="text-center text-sm">
                   Already have an account?{" "}
-                  <Link href="/" className="underline">
+                  <Link href="/login" className="underline">
                     Sign in
                   </Link>
                 </div>
@@ -272,5 +283,3 @@ export default function SignUpPage() {
     </div>
   );
 }
-
-    
